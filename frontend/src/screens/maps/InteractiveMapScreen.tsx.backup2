@@ -1,0 +1,728 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  PermissionsAndroid,
+  Platform,
+  RefreshControl,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../../design';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { StationStackParamList } from '../../types/api';
+import Loading from '../../components/ui/Loading';
+
+
+// Helper function to format operating hours
+const formatOperatingHours = (operatingHours: any): string => {
+  if (typeof operatingHours === 'string') {
+    return operatingHours;
+  }
+  if (typeof operatingHours === 'object' && operatingHours !== null) {
+    // Check if it's 24/7
+    const hours = Object.values(operatingHours);
+    if (hours.every((hour: any) => hour === '00:00-23:59' || hour === '24/7')) {
+      return '24/7';
+    }
+    // Return first day's hours as example
+    const firstDay = Object.values(operatingHours)[0];
+    return typeof firstDay === 'string' ? firstDay : 'Hours vary';
+  }
+  return 'Hours not available';
+};
+
+// ==================== TYPES ====================
+interface LocationCoordinates {
+  latitude: number;
+  longitude: number;
+}
+
+interface FilterOptions {
+  status: 'all' | 'available' | 'limited' | 'full';
+  chargerType: 'all' | 'AC_SLOW' | 'AC_FAST' | 'DC_FAST' | 'DC_ULTRA_FAST';
+  maxDistance: number;
+  priceRange: [number, number];
+}
+
+// Default Mumbai coordinates as fallback
+const DEFAULT_LOCATION: LocationCoordinates = {
+  latitude: 19.0760,
+  longitude: 72.8777,
+};
+
+// ==================== COMPONENT ====================
+type MapNavigationProp = StackNavigationProp<StationStackParamList, 'StationList'>;
+
+const InteractiveMapScreen: React.FC = () => {
+  const { colors } = useThemeColors();
+  const navigation = useNavigation<MapNavigationProp>();
+
+  // Dark theme colors matching login screen
+  const themeColors = {
+    background: '#121212',
+    surface: '#1a1a1a',
+    primary: '#00A8FF',
+    text: {
+      primary: '#ffffff',
+      secondary: '#666666',
+    },
+    border: '#333333',
+  };
+
+  // Helper functions
+  const getStationAvailability = (station: EVStation): string => {
+    const availableSlots = station.charging_slots.filter(slot => slot.status === 'AVAILABLE');
+    if (availableSlots.length === 0) return 'No slots';
+    if (availableSlots.length <= 2) return `${availableSlots.length} slot${availableSlots.length === 1 ? '' : 's'}`;
+    return `${availableSlots.length} slots`;
+  };
+
+  const recenterMap = () => {
+    // This will be implemented when we integrate with the map component
+    console.log('Recentering map to user location');
+  };
+
+  const handleViewDetails = (station: EVStation) => {
+    setSelectedStation(null); // Close bottom sheet
+    navigation.navigate('StationDetails', { station });
+  };
+
+  // No state management needed for coming soon placeholder
+
+  // ==================== EFFECTS ====================
+  useEffect(() => {
+    // Animate on mount
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // ==================== RENDER ====================
+  return (
+        setCurrentLocation(location.coords);
+        console.log('✅ Location obtained:', location.coords);
+      } else {
+        setLocationError('Unable to get current location. Using default location.');
+        setCurrentLocation(DEFAULT_LOCATION);
+      }
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      setLocationError('Error getting location. Using default location.');
+      setCurrentLocation(DEFAULT_LOCATION);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadStations = async () => {
+    try {
+      setStationsLoading(true);
+      setStationsError(null);
+      
+      const response = await apiService.getStations();
+      setStations(response.stations || []);
+      console.log('✅ Stations loaded:', response.stations?.length || 0);
+    } catch (error: any) {
+      console.error('Error loading stations:', error);
+      
+      // Enhanced error handling
+      if (error.response?.status === 404) {
+        setStationsError('No charging stations found in your area.');
+      } else if (error.response?.status === 500) {
+        setStationsError('Server error. Please try again later.');
+      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network')) {
+        setStationsError('Network error. Please check your internet connection.');
+      } else {
+        setStationsError('Failed to load charging stations. Please try again later.');
+      }
+    } finally {
+      setStationsLoading(false);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([initializeMap(), loadStations()]);
+    setRefreshing(false);
+  }, []);
+
+  const applyFilters = () => {
+    let filtered = [...stations];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(station =>
+        station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.city.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(station => {
+        const status = getStationStatus(station);
+        return status === filters.status.toUpperCase();
+      });
+    }
+
+    // Apply charger type filter
+    if (filters.chargerType !== 'all') {
+      filtered = filtered.filter(station =>
+        station.charging_slots.some(slot => slot.charger_type === filters.chargerType)
+      );
+    }
+
+    // Apply price range filter
+    filtered = filtered.filter(station =>
+      station.charging_slots.some(slot => 
+        slot.price_per_kwh >= filters.priceRange[0] && 
+        slot.price_per_kwh <= filters.priceRange[1]
+      )
+    );
+
+    setFilteredStations(filtered);
+  };
+
+  const handleStationPress = (station: EVStation) => {
+    setSelectedStation(station);
+  };
+
+  const handleBookNow = (station: EVStation) => {
+    if (selectedStation) {
+      navigation.navigate('BookingForm' as any, { 
+        stationId: station.id,
+        slotNumber: station.charging_slots.find(slot => slot.status === 'AVAILABLE')?.slot_number
+      });
+    }
+  };
+
+  const handleNavigate = (station: EVStation) => {
+    Alert.alert('Coming Soon', 'Navigation functionality will be available in the next update!');
+  };
+
+  const handleCall = (station: EVStation) => {
+    if (station.contact_number) {
+      Alert.alert('Coming Soon', 'Call functionality will be available in the next update!');
+    }
+  };
+
+  const getStationStatus = (station: EVStation) => {
+    const availableSlots = station.charging_slots.filter(slot => slot.status === 'AVAILABLE');
+    if (availableSlots.length === 0) return 'FULL';
+    if (availableSlots.length <= 2) return 'LIMITED';
+    return 'AVAILABLE';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE': return Colors.semantic.success;
+      case 'LIMITED': return Colors.semantic.warning;
+      case 'FULL': return Colors.semantic.error;
+      default: return colors.border;
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'AVAILABLE': return 'Available';
+      case 'LIMITED': return 'Limited';
+      case 'FULL': return 'Full';
+      default: return 'Unknown';
+    }
+  };
+
+  const retryLocation = () => {
+    initializeMap();
+  };
+
+  const retryStations = () => {
+    loadStations();
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      status: 'all',
+      chargerType: 'all',
+      maxDistance: 10,
+      priceRange: [0, 50],
+    });
+    setSearchQuery('');
+  };
+
+  // ==================== RENDER ====================
+  if (isLoading) {
+    return (
+      <ScreenWrapper
+        title="Interactive Map"
+        subtitle="Find charging stations near you"
+        variant="default"
+      >
+        <Loading />
+      </ScreenWrapper>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Animated Gradient Background */}
+      <Animated.View
+        style={[
+          styles.gradientBackground,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: fadeAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.95, 1],
+            })}],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={['#1a1a2e', '#16213e', '#0f0f23', '#1a1a2e']}
+          style={styles.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          {/* Animated mesh overlay */}
+          <Animated.View
+            style={[
+              styles.meshOverlay,
+              {
+                transform: [
+                  {
+                    translateX: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-50, 50],
+                    }),
+                  },
+                  {
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, -50],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.meshPattern}>
+              {Array.from({ length: 20 }).map((_, i) => (
+                <View key={i} style={[styles.meshDot, { left: Math.random() * 100 + '%', top: Math.random() * 100 + '%' }]} />
+              ))}
+            </View>
+          </Animated.View>
+        </LinearGradient>
+      </Animated.View>
+
+      {/* Main Content */}
+      <View style={styles.contentContainer}>
+        {/* Status Bar Space */}
+        <View style={{ height: 44 }} />
+
+        {/* Centered Content */}
+        <View style={styles.centerContent}>
+          {/* Icon */}
+          <View style={styles.iconContainer}>
+            <Ionicons name="map" size={80} color="#e0e0e0" />
+          </View>
+
+          {/* Headline */}
+          <Text style={styles.headline}>
+            A Better Map is on the Way
+          </Text>
+
+          {/* Subheading */}
+          <Text style={styles.subheading}>
+            We're crafting a seamless, best-in-class mapping experience{'\n'}to help you find chargers instantly.
+          </Text>
+        </View>
+      </View>
+
+
+
+
+
+
+            
+
+
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  gradientBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  gradient: {
+    flex: 1,
+  },
+  meshOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.1,
+  },
+  meshPattern: {
+    flex: 1,
+    position: 'relative',
+  },
+  meshDot: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#ffffff',
+    opacity: 0.6,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  centerContent: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 100,
+  },
+  iconContainer: {
+    marginBottom: 40,
+    opacity: 0.8,
+  },
+  headline: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 20,
+    letterSpacing: 0.5,
+  },
+  subheading: {
+    fontSize: 16,
+    color: '#cccccc',
+    textAlign: 'center',
+    lineHeight: 24,
+    opacity: 0.9,
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  searchBar: {
+    position: 'absolute',
+    top: 16,
+    left: 20,
+    right: 20,
+    zIndex: 1100,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 26, 26, 0.9)',
+    borderRadius: 25,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#333333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
+  },
+  filterButton: {
+    marginLeft: 12,
+    padding: 8,
+  },
+  recenterFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1500,
+  },
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 2000,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#666666',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  bottomSheetContent: {
+    paddingBottom: 20,
+  },
+  stationName: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  stationAddress: {
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  stationAvailability: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  viewDetailsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  header: {
+    padding: 20,
+    paddingTop: 40,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    opacity: 0.9,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    alignItems: 'center',
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  filterButton: {
+    padding: 12,
+    borderRadius: 12,
+  },
+  errorCard: {
+    margin: 16,
+    padding: 16,
+  },
+  errorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+  },
+  mapContainer: {
+    margin: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    minHeight: 300,
+  },
+  locationCard: {
+    margin: 16,
+    padding: 16,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  locationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  errorBadge: {
+    backgroundColor: '#ffebee',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  locationText: {
+    fontSize: 14,
+    fontFamily: 'monospace',
+    marginBottom: 8,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  errorMessage: {
+    fontSize: 14,
+    flex: 1,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+  },
+  summaryText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  filterSection: {
+    marginBottom: 24,
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#333333',
+  },
+  filterOptionText: {
+    fontSize: 14,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#666666',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  bottomSheetContent: {
+    paddingBottom: 20,
+  },
+  stationName: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  stationAddress: {
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  stationAvailability: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  viewDetailsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+});
+
+export default InteractiveMapScreen;

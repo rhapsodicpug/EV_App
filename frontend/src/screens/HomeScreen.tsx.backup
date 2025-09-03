@@ -1,0 +1,1282 @@
+/**
+ * Beautiful & Modern Home Screen
+ * EV-themed dashboard with stunning UI, real-time data, and smooth animations
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+// import { useNavigation } from '@react-navigation/native'; // Temporarily disabled
+// import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'; // Temporarily disabled
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  RefreshControl,
+  Animated,
+  StatusBar,
+  Dimensions,
+  Alert,
+  Platform,
+} from 'react-native';
+import * as Location from 'expo-location';
+import {
+  MapPin,
+  Clock,
+  Zap,
+  Star,
+  ChevronRight,
+  Search,
+  Filter,
+  Bookmark,
+  TrendingUp,
+  AlertCircle,
+  Calendar,
+  Wifi,
+  Coffee,
+  Car,
+  Cloud,
+  Sun,
+  CloudRain,
+  Wind,
+  Thermometer,
+  Battery,
+  Navigation,
+  Settings,
+  Bell,
+  User,
+  Activity,
+  Plus,
+  Heart,
+  Shield,
+  Award,
+  Target,
+  Truck
+} from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useThemeColors } from '../design';
+import { MainTabParamList } from '../types/api';
+
+// Navigation types removed - using simple navigation hook
+
+// Fallback colors for when design system fails
+const Colors = {
+  semantic: {
+    success: '#4CAF50',
+    warning: '#FF9800',
+    error: '#F44336',
+    info: '#2196F3',
+  },
+  neutral: {
+    gray: {
+      400: '#9E9E9E',
+    },
+  },
+};
+import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Loading from '../components/ui/Loading';
+import ScreenWrapper from '../components/navigation/ScreenWrapper';
+import StationCard from '../components/custom/StationCard';
+import QuickActions, { getDefaultQuickActions } from '../components/custom/QuickActions';
+import WeatherWidget, { generateMockWeather } from '../components/custom/WeatherWidget';
+import ActivityFeed, { generateMockActivities } from '../components/custom/ActivityFeed';
+import GradientBlurBackground from '../components/ui/GradientBlurBackground';
+import { EVStation } from '../types/api';
+import { useAuth } from '../contexts/AuthContext';
+import apiService from '../services/api';
+
+const { width, height } = Dimensions.get('window');
+
+// Mock data for fallback when API fails
+const MOCK_STATIONS: EVStation[] = [
+    {
+      id: '1',
+    name: 'Mumbai Central Station',
+    address: 'Mumbai Central, Mumbai, Maharashtra',
+      location: { type: 'Point', coordinates: [72.8777, 19.0760] },
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      pincode: '400008',
+    is_24_7: true,
+      charging_slots: [
+        { slot_number: 1, charger_type: 'DC_FAST', connector_type: 'CCS', power_kw: 50, status: 'AVAILABLE', price_per_kwh: 15 },
+      { slot_number: 2, charger_type: 'DC_FAST', connector_type: 'CCS', power_kw: 50, status: 'OCCUPIED', price_per_kwh: 15 },
+      { slot_number: 3, charger_type: 'DC_ULTRA_FAST', connector_type: 'CCS', power_kw: 100, status: 'AVAILABLE', price_per_kwh: 20 },
+      ],
+    amenities: ['wifi', 'coffee', 'restroom'],
+      operating_hours: '24/7',
+    rating: 4.5,
+    total_reviews: 128,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    },
+    {
+      id: '2',
+    name: 'Bandra Station',
+    address: 'Bandra West, Mumbai, Maharashtra',
+    location: { type: 'Point', coordinates: [72.8295, 19.0596] },
+      city: 'Mumbai',
+      state: 'Maharashtra',
+    pincode: '400050',
+    is_24_7: false,
+      charging_slots: [
+      { slot_number: 1, charger_type: 'DC_FAST', connector_type: 'CCS', power_kw: 50, status: 'AVAILABLE', price_per_kwh: 12 },
+      { slot_number: 2, charger_type: 'DC_FAST', connector_type: 'CCS', power_kw: 50, status: 'AVAILABLE', price_per_kwh: 12 },
+    ],
+    amenities: ['wifi', 'coffee'],
+    operating_hours: '06:00-22:00',
+    rating: 4.2,
+    total_reviews: 89,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: '3',
+    name: 'Andheri Station',
+    address: 'Andheri East, Mumbai, Maharashtra',
+    location: { type: 'Point', coordinates: [72.8464, 19.1197] },
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    pincode: '400069',
+    is_24_7: true,
+    charging_slots: [
+      { slot_number: 1, charger_type: 'DC_ULTRA_FAST', connector_type: 'CCS', power_kw: 100, status: 'MAINTENANCE', price_per_kwh: 25 },
+      { slot_number: 2, charger_type: 'DC_ULTRA_FAST', connector_type: 'CCS', power_kw: 100, status: 'AVAILABLE', price_per_kwh: 25 },
+      { slot_number: 3, charger_type: 'DC_FAST', connector_type: 'CCS', power_kw: 50, status: 'AVAILABLE', price_per_kwh: 15 },
+    ],
+    amenities: ['wifi', 'coffee', 'restroom', 'food'],
+    operating_hours: '24/7',
+    rating: 4.7,
+    total_reviews: 156,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+  },
+];
+
+const MOCK_BOOKINGS = [
+    {
+      id: '1',
+    station_name: 'Mumbai Central Station',
+    booking_date: '2024-01-15T10:00:00Z',
+      status: 'completed',
+    total_price: 150,
+    },
+    {
+      id: '2',
+    station_name: 'Bandra Station',
+    booking_date: '2024-01-10T14:30:00Z',
+      status: 'completed',
+    total_price: 120,
+  },
+];
+
+// Helper function to format operating hours
+const formatOperatingHours = (operatingHours: any): string => {
+  if (typeof operatingHours === 'string') {
+    return operatingHours;
+  }
+  if (typeof operatingHours === 'object' && operatingHours !== null) {
+    // Check if it's 24/7
+    const hours = Object.values(operatingHours);
+    if (hours.every((hour: any) => hour === '00:00-23:59' || hour === '24/7')) {
+      return '24/7';
+    }
+    // Return first day's hours as example
+    const firstDay = Object.values(operatingHours)[0];
+    return typeof firstDay === 'string' ? firstDay : 'Hours vary';
+  }
+  return 'Hours not available';
+};
+
+// Helper function to get station status color
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'AVAILABLE':
+      return Colors.semantic.success;
+    case 'OCCUPIED':
+      return Colors.semantic.warning;
+    case 'MAINTENANCE':
+      return Colors.semantic.error;
+    default:
+      return Colors.neutral.gray[400];
+  }
+};
+
+// Helper function to get status variant
+const getStatusVariant = (status: string) => {
+  switch (status) {
+    case 'AVAILABLE':
+      return 'success';
+    case 'OCCUPIED':
+      return 'warning';
+    case 'MAINTENANCE':
+      return 'error';
+    default:
+      return 'primary';
+  }
+};
+
+// Helper functions for weather and personalization
+const getWeatherIcon = (condition: string, colors: any) => {
+  switch (condition) {
+    case 'sunny':
+      return <Sun size={24} color={colors.primary} />;
+    case 'cloudy':
+      return <Cloud size={24} color={colors.text.secondary} />;
+    case 'rainy':
+      return <CloudRain size={24} color={Colors.semantic.info} />;
+    default:
+      return <Sun size={24} color={colors.primary} />;
+  }
+};
+
+const getGreeting = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+};
+
+const getUserName = (user: any) => {
+  return user?.name || user?.email?.split('@')[0] || 'there';
+};
+
+const getTimeOfDay = () => {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+};
+
+// Mock weather data for EV charging planning
+const MOCK_WEATHER = generateMockWeather();
+
+// Mock user activity data
+const MOCK_ACTIVITY = generateMockActivities();
+
+const HomeScreen: React.FC = () => {
+  // Get authenticated user from auth context
+  const { user } = useAuth();
+
+  // State for geolocation
+  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // State for stations data
+  const [stations, setStations] = useState<any[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(false);
+
+  // State for segmented control
+  const [activeSegment, setActiveSegment] = useState<'Nearby' | 'Favorites' | 'Recent'>('Nearby');
+
+  // State for search
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Animation values for premium effects
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const bookingAnim = useRef(new Animated.Value(0)).current;
+  const favoriteAnim = useRef(new Animated.Value(0)).current;
+  const vehicleAnim = useRef(new Animated.Value(0)).current;
+  const batteryCounter = useRef(new Animated.Value(0)).current;
+
+  // Press feedback animations
+  const heroScale = useRef(new Animated.Value(1)).current;
+  const bookingScale = useRef(new Animated.Value(1)).current;
+  const favoriteScale = useRef(new Animated.Value(1)).current;
+  const vehicleScale = useRef(new Animated.Value(1)).current;
+
+  // Animation values for staggered entrance
+  const stationAnimations = stations.map(() => new Animated.Value(0));
+
+  // Mock favorites and recent data
+  const favoriteStations = stations.filter(station => station.distance && station.distance < 5); // Closer stations as favorites
+  const recentStations = stations.slice(0, 3); // First 3 as recent
+
+  // Get filtered stations based on active segment
+  const getFilteredStations = () => {
+    let filteredStations = [];
+    switch (activeSegment) {
+      case 'Nearby':
+        filteredStations = stations;
+        break;
+      case 'Favorites':
+        filteredStations = favoriteStations;
+        break;
+      case 'Recent':
+        filteredStations = recentStations;
+        break;
+      default:
+        filteredStations = stations;
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filteredStations = filteredStations.filter(station =>
+        station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return filteredStations;
+  };
+
+  // Group stations by distance for Nearby tab
+  const groupStationsByDistance = (stations: any[]) => {
+    if (activeSegment !== 'Nearby') return { all: stations };
+
+    const groups = {
+      'Under 1 km': [] as any[],
+      '1-5 km': [] as any[],
+      '5-10 km': [] as any[],
+      'Over 10 km': [] as any[],
+    };
+
+    stations.forEach(station => {
+      const distance = station.distance || 0;
+      if (distance < 1) {
+        groups['Under 1 km'].push(station);
+      } else if (distance < 5) {
+        groups['1-5 km'].push(station);
+      } else if (distance < 10) {
+        groups['5-10 km'].push(station);
+      } else {
+        groups['Over 10 km'].push(station);
+      }
+    });
+
+    return groups;
+  };
+
+  // Get availability text and color
+  const getAvailabilityInfo = (station: any) => {
+    const available = station.available || station.charging_slots?.filter((slot: any) => slot.status === 'AVAILABLE').length || 0;
+    const total = station.total || station.charging_slots?.length || 0;
+
+    return {
+      text: `${available}/${total} Available`,
+      color: available > 0 ? '#32CD32' : '#F44336'
+    };
+  };
+
+  // Get connector type icons
+  const getConnectorIcons = (station: any) => {
+    const slots = station.charging_slots || [];
+    const uniqueTypes = [...new Set(slots.map((slot: any) => slot.connector_type))];
+
+    return uniqueTypes.slice(0, 3); // Show max 3 connector types
+  };
+
+  // Function to get location name from coordinates
+  const getLocationName = (lat: number, lng: number): string => {
+    // Simple reverse geocoding for Mumbai area based on coordinates
+    if (lat >= 19.15 && lat <= 19.18 && lng >= 72.95 && lng <= 72.97) {
+      return "Mumbai, Maharashtra";
+    } else if (lat >= 19.05 && lat <= 19.08 && lng >= 72.86 && lng <= 72.88) {
+      return "Bandra Kurla Complex, Mumbai";
+    } else if (lat >= 19.11 && lat <= 19.13 && lng >= 72.83 && lng <= 72.85) {
+      return "Juhu, Mumbai";
+    } else if (lat >= 19.09 && lat <= 19.11 && lng >= 72.82 && lng <= 72.84) {
+      return "Andheri, Mumbai";
+    } else if (lat >= 19.06 && lat <= 19.08 && lng >= 72.87 && lng <= 72.89) {
+      return "Bandra, Mumbai";
+    } else {
+      return "Mumbai Area";
+    }
+  };
+
+  // Mock upcoming booking data with Mumbai location
+  const upcomingBooking = {
+    id: 'booking-123',
+    stationName: 'Mumbai Central EV Station',
+    address: 'Mumbai Central Railway Station, Mumbai, Maharashtra 400008',
+    dateTime: 'Today, 3:00 PM - 4:00 PM',
+    status: 'confirmed'
+  };
+
+  // Get user's live geolocation
+  useEffect(() => {
+    const getLocation = async () => {
+      try {
+        // Request location permissions
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== 'granted') {
+          setLocationError('Location permission denied');
+          Alert.alert(
+            'Location Permission Required',
+            'Please enable location services to find nearby charging stations.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Get current position
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        const { latitude, longitude } = location.coords;
+        setUserLocation({ latitude, longitude });
+        setLocationError(null);
+
+        console.log('User location:', { latitude, longitude });
+
+      } catch (error) {
+        console.error('Error getting location:', error);
+        setLocationError('Unable to get location');
+        Alert.alert(
+          'Location Error',
+          'Unable to get your location. Please check your location settings.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
+    getLocation();
+  }, []);
+
+  // Fetch stations when user location changes
+  useEffect(() => {
+    const fetchStations = async () => {
+      if (!userLocation) return;
+
+      try {
+        setStationsLoading(true);
+
+        // Fetch stations from backend API using the nearby endpoint
+        const response = await fetch(
+          `http://192.168.1.8:8000/stations/nearby/?latitude=${userLocation.latitude}&longitude=${userLocation.longitude}&max_distance_km=20`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Fetched stations:', data);
+
+        // Update stations state with real data
+        setStations(data.stations || data || []);
+
+      } catch (error) {
+        console.error('Error fetching stations:', error);
+        // Fallback to mock data if API fails
+        const mockStations = [
+          {
+            id: '1',
+            name: 'City Center Hub',
+            available: 3,
+            total: 5,
+            distance: 1.2,
+            status: 'AVAILABLE'
+          },
+          {
+            id: '2',
+            name: 'Mall Charging Point',
+            available: 1,
+            total: 4,
+            distance: 2.8,
+            status: 'AVAILABLE'
+          },
+          {
+            id: '3',
+            name: 'Airport Terminal',
+            available: 5,
+            total: 6,
+            distance: 4.5,
+            status: 'AVAILABLE'
+          }
+        ];
+        setStations(mockStations);
+      } finally {
+        setStationsLoading(false);
+      }
+    };
+
+    fetchStations();
+  }, [userLocation]);
+
+  // Animate stations when data loads
+  useEffect(() => {
+    if (stations.length > 0 && !stationsLoading) {
+      const animations = stationAnimations.map((anim, index) =>
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 600,
+          delay: index * 100, // Staggered delay
+          useNativeDriver: true,
+        })
+      );
+      Animated.stagger(50, animations).start();
+    }
+  }, [stations, stationsLoading, stationAnimations]);
+
+  // Premium animation effects
+  useEffect(() => {
+    // Start entrance animations with stagger
+    const entranceAnimations = [
+      Animated.parallel([
+        Animated.timing(heroAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(bookingAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(favoriteAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.timing(vehicleAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(batteryCounter, {
+          toValue: 82, // Final battery percentage
+          duration: 1500,
+          useNativeDriver: false, // Can't use native driver for text interpolation
+        }),
+      ]),
+    ];
+
+    // Start entrance animations with stagger
+    entranceAnimations.forEach((animation, index) => {
+      setTimeout(() => {
+        animation.start();
+      }, index * 150); // 150ms stagger between widgets
+    });
+  }, []);
+
+  // Skeleton loading component
+  const SkeletonLoader = ({ width, height, borderRadius = 4 }: { width: number | string, height: number, borderRadius?: number }) => (
+    <Animated.View
+      style={[
+        styles.skeleton,
+        {
+          width,
+          height,
+          borderRadius,
+        },
+      ]}
+    />
+  );
+
+  // Map preview skeleton
+  const MapSkeleton = () => (
+    <View style={styles.mapSkeleton}>
+      <SkeletonLoader width="100%" height={200} borderRadius={16} />
+      <View style={styles.mapOverlay}>
+        <SkeletonLoader width={120} height={16} />
+        <SkeletonLoader width={80} height={12} />
+            </View>
+    </View>
+  );
+
+  // Station card skeleton
+  const StationCardSkeleton = () => (
+    <View style={styles.stationCardSkeleton}>
+      <SkeletonLoader width={120} height={16} />
+      <SkeletonLoader width={80} height={12} />
+      <SkeletonLoader width={60} height={12} />
+            </View>
+  );
+
+  const handleProfilePress = () => {
+    console.log('Navigate to Profile');
+  };
+
+  const handleSearch = (text: string) => {
+    console.log('Search:', text);
+    // TODO: Implement search functionality
+  };
+
+  const handleNearbySearch = () => {
+    console.log('Nearby search - current location:', userLocation);
+    if (!userLocation) {
+      Alert.alert('Location Required', 'Please enable location services to find nearby stations.');
+      return;
+    }
+    // TODO: Implement nearby search functionality
+  };
+
+  const handleLoginAgain = () => {
+    Alert.alert(
+      'Session Expired',
+      'Your session has expired. Would you like to log in again?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Login',
+          onPress: () => {
+            // This would navigate to login screen
+            console.log('Navigate to login screen');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleViewBookingDetails = () => {
+    console.log('View booking details');
+  };
+
+  // Press feedback animations
+  const handlePressIn = (scaleAnim: Animated.Value) => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      tension: 400,
+      friction: 3,
+    }).start();
+  };
+
+  const handlePressOut = (scaleAnim: Animated.Value) => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 400,
+      friction: 3,
+    }).start();
+  };
+
+  const handleMapPress = () => {
+    console.log('Navigate to Map');
+  };
+
+  // Enhanced Station Card Component
+  const StationCard = ({ station }: { station: any }) => {
+    const availability = getAvailabilityInfo(station);
+    const connectorTypes = getConnectorIcons(station);
+
+  return (
+          <TouchableOpacity
+        style={styles.enhancedStationCard}
+        onPress={() => console.log('Navigate to station:', station.name)}
+        activeOpacity={0.7}
+      >
+        {/* Status Indicator Circle */}
+        <View style={styles.statusIndicator}>
+          <View style={[
+            styles.statusCircle,
+            {
+              borderColor: availability.color,
+              backgroundColor: availability.color + '20'
+            }
+          ]}>
+            <Zap size={16} color={availability.color} />
+            </View>
+        </View>
+
+        {/* Main Content */}
+        <View style={styles.cardContent}>
+          {/* Top Row - Name and Availability Badge */}
+          <View style={styles.cardTopRow}>
+            <Text style={styles.stationPrimaryName} numberOfLines={1}>
+              {station.name}
+        </Text>
+            <View style={[
+              styles.availabilityPill,
+              { backgroundColor: availability.color + '20' }
+            ]}>
+              <Text style={[styles.availabilityPillText, { color: availability.color }]}>
+                {availability.text}
+        </Text>
+            </View>
+          </View>
+
+          {/* Middle Row - Address and Distance */}
+          <View style={styles.cardMiddleRow}>
+            <Text style={styles.stationSecondaryText} numberOfLines={1}>
+              {station.address || 'Address not available'}
+                  </Text>
+            <Text style={styles.stationDistanceText}>
+              {station.distance ? `${station.distance} km` : 'Distance unavailable'}
+          </Text>
+      </View>
+
+          {/* Bottom Row - Connector Types */}
+          {connectorTypes.length > 0 && (
+            <View style={styles.connectorTypesRow}>
+              {connectorTypes.slice(0, 3).map((type, typeIndex) => (
+                <View key={`${station.id}-${typeIndex}`} style={styles.connectorTypeBadge}>
+                  <Text style={styles.connectorTypeText}>
+                    {type === 'CCS' && '⚡ CCS'}
+                    {type === 'Type 2' && '🔌 Type 2'}
+                    {type === 'CHAdeMO' && '⚡ CHAdeMO'}
+                    {type === 'Tesla' && '⚡ Tesla'}
+                    {!['CCS', 'Type 2', 'CHAdeMO', 'Tesla'].includes(type) && `🔌 ${type}`}
+        </Text>
+                    </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const filteredStations = getFilteredStations();
+  const stationGroups = groupStationsByDistance(filteredStations);
+
+  // Check if user needs to log in
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#121212" />
+        <View style={styles.authRequiredContainer}>
+          <View style={styles.authRequiredContent}>
+            <Text style={styles.authRequiredTitle}>Welcome to EV Charging</Text>
+            <Text style={styles.authRequiredSubtitle}>
+              Please log in to access your personalized dashboard and find nearby charging stations.
+            </Text>
+          <TouchableOpacity
+              style={styles.loginButton}
+              onPress={handleLoginAgain}
+          >
+              <Text style={styles.loginButtonText}>Log In</Text>
+            </TouchableOpacity>
+            </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <StatusBar barStyle="light-content" backgroundColor="#121212" />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.greetingSection}>
+            <Text style={styles.greetingText}>
+              Welcome, {user?.name || 'User'}
+            </Text>
+            {userLocation && !locationError && (
+              <Text style={styles.locationSuccess}>
+                📍 {getLocationName(userLocation.latitude, userLocation.longitude)}
+            </Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={handleProfilePress}
+          >
+            <View style={styles.profileAvatar}>
+              <User size={24} color="#00A8FF" />
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Widget-Based Dashboard */}
+      <View style={styles.dashboardContainer}>
+        {/* Row 1: Hero Widget (Full Width) */}
+        <Animated.View
+          style={[
+            styles.heroWidget,
+            {
+              opacity: heroAnim,
+              transform: [
+                {
+                  scale: heroAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+                { scale: heroScale },
+              ],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.heroWidgetTouchable}
+            onPress={handleNearbySearch}
+            onPressIn={() => handlePressIn(heroScale)}
+            onPressOut={() => handlePressOut(heroScale)}
+            activeOpacity={1}
+          >
+                      <View style={styles.heroIconContainer}>
+              <Zap size={48} color="#00A8FF" />
+            </View>
+            <View style={styles.heroTextContainer}>
+              <Text style={styles.heroTitle}>Find a Charger</Text>
+              <Text style={styles.heroSubtitle}>Tap to search for nearby available stations</Text>
+        </View>
+            </TouchableOpacity>
+        </Animated.View>
+
+        {/* Row 2: Two Widgets Side by Side */}
+        <View style={styles.widgetRow}>
+          {/* Upcoming Booking Widget */}
+          <Animated.View
+            style={[
+              styles.upcomingBookingWidget,
+              {
+                opacity: bookingAnim,
+                transform: [
+                  {
+                    scale: bookingAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                  { scale: bookingScale },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.widgetTouchable}
+              onPress={handleViewBookingDetails}
+              onPressIn={() => handlePressIn(bookingScale)}
+              onPressOut={() => handlePressOut(bookingScale)}
+              activeOpacity={1}
+            >
+            <View style={styles.bookingHeader}>
+              <Calendar size={20} color="#00A8FF" />
+              <Text style={styles.bookingWidgetTitle}>Upcoming</Text>
+                    </View>
+            {upcomingBooking ? (
+              <View style={styles.bookingDetails}>
+                <Text style={styles.bookingStationName}>{upcomingBooking.stationName}</Text>
+                <Text style={styles.bookingTime}>{upcomingBooking.dateTime}</Text>
+                <Text style={styles.bookingConnector}>⚡ Type 2</Text>
+                    </View>
+            ) : (
+              <Text style={styles.noBookingText}>No upcoming sessions</Text>
+            )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Favorite Status Widget */}
+          <Animated.View
+            style={[
+              styles.favoriteStatusWidget,
+              {
+                opacity: favoriteAnim,
+                transform: [
+                  {
+                    scale: favoriteAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.8, 1],
+                    }),
+                  },
+                  { scale: favoriteScale },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.widgetTouchable}
+              onPress={() => console.log('View favorite station')}
+              onPressIn={() => handlePressIn(favoriteScale)}
+              onPressOut={() => handlePressOut(favoriteScale)}
+              activeOpacity={1}
+            >
+              <View style={styles.favoriteHeader}>
+                <Star size={16} color="#FFD700" />
+                <Text style={styles.favoriteTitle}>Favorite</Text>
+                </View>
+              <View style={styles.favoriteStatus}>
+                <Text style={styles.favoriteAvailability}>4/5</Text>
+                <Text style={styles.favoriteStatusText}>Available</Text>
+        </View>
+              <Text style={styles.favoriteStationName}>Central Station</Text>
+            </TouchableOpacity>
+          </Animated.View>
+          </View>
+
+                {/* Row 3: Vehicle Status Widget */}
+        <Animated.View
+          style={[
+            styles.vehicleStatusWidget,
+            {
+              opacity: vehicleAnim,
+              transform: [
+                {
+                  scale: vehicleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                },
+                { scale: vehicleScale },
+              ],
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.widgetTouchable}
+            onPress={() => console.log('View vehicle details')}
+            onPressIn={() => handlePressIn(vehicleScale)}
+            onPressOut={() => handlePressOut(vehicleScale)}
+            activeOpacity={1}
+          >
+            <View style={styles.vehicleHeader}>
+              <Car size={20} color="#00A8FF" />
+              <Text style={styles.vehicleTitle}>Vehicle Status</Text>
+                </View>
+            <View style={styles.batteryContainer}>
+              <View style={styles.batteryCircle}>
+                <Animated.Text style={styles.batteryPercentage}>
+                  {batteryCounter.interpolate({
+                    inputRange: [0, 82],
+                    outputRange: ['0%', '82%'],
+                  })}
+                </Animated.Text>
+                  </View>
+              <View style={styles.rangeInfo}>
+                <Text style={styles.rangeText}>245 km</Text>
+                <Text style={styles.rangeLabel}>Range</Text>
+                </View>
+              </View>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </ScrollView>
+    </View>
+  );
+};
+
+// Styles for the HomeScreen component
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+
+  // Header Section
+  header: {
+    paddingTop: 56, // 7 * 8 = 56
+    paddingBottom: 16, // 2 * 8 = 16
+    paddingHorizontal: 24, // 3 * 8 = 24
+    borderBottomWidth: 1,
+    borderBottomColor: '#333333',
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  greetingSection: {
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 24, // 3 * 8 = 24
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 4, // 0.5 * 8 = 4
+  },
+  locationSuccess: {
+    fontSize: 14, // 1.75 * 8 = 14
+    fontWeight: '400',
+    color: '#4CAF50',
+  },
+  profileButton: {
+    padding: 8, // 1 * 8 = 8
+  },
+  profileAvatar: {
+    width: 40, // 5 * 8 = 40
+    height: 40, // 5 * 8 = 40
+    borderRadius: 20, // 2.5 * 8 = 20
+    backgroundColor: '#00A8FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Dashboard Container
+  dashboardContainer: {
+    padding: 24, // 3 * 8 = 24
+  },
+
+  // Hero Widget
+  heroWidget: {
+    backgroundColor: 'rgba(44, 44, 46, 0.7)',
+    borderRadius: 16, // 2 * 8 = 16
+    padding: 24, // 3 * 8 = 24
+    marginBottom: 24, // 3 * 8 = 24
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#00A8FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  heroWidgetTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    // Frosted glass effect
+    backgroundColor: 'transparent',
+  },
+  heroIconContainer: {
+    width: 80, // 10 * 8 = 80
+    height: 80, // 10 * 8 = 80
+    borderRadius: 40, // 5 * 8 = 40
+    backgroundColor: 'rgba(0, 168, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16, // 2 * 8 = 16
+  },
+  heroTextContainer: {
+    flex: 1,
+  },
+  heroTitle: {
+    fontSize: 24, // 3 * 8 = 24
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 8, // 1 * 8 = 8
+  },
+  heroSubtitle: {
+    fontSize: 16, // 2 * 8 = 16
+    fontWeight: '400',
+    color: '#b3b3b3',
+    lineHeight: 22, // 2.75 * 8 = 22
+  },
+
+  // Widget Row
+  widgetRow: {
+    flexDirection: 'row',
+    gap: 16, // 2 * 8 = 16
+    marginBottom: 24, // 3 * 8 = 24
+  },
+
+  // Upcoming Booking Widget
+  upcomingBookingWidget: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 44, 46, 0.7)',
+    borderRadius: 12, // 1.5 * 8 = 12
+    padding: 16, // 2 * 8 = 16
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    // Frosted glass effect
+    shadowColor: '#00A8FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  widgetTouchable: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  bookingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12, // 1.5 * 8 = 12
+  },
+  bookingWidgetTitle: {
+    fontSize: 16, // 2 * 8 = 16
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8, // 1 * 8 = 8
+  },
+  bookingDetails: {
+    gap: 4, // 0.5 * 8 = 4
+  },
+  bookingStationName: {
+    fontSize: 14, // 1.75 * 8 = 14
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  bookingTime: {
+    fontSize: 12, // 1.5 * 8 = 12
+    fontWeight: '400',
+    color: '#b3b3b3',
+  },
+  bookingConnector: {
+    fontSize: 12, // 1.5 * 8 = 12
+    fontWeight: '500',
+    color: '#00A8FF',
+  },
+  noBookingText: {
+    fontSize: 14, // 1.75 * 8 = 14
+    fontWeight: '400',
+    color: '#888888',
+    fontStyle: 'italic',
+  },
+
+  // Favorite Status Widget
+  favoriteStatusWidget: {
+    flex: 1,
+    backgroundColor: 'rgba(44, 44, 46, 0.7)',
+    borderRadius: 12, // 1.5 * 8 = 12
+    padding: 16, // 2 * 8 = 16
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    // Frosted glass effect
+    shadowColor: '#00A8FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  favoriteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12, // 1.5 * 8 = 12
+  },
+  favoriteTitle: {
+    fontSize: 16, // 2 * 8 = 16
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8, // 1 * 8 = 8
+  },
+  favoriteStatus: {
+    alignItems: 'center',
+    marginBottom: 8, // 1 * 8 = 8
+  },
+  favoriteAvailability: {
+    fontSize: 32, // 4 * 8 = 32
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  favoriteStatusText: {
+    fontSize: 14, // 1.75 * 8 = 14
+    fontWeight: '600',
+    color: '#4CAF50',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  favoriteStationName: {
+    fontSize: 12, // 1.5 * 8 = 12
+    fontWeight: '400',
+    color: '#888888',
+    textAlign: 'center',
+  },
+
+  // Vehicle Status Widget
+  vehicleStatusWidget: {
+    backgroundColor: 'rgba(44, 44, 46, 0.7)',
+    borderRadius: 12, // 1.5 * 8 = 12
+    padding: 16, // 2 * 8 = 16
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    // Frosted glass effect
+    shadowColor: '#00A8FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  vehicleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16, // 2 * 8 = 16
+  },
+  vehicleTitle: {
+    fontSize: 16, // 2 * 8 = 16
+    fontWeight: '600',
+    color: '#ffffff',
+    marginLeft: 8, // 1 * 8 = 8
+  },
+  batteryContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  batteryCircle: {
+    width: 80, // 10 * 8 = 80
+    height: 80, // 10 * 8 = 80
+    borderRadius: 40, // 5 * 8 = 40
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  batteryPercentage: {
+    fontSize: 24, // 3 * 8 = 24
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  rangeInfo: {
+    alignItems: 'center',
+  },
+  rangeText: {
+    fontSize: 20, // 2.5 * 8 = 20
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  rangeLabel: {
+    fontSize: 12, // 1.5 * 8 = 12
+    fontWeight: '400',
+    color: '#888888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Authentication Required Screen
+  authRequiredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24, // 3 * 8 = 24
+  },
+  authRequiredContent: {
+    alignItems: 'center',
+    maxWidth: 320,
+  },
+  authRequiredTitle: {
+    fontSize: 24, // 3 * 8 = 24
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 16, // 2 * 8 = 16
+  },
+  authRequiredSubtitle: {
+    fontSize: 16, // 2 * 8 = 16
+    fontWeight: '400',
+    color: '#b3b3b3',
+    textAlign: 'center',
+    lineHeight: 24, // 3 * 8 = 24
+    marginBottom: 32, // 4 * 8 = 32
+  },
+  loginButton: {
+    backgroundColor: '#00A8FF',
+    paddingHorizontal: 32, // 4 * 8 = 32
+    paddingVertical: 16, // 2 * 8 = 16
+    borderRadius: 8, // 1 * 8 = 8
+    minWidth: 120,
+  },
+  loginButtonText: {
+    fontSize: 16, // 2 * 8 = 16
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+});
+
+// Export the component
+export default HomeScreen;
