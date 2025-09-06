@@ -7,8 +7,8 @@ import Constants from 'expo-constants';
 // API Configuration
 export const API_CONFIG = {
   // Use local IP for development - update for production
-  BASE_URL: __DEV__ 
-    ? 'http://192.168.1.8:8000'  // Local development (use your machine's IP)
+  BASE_URL: __DEV__
+    ? 'http://192.168.1.10:8000'  // Local development (use your machine's IP)
     : 'https://your-production-api.com',  // Production URL
   
   TIMEOUT: 10000, // 10 seconds
@@ -16,8 +16,8 @@ export const API_CONFIG = {
   ENDPOINTS: {
     // Auth endpoints
     AUTH: {
-      REGISTER: '/auth/register',
-      LOGIN: '/auth/token',
+      REGISTER: '/register',
+      LOGIN: '/token',
       PROFILE: '/users/me',
     },
     

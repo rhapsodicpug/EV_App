@@ -5,7 +5,7 @@ import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../des
 
 // Import screens
 import InteractiveMapScreen from '../screens/maps/InteractiveMapScreen';
-import StationDetailsScreen from '../screens/stations/StationDetailsScreen';
+import StationBookingScreen from '../screens/stations/StationBookingScreen';
 
 const Stack = createStackNavigator<MapStackParamList>();
 
@@ -38,11 +38,11 @@ const MapNavigator: React.FC = () => {
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="StationDetails" 
-        component={StationDetailsScreen}
+      <Stack.Screen
+        name="StationBooking"
+        component={StationBookingScreen}
         options={{
-          title: 'Station Details',
+          title: 'Book Charging Station',
           headerBackTitle: 'Back',
         }}
       />

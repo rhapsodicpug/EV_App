@@ -12,13 +12,11 @@ import { useThemeColors } from './src/design';
 import AppNavigator from './src/navigation/AppNavigator';
 
 const AppContent: React.FC = () => {
-  const { colors, isDark } = useThemeColors();
-  
   return (
     <NavigationContainer>
-      <StatusBar 
-        style={isDark ? "light" : "dark"} 
-        backgroundColor={colors.primary} 
+      <StatusBar
+        style="light"
+        backgroundColor="#0F0F0F"
       />
       <AppNavigator />
     </NavigationContainer>

@@ -1,9 +1,10 @@
 /**
  * Liquid Hero Home Screen
- * Premium EV charging app with dynamic liquid background and fluid animations
+ * Stunning fluid animation, depth, and organic shapes
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -11,329 +12,437 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  RefreshControl,
   Animated,
   StatusBar,
   Dimensions,
+  Alert,
+  Platform,
 } from 'react-native';
 import * as Location from 'expo-location';
 import {
-  MapPin,
-  Star,
-  Search,
+  Clock,
   Zap,
+  Star,
   ChevronRight,
+  Filter,
+  Bookmark,
+  TrendingUp,
+  AlertCircle,
+  Calendar,
+  Wifi,
+  Coffee,
+  Car,
+  Cloud,
+  Sun,
+  CloudRain,
+  Wind,
+  Thermometer,
+  Battery,
+  Navigation,
+  Settings,
+  Bell,
+  User,
+  Activity,
+  Plus,
+  Heart,
+  Home,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useThemeColors } from '../design';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { apiService } from '../services/api';
 
 const { width, height } = Dimensions.get('window');
 
-// Liquid colors for dynamic background
+// Liquid Hero Color Palette
 const LIQUID_COLORS = {
-  primary: '#00A8FF', // Electric blue
-  secondary: '#6366F1', // Indigo purple
-  tertiary: '#06B6D4', // Cyan teal
-  background: '#0F0F0F', // Very dark gray
-  sheet: '#101010', // Dark gray for rising sheet
-  surface: '#1A1A1A', // Surface color
+  primary: '#00A8FF',
+  secondary: '#8B5CF6',
+  tertiary: '#06D6A0',
+  success: '#10B981',
+  accent: '#FF6B6B',
+  background: '#0A0A0A',
+  surface: '#101010',
+  card: '#1A1A1A',
+  border: '#282828',
   text: {
     primary: '#FFFFFF',
-    secondary: '#B3B3B3',
-    muted: '#666666',
+    secondary: '#B0B0B0',
+    tertiary: '#808080',
   },
 };
 
-// Mock data for Liquid Hero design
-const MOCK_NEARBY_STATIONS = [
-  {
-    id: '1',
-    name: 'Central Station Hub',
-    address: 'Mumbai Central, Mumbai',
-    available: 3,
-    total: 5,
-    distance: 1.2,
-    connector: 'CCS',
-    price: 15,
-  },
-  {
-    id: '2',
-    name: 'Mall Charging Point',
-    address: 'Bandra West, Mumbai',
-    available: 1,
-    total: 4,
-    distance: 2.8,
-    connector: 'Type 2',
-    price: 12,
-  },
-  {
-    id: '3',
-    name: 'Airport Terminal',
-    address: 'Andheri East, Mumbai',
-    available: 5,
-    total: 6,
-    distance: 4.5,
-    connector: 'CCS',
-    price: 20,
-  },
-];
+interface Station {
+  id: string;
+  name: string;
+  address: string;
+  rating?: number;
+  distance?: number;
+  availableSlots?: number;
+  totalSlots?: number;
+  pricePerHour?: number;
+  amenities?: string[];
+  connectorTypes?: string[];
+  isFavorite?: boolean;
+  image?: string;
+}
 
-const MOCK_FAVORITES = [
-  {
-    id: '4',
-    name: 'Home Charging Hub',
-    address: 'Your Home, Mumbai',
-    available: 2,
-    total: 2,
-    distance: 0,
-    connector: 'Tesla',
-    price: 8,
-  },
-];
-
-// Helper functions for Liquid Hero
-const getUserName = (user: any) => {
-  return user?.name || user?.email?.split('@')[0] || 'User';
-};
-
-const getGreeting = () => {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  if (hour < 21) return 'Good evening';
-  return 'Good night';
-};
-
-const getNearbyChargersCount = () => {
-  // In a real app, this would fetch from API or use location data
-  // For now, return the count from mock data
-  const count = MOCK_NEARBY_STATIONS.length;
-  return count;
-};
-
-const getNearbyChargersText = () => {
-  const count = getNearbyChargersCount();
-  if (count === 0) return 'No chargers available nearby';
-  if (count === 1) return '1 charger available nearby';
-  return `${count} chargers available nearby`;
-};
+interface Booking {
+  id: string;
+  stationName: string;
+  stationAddress: string;
+  date: string;
+  time: string;
+  duration: string;
+  status: 'upcoming' | 'active' | 'completed';
+}
 
 const HomeScreen: React.FC = () => {
-  // Auth context
-  const { user } = useAuth();
   const navigation = useNavigation();
-
-  // State for Liquid Hero
-  const [activeTab, setActiveTab] = useState<'Nearby' | 'Favorites'>('Nearby');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Animation values for Liquid Hero
+  const { user } = useAuth();
+  
+  // State
+  const [stations, setStations] = useState<Station[]>([]);
+  const [upcomingBooking, setUpcomingBooking] = useState<Booking | null>(null);
+  const [recentStations, setRecentStations] = useState<Station[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'nearby' | 'recent' | 'favorites'>('nearby');
+  // Animation refs
   const scrollY = useRef(new Animated.Value(0)).current;
   const liquidAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const animateLiquid = () => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(liquidAnim, {
+            toValue: 1,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(liquidAnim, {
+            toValue: 0,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
 
-  // Hero content fade animation
+    animateLiquid();
+  }, []);
+
+  // Scroll-based animations
   const heroFade = scrollY.interpolate({
-    inputRange: [0, 150],
+    inputRange: [0, 200],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
 
-  // Liquid background morphing animation
+  const heroTranslate = scrollY.interpolate({
+    inputRange: [0, 200],
+    outputRange: [0, -100],
+    extrapolate: 'clamp',
+  });
+
+  // Sticky header animations
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [100, 150],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const headerTranslate = scrollY.interpolate({
+    inputRange: [100, 150],
+    outputRange: [-30, 0],
+    extrapolate: 'clamp',
+  });
+
+
+  // Load data
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load stations
+      const stationsResponse = await apiService.getStations();
+      setStations(stationsResponse.stations.slice(0, 10));
+
+      // Mock upcoming booking
+      setUpcomingBooking({
+        id: '1',
+        stationName: 'Mumbai EV Station',
+        stationAddress: 'Bandra Kurla Complex, Mumbai',
+        date: 'Today',
+        time: '2:00 PM',
+        duration: '2 hours',
+        status: 'upcoming',
+      });
+
+      // Mock recent stations
+      setRecentStations(stationsResponse.stations.slice(0, 5));
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadData();
+    setIsRefreshing(false);
+  };
+
+
+
+  const handleStationPress = (station: Station) => {
+    (navigation as any).navigate('Search', {
+      screen: 'StationDetail',
+      params: { stationId: station.id }
+    });
+  };
+
+  const handleBookingPress = () => {
+    (navigation as any).navigate('BookingConfirmation', {
+      stationName: upcomingBooking?.stationName,
+      stationAddress: upcomingBooking?.stationAddress,
+      date: upcomingBooking?.date,
+      time: upcomingBooking?.time,
+      duration: upcomingBooking?.duration,
+    });
+  };
+
   useEffect(() => {
-    const morphAnimation = () => {
-      Animated.sequence([
-        Animated.timing(liquidAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(liquidAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ]).start(() => morphAnimation());
-    };
-    morphAnimation();
+    loadData();
+    // Log current greeting for verification
+    const currentHour = new Date().getHours();
+    const greeting = currentHour < 12 ? 'morning' : currentHour < 18 ? 'afternoon' : 'evening';
+    const username = user?.email?.split('@')[0] || 'User';
+    console.log('🧪 VERIFICATION: Current greeting should be:', `Good ${greeting}, ${username}!`);
+    console.log('🧪 VERIFICATION: Quick action buttons should be REMOVED');
   }, []);
 
-  // Get current stations based on active tab
-  const currentStations = activeTab === 'Nearby' ? MOCK_NEARBY_STATIONS : MOCK_FAVORITES;
-
-  // Filter stations based on search
-  const filteredStations = searchQuery.trim()
-    ? currentStations.filter(station =>
-        station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        station.address.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : currentStations;
-
-  // Handler functions
-  const handleNearbyPress = () => {
-    navigation.navigate('Stations' as never);
-  };
-
-  const handleFavoritesPress = () => {
-    setActiveTab('Favorites');
-  };
-
-  const handleStationPress = (station: any) => {
-    // Navigate to station details
-    console.log('Navigate to station:', station.name);
-  };
-
-  // Check if user needs to log in
-  if (!user) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
-        <View style={styles.authRequiredContainer}>
-          <View style={styles.authRequiredContent}>
-            <Text style={styles.authRequiredTitle}>Welcome to EV Charging</Text>
-            <Text style={styles.authRequiredSubtitle}>
-              Please log in to access your personalized dashboard and find nearby charging stations.
-            </Text>
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => navigation.navigate('Login' as never)}
-            >
-              <Text style={styles.loginButtonText}>Log In</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
-
-      {/* Liquid Hero Section */}
-      <Animated.View style={[styles.heroContainer, { opacity: heroFade }]}>
+  const renderLiquidBackground = () => (
+    <Animated.View
+      style={[
+        styles.liquidBackground,
+        {
+          transform: [
+            {
+              scale: liquidAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 1.1],
+              }),
+            },
+            {
+              rotate: liquidAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '5deg'],
+              }),
+            },
+          ],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[LIQUID_COLORS.primary, LIQUID_COLORS.secondary, LIQUID_COLORS.tertiary]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientBackground}
+      >
+        {/* Animated blobs */}
         <Animated.View
           style={[
-            styles.liquidBackground,
+            styles.blob,
+            styles.blob1,
             {
               transform: [
                 {
-                  scale: liquidAnim.interpolate({
+                  translateX: liquidAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [1, 1.1],
+                    outputRange: [0, 30],
+                  }),
+                },
+                {
+                  translateY: liquidAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -20],
+                  }),
+                },
+                {
+                  scale: liquidAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0.8, 1.2, 0.8],
                   }),
                 },
               ],
             },
           ]}
-        >
-          <LinearGradient
-            colors={[
-              LIQUID_COLORS.primary,
-              LIQUID_COLORS.secondary,
-              LIQUID_COLORS.tertiary,
-              LIQUID_COLORS.primary,
-            ]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradient}
-          >
-            {/* Animated liquid blobs */}
-            <Animated.View
-              style={[
-                styles.liquidBlob,
-                styles.blob1,
+        />
+        <Animated.View
+          style={[
+            styles.blob,
+            styles.blob2,
+            {
+              transform: [
                 {
-                  transform: [
-                    {
-                      translateX: liquidAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 30],
-                      }),
-                    },
-                    {
-                      translateY: liquidAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, -20],
-                      }),
-                    },
-                  ],
+                  translateX: liquidAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -25],
+                  }),
                 },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.liquidBlob,
-                styles.blob2,
                 {
-                  transform: [
-                    {
-                      translateX: liquidAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, -25],
-                      }),
-                    },
-                    {
-                      translateY: liquidAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 15],
-                      }),
-                    },
-                  ],
+                  translateY: liquidAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 15],
+                  }),
                 },
-              ]}
-            />
-          </LinearGradient>
-        </Animated.View>
+                {
+                  scale: liquidAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [1.1, 0.7, 1.1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
 
-        {/* Floating Hero Content */}
-        <View style={styles.heroContent}>
+        {/* Floating particles */}
+        <View style={styles.particles}>
+          {[...Array(6)].map((_, i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.particle,
+                {
+                  left: `${20 + i * 15}%`,
+                  top: `${30 + i * 10}%`,
+                  transform: [
+                    {
+                      translateY: liquidAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -30 + i * 5],
+                      }),
+                    },
+                    {
+                      scale: liquidAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.5, 1, 0.5],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </LinearGradient>
+    </Animated.View>
+  );
+
+  const renderFloatingHeroContent = () => (
+    <Animated.View
+      style={[
+        styles.heroContent,
+        {
+          opacity: heroFade,
+          transform: [{ translateY: heroTranslate }],
+        },
+      ]}
+    >
+      <View style={styles.heroContentInner}>
+        <View style={styles.heroHeader}>
+          <View style={styles.locationIndicator}>
+            <Ionicons name="location" size={16} color={LIQUID_COLORS.primary} />
+            <Text style={styles.locationText}>Mumbai, Maharashtra</Text>
+          </View>
           <Text style={styles.heroHeadline}>
-            {getGreeting()}, {getUserName(user)}.
+            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'User'}!
           </Text>
-
-          <Text style={styles.heroSubheadline}>
-            {getNearbyChargersText()}
+          <Text style={styles.heroSubtitle}>
+            Ready to power up your journey?
           </Text>
+        </View>
+      </View>
+    </Animated.View>
+  );
 
-          {/* Search Bar */}
-          <View style={styles.searchContainer}>
-            <View style={styles.searchInputContainer}>
-              <Search size={20} color={LIQUID_COLORS.text.secondary} style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search for charging stations..."
-                placeholderTextColor={LIQUID_COLORS.text.secondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
+  const renderStickyHeader = () => (
+    <Animated.View
+      style={[
+        styles.stickyHeader,
+        {
+          opacity: headerOpacity,
+          transform: [{ translateY: headerTranslate }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[LIQUID_COLORS.surface, LIQUID_COLORS.card]}
+        style={styles.stickyHeaderGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.stickyHeaderContent}>
+          <View style={styles.stickyHeaderTop}>
+            <View style={styles.stickyHeaderLeft}>
+              <View style={styles.stickyHeaderAvatar}>
+                <Text style={styles.stickyHeaderAvatarText}>
+                  {user?.name?.split(' ')[0]?.charAt(0) || 'U'}
+                </Text>
+              </View>
+              <View style={styles.stickyHeaderTextContainer}>
+                <Text style={styles.stickyHeaderTitle}>
+                  Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'User'}!
+                </Text>
+                <View style={styles.stickyHeaderLocation}>
+                  <Ionicons name="location" size={12} color={LIQUID_COLORS.primary} />
+                  <Text style={styles.stickyHeaderLocationText}>Mumbai, Maharashtra</Text>
+                </View>
+              </View>
             </View>
           </View>
-
-          {/* Quick Action Buttons */}
-          <View style={styles.quickActionsContainer}>
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={handleNearbyPress}
-              activeOpacity={0.8}
-            >
-              <MapPin size={24} color={LIQUID_COLORS.text.primary} />
-              <Text style={styles.quickActionText}>Nearby Chargers</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={handleFavoritesPress}
-              activeOpacity={0.8}
-            >
-              <Star size={24} color={LIQUID_COLORS.text.primary} />
-              <Text style={styles.quickActionText}>Favorites</Text>
-            </TouchableOpacity>
-          </View>
         </View>
-      </Animated.View>
+      </LinearGradient>
+    </Animated.View>
+  );
 
-      {/* Rising Sheet */}
+
+  const renderRisingSheet = () => {
+    const getCurrentStations = () => {
+      switch (activeTab) {
+        case 'nearby':
+          return stations;
+        case 'recent':
+          return recentStations;
+        case 'favorites':
+          return stations.filter(station => station.rating && station.rating > 4.5); // Mock favorites
+        default:
+          return stations;
+      }
+    };
+
+    const getTabTitle = () => {
+      switch (activeTab) {
+        case 'nearby':
+          return 'Nearby Stations';
+        case 'recent':
+          return 'Recently Visited';
+        case 'favorites':
+          return 'Favorite Stations';
+        default:
+          return 'Stations';
+      }
+    };
+
+    const currentStations = getCurrentStations();
+
+    return (
       <Animated.ScrollView
         style={styles.risingSheet}
         contentContainerStyle={styles.sheetContent}
@@ -344,167 +453,253 @@ const HomeScreen: React.FC = () => {
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
       >
-        {/* Inner Shadow for Depth */}
+        {/* Inner Shadow */}
         <View style={styles.innerShadow} />
 
-        {/* Tab Selector */}
+        {/* Upcoming Booking */}
+        {upcomingBooking && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Your Next Charge</Text>
+              <View style={styles.sectionBadge}>
+                <Text style={styles.sectionBadgeText}>Active</Text>
+              </View>
+            </View>
+            <LinearGradient
+              colors={[LIQUID_COLORS.primary, LIQUID_COLORS.secondary]}
+              style={styles.bookingCardGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <TouchableOpacity
+                style={styles.bookingCard}
+                onPress={handleBookingPress}
+                activeOpacity={0.8}
+              >
+                <View style={styles.bookingHeader}>
+                  <View style={styles.bookingIcon}>
+                    <Calendar size={20} color={LIQUID_COLORS.primary} />
+                  </View>
+                  <View style={styles.bookingInfo}>
+                    <Text style={styles.bookingTitle}>{upcomingBooking.stationName}</Text>
+                    <Text style={styles.bookingSubtitle}>{upcomingBooking.stationAddress}</Text>
+                  </View>
+                  <ChevronRight size={20} color={LIQUID_COLORS.text.tertiary} />
+                </View>
+                <View style={styles.bookingDetails}>
+                  <View style={styles.bookingDetailRow}>
+                    <Ionicons name="time-outline" size={14} color={LIQUID_COLORS.text.secondary} />
+                    <Text style={styles.bookingDetail}>
+                      {upcomingBooking.date} • {upcomingBooking.time}
+                    </Text>
+                  </View>
+                  <View style={styles.bookingDetailRow}>
+                    <Ionicons name="battery-charging" size={14} color={LIQUID_COLORS.text.secondary} />
+                    <Text style={styles.bookingDetail}>
+                      Duration: {upcomingBooking.duration}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        )}
+
+        {/* Tab Navigation */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === 'Nearby' && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab('Nearby')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'Nearby' && styles.activeTabText,
-              ]}
-            >
-              Nearby
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === 'Favorites' && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab('Favorites')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'Favorites' && styles.activeTabText,
-              ]}
-            >
-              Favorites
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.tabBar}>
+            {(['nearby', 'recent', 'favorites'] as const).map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.tab,
+                  activeTab === tab && styles.activeTab,
+                ]}
+                onPress={() => setActiveTab(tab)}
+                activeOpacity={0.8}
+              >
+                <Text style={[
+                  styles.tabText,
+                  activeTab === tab && styles.activeTabText,
+                ]}>
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Borderless Station List */}
-        <View style={styles.stationsList}>
-          {filteredStations.map((station, index) => (
-            <TouchableOpacity
-              key={station.id}
-              style={styles.stationRow}
-              onPress={() => handleStationPress(station)}
-              activeOpacity={0.7}
-            >
-              {/* Status Circle */}
-              <View style={styles.statusCircle}>
-                <Zap size={16} color={LIQUID_COLORS.primary} />
-              </View>
+        {/* Station List */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{getTabTitle()}</Text>
+            <Ionicons name="location-outline" size={18} color={LIQUID_COLORS.primary} />
+          </View>
+          {currentStations.map((station, index) => {
+            const getStatusColor = () => {
+              if (station.rating && station.rating >= 4.5) return LIQUID_COLORS.success;
+              if (station.rating && station.rating >= 3.5) return '#FFA500'; // Orange
+              return '#FF6B6B'; // Red
+            };
 
-              {/* Station Info */}
-              <View style={styles.stationInfo}>
-                <Text style={styles.stationName}>{station.name}</Text>
-                <Text style={styles.stationAddress}>{station.address}</Text>
-                <View style={styles.stationMeta}>
-                  <Text style={styles.stationMetaText}>
-                    {station.available}/{station.total} Available
-                  </Text>
-                  <Text style={styles.stationMetaText}>
-                    {station.distance} km • {station.connector}
-                  </Text>
+            return (
+              <TouchableOpacity
+                key={station.id}
+                style={[
+                  styles.stationRow,
+                  index === currentStations.length - 1 && styles.lastRow,
+                ]}
+                onPress={() => handleStationPress(station)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.stationLeft}>
+                  <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
+                  <View style={styles.stationIcon}>
+                    <Zap size={20} color={LIQUID_COLORS.primary} />
+                  </View>
                 </View>
-              </View>
-
-              {/* Chevron */}
-              <ChevronRight size={20} color={LIQUID_COLORS.text.muted} />
-            </TouchableOpacity>
-          ))}
+                <View style={styles.stationInfo}>
+                  <Text style={styles.stationName}>{station.name}</Text>
+                  <Text style={styles.stationAddress}>{station.address}</Text>
+                </View>
+                <View style={styles.stationMeta}>
+                  <View style={styles.metaItem}>
+                    <Navigation size={12} color={LIQUID_COLORS.text.secondary} />
+                    <Text style={styles.metaText}>{station.distance || 'N/A'}km</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Star size={12} color="#FFD700" />
+                    <Text style={styles.metaText}>{station.rating || 'N/A'}</Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color={LIQUID_COLORS.text.tertiary} />
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </Animated.ScrollView>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
+      
+      {/* Liquid Hero Background */}
+      {renderLiquidBackground()}
+      
+      {/* Floating Hero Content */}
+      {renderFloatingHeroContent()}
+      
+      {/* Sticky Header */}
+      {renderStickyHeader()}
+      
+      {/* Rising Sheet */}
+      {renderRisingSheet()}
     </View>
   );
 };
 
-// Styles for the Liquid Hero HomeScreen component
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: LIQUID_COLORS.background,
   },
 
-  // Authentication Required Screen
-  authRequiredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  authRequiredContent: {
-    alignItems: 'center',
-    maxWidth: 320,
-  },
-  authRequiredTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: LIQUID_COLORS.text.primary,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  authRequiredSubtitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: LIQUID_COLORS.text.secondary,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-  loginButton: {
-    backgroundColor: LIQUID_COLORS.primary,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    minWidth: 120,
-  },
-  loginButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: LIQUID_COLORS.text.primary,
-    textAlign: 'center',
-  },
-
-  // Liquid Hero Section
-  heroContainer: {
-    height: height * 0.6, // 60% of screen height
-    position: 'relative',
+  // Liquid Background
+  liquidBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.6,
     overflow: 'hidden',
   },
-  liquidBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  gradient: {
+
+  gradientBackground: {
     flex: 1,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    position: 'relative',
   },
-  liquidBlob: {
+
+  blob: {
     position: 'absolute',
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.3,
   },
+
   blob1: {
     top: 50,
     right: 30,
   },
+
   blob2: {
     bottom: 80,
     left: 20,
   },
 
-  // Floating Hero Content
-  heroContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 60, // Account for status bar
+  particles: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
+
+  particle: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    shadowColor: '#fff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+  },
+
+  // Hero Content
+  heroContent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.6,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+
+  heroContentInner: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+
+  locationIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+
+  locationText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.secondary,
+    marginLeft: 6,
+  },
+
+  heroHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+
   heroHeadline: {
     fontSize: 32,
     fontWeight: '700',
@@ -513,156 +708,473 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     letterSpacing: 0.5,
   },
-  heroSubheadline: {
+
+  heroSubtitle: {
     fontSize: 16,
     fontWeight: '400',
     color: LIQUID_COLORS.text.secondary,
     textAlign: 'center',
-    marginBottom: 24,
     opacity: 0.8,
   },
-  searchContainer: {
+
+
+  searchPlaceholder: {
+    marginLeft: 12,
+    fontSize: 16,
+    color: LIQUID_COLORS.text.tertiary,
+    fontWeight: '400',
+  },
+
+  // Hero Stats
+  heroStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     marginBottom: 24,
   },
-  searchInputContainer: {
+
+  weatherWidget: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginRight: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
+
+  weatherText: {
     fontSize: 16,
-    color: LIQUID_COLORS.text.primary,
-    fontWeight: '500',
-  },
-  quickActionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  quickActionButton: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    minWidth: 120,
-  },
-  quickActionText: {
-    fontSize: 14,
     fontWeight: '600',
     color: LIQUID_COLORS.text.primary,
-    marginTop: 8,
+    marginLeft: 6,
   },
+
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: LIQUID_COLORS.primary,
+    marginBottom: 2,
+  },
+
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 12,
+  },
+
+
+  // Hero Footer
+  heroFooter: {
+    alignItems: 'center',
+  },
+
+  footerBadges: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 8,
+  },
+
+  footerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+
+  footerBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.secondary,
+  },
+
+  heroFooterText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.secondary,
+    letterSpacing: 1,
+    opacity: 0.8,
+  },
+
+  // Sticky Header
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 100, // Reduced height since we removed bottom section
+    zIndex: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+
+  stickyHeaderGradient: {
+    flex: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: LIQUID_COLORS.border,
+  },
+
+  stickyHeaderContent: {
+    flex: 1,
+    paddingHorizontal: 28, // Increased horizontal padding
+    paddingTop: 44, // Increased top padding for better spacing
+    paddingBottom: 20, // Increased bottom padding
+    justifyContent: 'center', // Center content vertically
+  },
+
+  stickyHeaderTop: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  stickyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  stickyHeaderAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: LIQUID_COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    shadowColor: LIQUID_COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+
+  stickyHeaderAvatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  stickyHeaderTextContainer: {
+    flex: 1,
+  },
+
+  stickyHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 2,
+  },
+
+  stickyHeaderLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  stickyHeaderLocationText: {
+    fontSize: 12,
+    color: LIQUID_COLORS.text.secondary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+
+
+
 
   // Rising Sheet
   risingSheet: {
-    flex: 1,
-    backgroundColor: LIQUID_COLORS.sheet,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -32, // Overlap with hero
+    position: 'absolute',
+    top: height * 0.4,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: LIQUID_COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
+
   sheetContent: {
-    paddingTop: 40, // Account for rounded corners
-    paddingBottom: 100, // Account for tab bar
+    paddingTop: 40,
+    paddingBottom: 100,
+    paddingHorizontal: 24,
   },
+
   innerShadow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 32,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    height: 20,
+    backgroundColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
   },
 
-  // Tab Selector
+  // Welcome Section
+  welcomeSection: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginBottom: 24,
+  },
+
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+
+  welcomeSubtitle: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+
+  // Sections
+  section: {
+    marginBottom: 32,
+  },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    letterSpacing: 0.5,
+  },
+
+  sectionBadge: {
+    backgroundColor: LIQUID_COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  sectionBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // Tab Navigation
   tabContainer: {
+    marginBottom: 24,
+  },
+
+  tabBar: {
     flexDirection: 'row',
     backgroundColor: LIQUID_COLORS.surface,
-    borderRadius: 16,
-    marginHorizontal: 24,
-    marginBottom: 24,
+    borderRadius: 12,
     padding: 4,
+    marginHorizontal: 24,
   },
-  tabButton: {
+
+  tab: {
     flex: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
   },
-  activeTabButton: {
+
+  activeTab: {
     backgroundColor: LIQUID_COLORS.primary,
-  },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: LIQUID_COLORS.text.secondary,
-  },
-  activeTabText: {
-    color: LIQUID_COLORS.text.primary,
+    shadowColor: LIQUID_COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
-  // Borderless Station List
-  stationsList: {
-    paddingHorizontal: 24,
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
+    textTransform: 'capitalize',
   },
+
+  activeTabText: {
+    color: '#FFFFFF',
+  },
+
+  // Booking Card
+  bookingCardGradient: {
+    borderRadius: 16,
+    padding: 2, // This creates the gradient border effect
+    marginBottom: 8,
+  },
+
+  bookingCard: {
+    backgroundColor: LIQUID_COLORS.card,
+    borderRadius: 14, // Slightly smaller than gradient wrapper
+    padding: 20,
+    shadowColor: LIQUID_COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+
+  bookingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+
+  bookingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 168, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  bookingInfo: {
+    flex: 1,
+  },
+
+  bookingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  bookingSubtitle: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+  },
+
+  bookingDetails: {
+    gap: 8,
+    marginTop: 12,
+  },
+
+  bookingDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  bookingDetail: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    fontWeight: '500',
+  },
+
+  // Station Rows
   stationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#282828',
+    borderBottomColor: LIQUID_COLORS.border,
   },
-  statusCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: LIQUID_COLORS.surface,
+
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+
+  stationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: LIQUID_COLORS.success,
+    marginRight: 8,
+    shadowColor: LIQUID_COLORS.success,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  stationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 168, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
   },
+
   stationInfo: {
     flex: 1,
   },
+
   stationName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: LIQUID_COLORS.text.primary,
     marginBottom: 4,
   },
+
   stationAddress: {
     fontSize: 14,
     color: LIQUID_COLORS.text.secondary,
-    marginBottom: 4,
   },
+
   stationMeta: {
+    alignItems: 'flex-end',
+    marginRight: 8,
+    gap: 4,
+  },
+
+  metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  stationMetaText: {
+
+  metaText: {
     fontSize: 12,
-    color: LIQUID_COLORS.text.muted,
-    marginRight: 16,
+    color: LIQUID_COLORS.text.tertiary,
+    fontWeight: '500',
   },
 });
 
-// Export the component
 export default HomeScreen;

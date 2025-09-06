@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,18 @@ import {
   StyleSheet,
   Alert,
   Dimensions,
+  Animated,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../../design';
-import Button from '../../components/ui/Button';
+import { LinearGradient } from 'expo-linear-gradient';
+import { CheckCircle, CreditCard, Smartphone, Wallet } from 'lucide-react-native';
+import RazorpayCheckout from 'react-native-razorpay';
 
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { BookingStackParamList } from '../../types/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 type BookingConfirmationRouteProp = RouteProp<BookingStackParamList, 'BookingConfirmation'>;
 type BookingConfirmationNavigationProp = StackNavigationProp<BookingStackParamList, 'BookingConfirmation'>;
@@ -24,26 +28,44 @@ interface BookingConfirmationScreenProps {
   navigation: BookingConfirmationNavigationProp;
 }
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Liquid colors inspired by HomeScreen
+const LIQUID_COLORS = {
+  primary: '#00A8FF', // Electric blue
+  secondary: '#6366F1', // Indigo purple
+  tertiary: '#06B6D4', // Cyan teal
+  success: '#10B981', // Emerald green
+  background: '#0F0F0F', // Very dark gray
+  sheet: '#101010', // Dark gray for rising sheet
+  surface: '#1A1A1A', // Surface color
+  card: '#252525', // Card background
+  border: '#333333', // Border color
+  text: {
+    primary: '#FFFFFF',
+    secondary: '#B3B3B3',
+    muted: '#666666',
+  },
+};
 
 const paymentMethods = [
   {
     id: 'card',
     name: 'Credit/Debit Card',
-    icon: 'card-outline',
-    color: Colors.semantic.info,
+    icon: CreditCard,
+    color: LIQUID_COLORS.primary,
   },
   {
     id: 'upi',
-    name: 'UPI',
-    icon: 'phone-portrait-outline',
-    color: Colors.semantic.success,
+    name: 'UPI Payment',
+    icon: Smartphone,
+    color: LIQUID_COLORS.success,
   },
   {
     id: 'wallet',
     name: 'Digital Wallet',
-    icon: 'wallet-outline',
-    color: Colors.semantic.warning,
+    icon: Wallet,
+    color: LIQUID_COLORS.tertiary,
   },
 ];
 
@@ -51,33 +73,195 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   route,
   navigation,
 }) => {
-  const { colors } = useThemeColors();
-  const { station, selectedSlot, selectedDate, totalPrice } = route.params;
+  const { user, token } = useAuth();
+  const {
+    station,
+    startTime,
+    duration,
+    endTime,
+    cost,
+    selectedSlot,
+    selectedDate,
+    totalPrice
+  } = route.params || {};
+
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  // Create a booking object from the route params
-  const booking = {
+  // Reset confirmation state when route parameters change (new booking)
+  useEffect(() => {
+    console.log('🔄 Resetting confirmation state due to route params change');
+    console.log('📋 Current booking params:', route.params);
+    setIsConfirmed(false);
+    setIsProcessing(false);
+  }, [route.params]);
+
+  // Reset state on component mount to ensure fresh start
+  useEffect(() => {
+    console.log('🔄 Resetting confirmation state on component mount');
+    setIsConfirmed(false);
+    setIsProcessing(false);
+  }, []);
+
+  // Animation refs for liquid hero effect
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const liquidAnim = useRef(new Animated.Value(0)).current;
+
+  // Hero content fade animation (scroll-based blurring)
+  const heroFade = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Hero translation animation for collapsing effect
+  const heroTranslate = scrollY.interpolate({
+    inputRange: [0, 200],
+    outputRange: [0, -100],
+    extrapolate: 'clamp',
+  });
+
+  // Sticky header animations
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [100, 150],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const headerTranslate = scrollY.interpolate({
+    inputRange: [100, 150],
+    outputRange: [-30, 0],
+    extrapolate: 'clamp',
+  });
+
+  // Start liquid animation on mount
+  React.useEffect(() => {
+    Animated.timing(liquidAnim, {
+      toValue: 1,
+      duration: 1200,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // Create a booking object from the route params - handle both new and legacy formats
+  const booking = startTime ? {
+    // New flexible booking format
     id: Date.now().toString(),
-    stationName: station.name,
-    stationAddress: station.address,
-    date: selectedDate.toDateString(),
-    time: selectedSlot.time,
-    duration: selectedSlot.duration,
-    slotNumber: selectedSlot.slotNumber,
-    chargerType: selectedSlot.chargerType,
-    amount: selectedSlot.price,
-    totalAmount: totalPrice,
+    stationName: station?.name || 'Unknown Station',
+    stationAddress: station?.address || 'Address not available',
+    date: new Date().toDateString(), // Current date for new bookings
+    time: startTime.displayTime,
+    duration: duration,
+    endTime: endTime,
+    slotNumber: 1, // Default slot number for flexible bookings
+    chargerType: station?.charging_slots?.[0]?.charger_type || 'DC_FAST',
+    amount: cost,
+    totalAmount: cost,
+  } : {
+    // Legacy format for backward compatibility
+    id: Date.now().toString(),
+    stationName: station?.name || 'Unknown Station',
+    stationAddress: station?.address || 'Address not available',
+    date: selectedDate?.toDateString() || new Date().toDateString(),
+    time: selectedSlot?.time || 'Unknown time',
+    duration: selectedSlot?.duration || 0,
+    slotNumber: selectedSlot?.slotNumber || 1,
+    chargerType: selectedSlot?.chargerType || 'DC_FAST',
+    amount: selectedSlot?.price || 0,
+    totalAmount: totalPrice || 0,
   };
 
-  const handlePayment = () => {
+  const initiatePayment = async (amount: number, stationName: string) => {
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
+
+    try {
+      console.log('🚀 Initiating payment for amount:', amount, 'at station:', stationName);
+
+      // 1. Fetch order from backend
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:8000'}/api/payment/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create order');
+      }
+
+      const { order_id, key_id } = await response.json();
+      console.log('✅ Order created successfully:', order_id);
+      console.log('🔑 Key ID received:', key_id);
+      console.log('💰 Amount being charged:', amount);
+
+      // 2. Create Razorpay payment link URL
+      const paymentLinkUrl = `https://rzp.io/l/${order_id}`;
+      
+      console.log('🌐 Opening Razorpay payment link:', paymentLinkUrl);
+      console.log('🔍 Full payment details:', {
+        order_id,
+        key_id,
+        amount,
+        paymentLinkUrl,
+        stationName
+      });
+
+      // 3. Use Native Razorpay SDK
+      console.log('🔄 Opening Native Razorpay Checkout...');
+      
+      const options = {
+        description: `EV Charging at ${stationName}`,
+        image: 'https://via.placeholder.com/100x100/00A8FF/FFFFFF?text=EV',
+        currency: 'INR',
+        key: key_id,
+        amount: amount * 100, // Convert to paise
+        name: 'EV Charging App',
+        order_id: order_id,
+        prefill: {
+          email: user?.email || '',
+          contact: user?.phone || '9999999999',
+          name: user?.name || '',
+        },
+        theme: { color: LIQUID_COLORS.primary },
+      };
+
+      console.log('💳 Razorpay options:', options);
+
+      try {
+        const data = await RazorpayCheckout.open(options);
+        
+        // Handle success
+        console.log('✅ Payment Successful:', data);
+        Alert.alert('Booking Confirmed!', `Your charging slot is reserved.\nPayment ID: ${data.razorpay_payment_id}`);
+        setIsConfirmed(true);
+        
+      } catch (error: any) {
+        // Handle failure
+        console.error('❌ Payment Error:', error);
+        
+        if (error.code === 'PAYMENT_CANCELLED') {
+          Alert.alert('Payment Cancelled', 'Payment was cancelled by user.');
+        } else {
+          Alert.alert('Payment Failed', `Reason: ${error.description || 'Unknown error'}`);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('❌ Order Creation Error:', error);
+      Alert.alert('Error', 'Could not initiate payment. Please try again.');
+    } finally {
       setIsProcessing(false);
-      setIsConfirmed(true);
-    }, 2000);
+    }
+  };
+
+  const handlePayment = async () => {
+    const bookingAmount = route.params?.cost || route.params?.totalPrice || 5;
+    const stationName = route.params?.station?.name || 'EV Station';
+    
+    await initiatePayment(bookingAmount, stationName);
   };
 
   const handleBackToHome = () => {
@@ -91,156 +275,356 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
 
   if (isConfirmed) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Success Header */}
-          <View style={styles.successHeader}>
-            <View style={[styles.successIcon, { backgroundColor: Colors.semantic.success }]}>
-              <Ionicons name="checkmark" size={48} color={Colors.neutral.white} />
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
+
+        {/* Sticky Header */}
+        <Animated.View style={[styles.stickyHeader, {
+          opacity: headerOpacity,
+          transform: [{ translateY: headerTranslate }]
+        }]}>
+          <Text style={styles.stickyHeaderTitle}>Booking Confirmed</Text>
+          <Ionicons name="checkmark-circle" size={24} color={LIQUID_COLORS.success} />
+        </Animated.View>
+
+        {/* Liquid Hero Section */}
+        <Animated.View style={[styles.heroContainer, { 
+          opacity: heroFade,
+          transform: [{ translateY: heroTranslate }]
+        }]}>
+          <Animated.View
+            style={[
+              styles.liquidBackground,
+              {
+                transform: [
+                  {
+                    scale: liquidAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={[
+                LIQUID_COLORS.success,
+                LIQUID_COLORS.primary,
+                LIQUID_COLORS.tertiary,
+                LIQUID_COLORS.success,
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradient}
+            >
+              {/* Animated liquid blobs */}
+              <Animated.View
+                style={[
+                  styles.liquidBlob,
+                  styles.blob1,
+                  {
+                    transform: [
+                      {
+                        translateX: liquidAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 30],
+                        }),
+                      },
+                      {
+                        translateY: liquidAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -20],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.liquidBlob,
+                  styles.blob2,
+                  {
+                    transform: [
+                      {
+                        translateX: liquidAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -25],
+                        }),
+                      },
+                      {
+                        translateY: liquidAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 15],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            </LinearGradient>
+          </Animated.View>
+
+          {/* Success Content */}
+          <View style={styles.successContent}>
+            <View style={styles.successIconContainer}>
+              <CheckCircle size={64} color={LIQUID_COLORS.text.primary} />
             </View>
-            <Text style={[styles.successTitle, { color: colors.text.primary }]}>
+            <Text style={styles.successTitle}>
               Booking Confirmed!
             </Text>
-            <Text style={[styles.successSubtitle, { color: colors.text.secondary }]}>
+            <Text style={styles.successSubtitle}>
               Your charging session has been successfully booked
             </Text>
           </View>
+        </Animated.View>
+
+        {/* Rising Sheet */}
+        <Animated.ScrollView
+          style={styles.risingSheet}
+          contentContainerStyle={styles.sheetContent}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: true }
+          )}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Inner Shadow */}
+          <View style={styles.innerShadow} />
 
           {/* QR Code Section */}
-          <View style={[styles.qrSection, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.qrTitle, { color: colors.text.primary }]}>QR Code</Text>
-            <Text style={[styles.qrSubtitle, { color: colors.text.secondary }]}>
+          <View style={styles.qrSection}>
+            <Text style={styles.sectionTitle}>Access Code</Text>
+            <Text style={styles.sectionSubtitle}>
               Show this at the charging station
             </Text>
-            <View style={[styles.qrCode, { backgroundColor: colors.border }]}>
-              <Text style={[styles.qrText, { color: colors.text.secondary }]}>
+            <View style={styles.qrCode}>
+              <Text style={styles.qrText}>
                 QR Code Placeholder
               </Text>
             </View>
           </View>
 
           {/* Booking Details */}
-          <View style={[styles.bookingDetails, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.bookingIdLabel, { color: colors.text.secondary }]}>
+          <View style={styles.bookingDetails}>
+            <Text style={styles.bookingIdLabel}>
               Booking ID: {booking.id}
             </Text>
-            <Text style={[styles.stationName, { color: colors.text.primary }]}>
+            <Text style={styles.stationName}>
               {booking.stationName}
             </Text>
-            <Text style={[styles.stationAddress, { color: colors.text.secondary }]}>
+            <Text style={styles.stationAddress}>
               {booking.stationAddress}
             </Text>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            <Button
-              title="View Booking Details"
+            <TouchableOpacity
+              style={styles.secondaryButton}
               onPress={handleViewBooking}
-              variant="outline"
-              size="large"
-              style={styles.actionButton}
-            />
-            <Button
-              title="Back to Home"
+            >
+              <Text style={styles.secondaryButtonText}>View Booking Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.primaryButton}
               onPress={handleBackToHome}
-              variant="primary"
-              size="large"
-              style={styles.actionButton}
-            />
+            >
+              <Text style={styles.primaryButtonText}>Back to Home</Text>
+            </TouchableOpacity>
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text.primary }]}>
-            Confirm Booking
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
+
+      {/* Sticky Header */}
+      <Animated.View style={[styles.stickyHeader, {
+        opacity: headerOpacity,
+        transform: [{ translateY: headerTranslate }]
+      }]}>
+        <Text style={styles.stickyHeaderTitle}>Confirm Booking</Text>
+        <Ionicons name="card-outline" size={24} color={LIQUID_COLORS.primary} />
+      </Animated.View>
+
+      {/* Liquid Hero Section */}
+      <Animated.View style={[styles.heroContainer, { 
+        opacity: heroFade,
+        transform: [{ translateY: heroTranslate }]
+      }]}>
+        <Animated.View
+          style={[
+            styles.liquidBackground,
+            {
+              transform: [
+                {
+                  scale: liquidAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.05],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[
+              LIQUID_COLORS.primary,
+              LIQUID_COLORS.secondary,
+              LIQUID_COLORS.tertiary,
+              LIQUID_COLORS.primary,
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradient}
+          >
+            {/* Animated liquid blobs */}
+            <Animated.View
+              style={[
+                styles.liquidBlob,
+                styles.blob1,
+                {
+                  transform: [
+                    {
+                      translateX: liquidAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 30],
+                      }),
+                    },
+                    {
+                      translateY: liquidAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -20],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.liquidBlob,
+                styles.blob2,
+                {
+                  transform: [
+                    {
+                      translateX: liquidAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -25],
+                      }),
+                    },
+                    {
+                      translateY: liquidAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 15],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          </LinearGradient>
+        </Animated.View>
+
+        {/* Hero Content */}
+        <View style={styles.heroContent}>
+          <Text style={styles.heroHeadline}>
+            Confirm Your Booking
           </Text>
-          <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-            Review your booking details
+          <Text style={styles.heroSubheadline}>
+            Review your charging session details
           </Text>
         </View>
+      </Animated.View>
+
+      {/* Rising Sheet */}
+      <Animated.ScrollView
+        style={styles.risingSheet}
+        contentContainerStyle={styles.sheetContent}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Inner Shadow */}
+        <View style={styles.innerShadow} />
 
         {/* Booking Summary */}
-        <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.summaryTitle, { color: colors.text.primary }]}>
-            Booking Summary
-          </Text>
-          
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Booking Summary</Text>
+
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
-              Station
-            </Text>
-            <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
-              {booking.stationName}
-            </Text>
+            <Text style={styles.summaryLabel}>Station</Text>
+            <Text style={styles.summaryValue}>{booking.stationName}</Text>
           </View>
-          
+
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
-              Date & Time
-            </Text>
-            <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
+            <Text style={styles.summaryLabel}>Start Time</Text>
+            <Text style={styles.summaryValue}>
               {booking.date} at {booking.time}
             </Text>
           </View>
-          
+
+          {booking.endTime && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>End Time</Text>
+              <Text style={styles.summaryValue}>{booking.endTime}</Text>
+            </View>
+          )}
+
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
-              Duration
-            </Text>
-            <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
-              {booking.duration} hours
+            <Text style={styles.summaryLabel}>Duration</Text>
+            <Text style={styles.summaryValue}>
+              {startTime ? `${booking.duration} minutes` : `${booking.duration} hours`}
             </Text>
           </View>
-          
-          <View style={[styles.priceDivider, { backgroundColor: colors.border }]} />
-          
+
+          <View style={styles.priceDivider} />
+
           <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, { color: colors.text.primary }]}>
+            <Text style={[styles.summaryLabel, { color: LIQUID_COLORS.primary }]}>
               Total Amount
             </Text>
-            <Text style={[styles.totalAmount, { color: colors.primary }]}>
+            <Text style={[styles.totalAmount, { color: LIQUID_COLORS.primary }]}>
               ₹{booking.totalAmount}
             </Text>
           </View>
         </View>
 
         {/* Payment Method */}
-        <View style={[styles.paymentCard, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.paymentTitle, { color: colors.text.primary }]}>
-            Payment Method
-          </Text>
-          
+        <View style={styles.paymentCard}>
+          <Text style={styles.paymentTitle}>Payment Method</Text>
+
           {paymentMethods.map((method) => (
             <TouchableOpacity
               key={method.id}
               style={[
                 styles.paymentOption,
                 {
-                  backgroundColor: paymentMethod === method.id ? colors.primary : colors.surface,
-                  borderColor: paymentMethod === method.id ? colors.primary : colors.border,
+                  backgroundColor: paymentMethod === method.id ? LIQUID_COLORS.surface : LIQUID_COLORS.card,
+                  borderColor: paymentMethod === method.id ? method.color : LIQUID_COLORS.surface,
                 },
               ]}
               onPress={() => setPaymentMethod(method.id)}
             >
               <View style={styles.paymentOptionContent}>
-                <Ionicons
-                  name={method.icon as any}
+                <method.icon
                   size={24}
-                  color={paymentMethod === method.id ? Colors.neutral.white : method.color}
+                  color={paymentMethod === method.id ? LIQUID_COLORS.text.primary : method.color}
                 />
                 <Text
                   style={[
                     styles.paymentOptionText,
                     {
-                      color: paymentMethod === method.id ? Colors.neutral.white : colors.text.primary,
+                      color: paymentMethod === method.id ? LIQUID_COLORS.text.primary : LIQUID_COLORS.text.secondary,
                     },
                   ]}
                 >
@@ -248,183 +632,451 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
                 </Text>
               </View>
               {paymentMethod === method.id && (
-                <Ionicons name="checkmark-circle" size={24} color={Colors.neutral.white} />
+                <Ionicons name="checkmark-circle" size={24} color={LIQUID_COLORS.primary} />
               )}
             </TouchableOpacity>
           ))}
         </View>
 
         {/* Confirm Button */}
-        <Button
-          title={isProcessing ? 'Processing...' : 'Confirm Booking'}
+        <TouchableOpacity
+          style={[
+            styles.confirmButton,
+            {
+              opacity: isProcessing ? 0.6 : 1,
+            }
+          ]}
           onPress={handlePayment}
-          variant="primary"
-          size="large"
           disabled={isProcessing}
-          style={styles.confirmButton}
-        />
-      </ScrollView>
+        >
+          <LinearGradient
+            colors={
+              isProcessing
+                ? [LIQUID_COLORS.surface, LIQUID_COLORS.surface]
+                : [LIQUID_COLORS.primary, LIQUID_COLORS.secondary]
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.confirmButtonGradient}
+          >
+            <Text style={styles.confirmButtonText}>
+              {isProcessing ? 'Processing...' : 'Confirm & Pay'}
+            </Text>
+            {!isProcessing && <Ionicons name="arrow-forward" size={20} color={LIQUID_COLORS.text.primary} />}
+          </LinearGradient>
+        </TouchableOpacity>
+      </Animated.ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Main Container
   container: {
     flex: 1,
+    backgroundColor: LIQUID_COLORS.background,
   },
-  scrollContent: {
-    padding: Spacing.lg,
-  },
-  header: {
+
+  // Sticky Header
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 90,
+    backgroundColor: LIQUID_COLORS.surface,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 50, // Account for status bar
+    zIndex: 1000,
+    borderBottomWidth: 1,
+    borderBottomColor: LIQUID_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: Spacing.sm,
+
+  stickyHeaderTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
   },
-  subtitle: {
-    fontSize: 16,
+  // Liquid Hero Section
+  heroContainer: {
+    height: height * 0.5, // 50% of screen height
+    position: 'relative',
+    overflow: 'hidden',
+  },
+
+  liquidBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  gradient: {
+    flex: 1,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+  },
+
+  liquidBlob: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  blob1: {
+    top: 50,
+    right: 30,
+  },
+
+  blob2: {
+    bottom: 80,
+    left: 20,
+  },
+
+  // Hero Content
+  heroContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 60, // Account for status bar
+  },
+
+  heroHeadline: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
     textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
+
+  heroSubheadline: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    opacity: 0.8,
+  },
+
+  // Rising Sheet
+  risingSheet: {
+    flex: 1,
+    backgroundColor: LIQUID_COLORS.sheet,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -32, // Overlap with hero
+  },
+
+  sheetContent: {
+    paddingTop: 40, // Account for rounded corners
+    paddingBottom: 100, // Account for tab bar
+    paddingHorizontal: 24,
+  },
+
+  innerShadow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 32,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  // Cards
   summaryCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    ...Elevation.level1,
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
+
   summaryTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: Spacing.lg,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 20,
   },
+
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: 16,
   },
+
   summaryLabel: {
     fontSize: 16,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.secondary,
   },
+
   summaryValue: {
     fontSize: 16,
     fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
     textAlign: 'right',
     flex: 1,
   },
+
   priceDivider: {
     height: 1,
-    marginVertical: Spacing.md,
+    backgroundColor: LIQUID_COLORS.border,
+    marginVertical: 16,
   },
+
   totalAmount: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: LIQUID_COLORS.primary,
   },
+
+  // Payment Methods
   paymentCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.xl,
-    ...Elevation.level1,
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
+
   paymentTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: Spacing.lg,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 20,
   },
+
   paymentOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
+    padding: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: Spacing.sm,
+    marginBottom: 12,
   },
+
   paymentOptionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: 12,
   },
+
   paymentOptionText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
   },
+
+  // Confirm Button
   confirmButton: {
-    marginBottom: Spacing.lg,
+    marginBottom: 24,
   },
-  successHeader: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-  },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+
+  confirmButtonGradient: {
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.lg,
+    flexDirection: 'row',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: Spacing.sm,
-  },
-  successSubtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  qrSection: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    alignItems: 'center',
-    ...Elevation.level1,
-  },
-  qrTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: Spacing.sm,
-  },
-  qrSubtitle: {
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: Spacing.lg,
-  },
-  qrCode: {
-    width: 200,
-    height: 200,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qrText: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  bookingDetails: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    ...Elevation.level1,
-  },
-  bookingIdLabel: {
-    fontSize: 12,
-    marginBottom: Spacing.sm,
-  },
-  stationName: {
+
+  confirmButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: Spacing.xs,
+    color: LIQUID_COLORS.text.primary,
   },
+
+  // Success Screen Styles
+  successContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+
+  successIconContainer: {
+    marginBottom: 24,
+  },
+
+  successTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+
+  successSubtitle: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    opacity: 0.8,
+  },
+
+  // QR Code Section
+  qrSection: {
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 8,
+  },
+
+  sectionSubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  qrCode: {
+    width: 150,
+    height: 150,
+    backgroundColor: LIQUID_COLORS.card,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+  },
+
+  qrText: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+  },
+
+  // Booking Details
+  bookingDetails: {
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  bookingIdLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.muted,
+    marginBottom: 8,
+  },
+
+  stationName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
   stationAddress: {
     fontSize: 14,
+    fontWeight: '400',
+    color: LIQUID_COLORS.text.secondary,
   },
+
+  // Action Buttons
   actionButtons: {
-    gap: Spacing.md,
+    gap: 12,
   },
-  actionButton: {
-    marginBottom: Spacing.sm,
+
+  secondaryButton: {
+    backgroundColor: LIQUID_COLORS.card,
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
+  },
+
+  primaryButton: {
+    backgroundColor: LIQUID_COLORS.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
   },
 });

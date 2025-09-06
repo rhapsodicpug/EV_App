@@ -1,0 +1,1931 @@
+/**
+ * Station Booking Screen - Combined Interface
+ * Single-screen booking experience with station details and timeline
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Animated,
+  Dimensions,
+  StatusBar,
+  Image,
+  PanResponder,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { useThemeColors, Colors } from '../../design';
+import Button from '../../components/ui/Button';
+import { apiService } from '../../services/api';
+
+const { width, height } = Dimensions.get('window');
+
+// Liquid colors matching HomeScreen
+const LIQUID_COLORS = {
+  primary: '#00A8FF', // Electric blue
+  secondary: '#6366F1', // Indigo purple
+  tertiary: '#06B6D4', // Cyan teal
+  background: '#0F0F0F', // Very dark gray
+  sheet: '#101010', // Dark gray for rising sheet
+  surface: '#1A1A1A', // Surface color
+  text: {
+    primary: '#FFFFFF',
+    secondary: '#B3B3B3',
+    muted: '#666666',
+  },
+};
+
+interface StartTimeOption {
+  id: string;
+  time: string;
+  hour: number;
+  minute: number;
+  displayTime: string;
+  isAvailable: boolean;
+}
+
+interface StationBookingScreenProps {
+  route: {
+    params: {
+      station: {
+        id: string;
+        name: string;
+        address: string;
+        chargerTypes: string[];
+        basePrice: number;
+        amenities: string[];
+        location?: {
+          coordinates: [number, number];
+        };
+        charging_slots?: any[];
+        rating?: number;
+        total_reviews?: number;
+      };
+    };
+  };
+  navigation: any;
+}
+
+const generateStartTimeOptions = (): StartTimeOption[] => {
+  const options: StartTimeOption[] = [];
+  const today = new Date();
+
+  // Generate start times from 6 AM to 10 PM in 5-minute intervals
+  for (let hour = 6; hour < 22; hour++) {
+    for (let minute = 0; minute < 60; minute += 5) {
+      const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      const displayTime = formatTimeForDisplay(hour, minute);
+
+      options.push({
+        id: `start_${hour}_${minute}`,
+        time: timeString,
+        hour,
+        minute,
+        displayTime,
+        isAvailable: Math.random() > 0.2, // 80% availability
+      });
+    }
+  }
+
+  return options;
+};
+
+const formatTimeForDisplay = (hour: number, minute: number): string => {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  const minuteStr = minute.toString().padStart(2, '0');
+  return `${displayHour}:${minuteStr} ${period}`;
+};
+
+export const StationBookingScreen: React.FC<StationBookingScreenProps> = ({
+  route,
+  navigation,
+}) => {
+  const { station } = route.params || {};
+
+  // State management
+  const [selectedStartTime, setSelectedStartTime] = useState<StartTimeOption | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30); // Default 30 minutes
+  const [selectedChargerType, setSelectedChargerType] = useState(station?.chargerTypes?.[0] || 'DC_FAST');
+  const [startTimeOptions, setStartTimeOptions] = useState<StartTimeOption[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({});
+
+  // Animation values
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const footerTranslateY = useRef(new Animated.Value(height)).current;
+  const footerOpacity = useRef(new Animated.Value(0)).current;
+
+  // Theme colors
+  const fallbackColors = {
+    primary: LIQUID_COLORS.primary,
+    secondary: LIQUID_COLORS.secondary,
+    surface: LIQUID_COLORS.surface,
+    background: LIQUID_COLORS.background,
+    border: 'rgba(255, 255, 255, 0.2)',
+    text: {
+      primary: LIQUID_COLORS.text.primary,
+      secondary: LIQUID_COLORS.text.secondary,
+      muted: LIQUID_COLORS.text.muted,
+    },
+  };
+
+  let colors;
+  try {
+    const themeColors = useThemeColors();
+    colors = themeColors?.colors || fallbackColors;
+  } catch (error) {
+    console.warn('Failed to get theme colors, using fallback:', error);
+    colors = fallbackColors;
+  }
+
+  // Safety check for chargerTypes
+  const chargerTypes = station?.chargerTypes || ['DC_FAST'];
+  const basePrice = station?.basePrice || 10;
+
+  // Load start time options when component mounts
+  useEffect(() => {
+    loadStartTimeOptions();
+  }, []);
+
+  // Set default start time when options are loaded
+  useEffect(() => {
+    if (startTimeOptions.length > 0 && !selectedStartTime) {
+      // Find the next available time (closest to current time)
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = Math.floor(now.getMinutes() / 5) * 5; // Round to nearest 5 minutes
+
+      const defaultTime = startTimeOptions.find(option =>
+        option.hour > currentHour ||
+        (option.hour === currentHour && option.minute >= currentMinute)
+      ) || startTimeOptions[0];
+
+      if (defaultTime.isAvailable) {
+        setSelectedStartTime(defaultTime);
+      }
+    }
+  }, [startTimeOptions, selectedStartTime]);
+
+  // Load available start time options
+  const loadStartTimeOptions = async () => {
+    setIsLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const options = generateStartTimeOptions();
+      console.log('DEBUG: Generated', options.length, 'start time options');
+      setStartTimeOptions(options);
+    } catch (error) {
+      console.error('Error loading start time options:', error);
+      Alert.alert('Error', 'Failed to load available times');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Calculate end time based on start time and duration
+  const calculateEndTime = (startTime: StartTimeOption, durationMinutes: number) => {
+    const startDate = new Date();
+    startDate.setHours(startTime.hour, startTime.minute, 0, 0);
+    startDate.setMinutes(startDate.getMinutes() + durationMinutes);
+
+    const endHour = startDate.getHours();
+    const endMinute = startDate.getMinutes();
+    return formatTimeForDisplay(endHour, endMinute);
+  };
+
+  // Calculate cost based on duration and base price per hour
+  const calculateCost = (durationMinutes: number) => {
+    const hours = durationMinutes / 60;
+    return (basePrice * hours).toFixed(2);
+  };
+
+  const handleStartTimeSelect = (startTime: StartTimeOption) => {
+    if (!startTime.isAvailable) {
+      Alert.alert('Time Unavailable', 'This start time is not available.');
+      return;
+    }
+
+    setSelectedStartTime(startTime);
+
+    // Animate footer slide up if both start time and duration are selected
+    if (selectedDuration > 0) {
+      Animated.parallel([
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  const handleDurationChange = (duration: number) => {
+    setSelectedDuration(duration);
+
+    // Animate footer slide up if both start time and duration are selected
+    if (selectedStartTime) {
+      Animated.parallel([
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  };
+
+  const handleConfirmBooking = () => {
+    if (!selectedStartTime || selectedDuration <= 0) {
+      Alert.alert('Incomplete Selection', 'Please select a start time and duration.');
+      return;
+    }
+
+    const endTime = calculateEndTime(selectedStartTime, selectedDuration);
+    const cost = calculateCost(selectedDuration);
+
+    Alert.alert(
+      'Confirm Booking',
+      `Start: ${selectedStartTime.displayTime}\nEnd: ${endTime}\nDuration: ${selectedDuration} minutes\nCost: ₹${cost}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: () => {
+            // Navigate to confirmation screen in Bookings tab
+            navigation.navigate('Bookings', {
+              screen: 'BookingConfirmation',
+              params: {
+                station,
+                startTime: selectedStartTime,
+                duration: selectedDuration,
+                endTime,
+                cost: parseFloat(cost),
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+
+
+  const handleCloseBookingFooter = () => {
+    setSelectedStartTime(null);
+
+    // Animate footer slide down
+    Animated.parallel([
+      Animated.timing(footerTranslateY, {
+        toValue: height,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(footerOpacity, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const toggleSection = (sectionName: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
+
+  // Parallax effect for hero header
+  const heroHeight = scrollY.interpolate({
+    inputRange: [0, 200],
+    outputRange: [height * 0.5, height * 0.3],
+    extrapolate: 'clamp',
+  });
+
+  const heroOpacity = scrollY.interpolate({
+    inputRange: [0, 150],
+    outputRange: [1, 0.8],
+    extrapolate: 'clamp',
+  });
+
+  const titleScale = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [1, 0.9],
+    extrapolate: 'clamp',
+  });
+
+  const renderHeroHeader = () => {
+    const availableTimes = startTimeOptions.filter(option => option.isAvailable);
+    const totalTimes = startTimeOptions.length;
+    const availabilityText = `${availableTimes.length} of ${totalTimes} Available`;
+
+    return (
+      <Animated.View style={[styles.heroContainer, { height: heroHeight }]}>
+        <Animated.Image
+          source={{ uri: 'https://images.unsplash.com/photo-1593941707882-61526b9b7eff?w=800&h=600&fit=crop' }}
+          style={[styles.heroImage, { opacity: heroOpacity }]}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+          style={styles.heroGradient}
+          locations={[0, 0.6, 1]}
+        >
+          <View style={styles.heroContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="arrow-back" size={24} color={LIQUID_COLORS.text.primary} />
+            </TouchableOpacity>
+
+            <Animated.View style={[styles.titleContainer, { transform: [{ scale: titleScale }] }]}>
+              <Text style={styles.stationName}>{station?.name || 'Station Name'}</Text>
+              <Text style={styles.stationAddress}>{station?.address || 'Station Address'}</Text>
+
+              {/* Live Availability Indicator */}
+              <View style={styles.availabilityBadge}>
+                <Ionicons name="flash" size={16} color={Colors.semantic.success} />
+                <Text style={styles.availabilityText}>{availabilityText}</Text>
+              </View>
+            </Animated.View>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+    );
+  };
+
+  const renderCalendlyBooking = () => {
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [expandedTimeId, setExpandedTimeId] = useState<string | null>(null);
+    const [selectedDurationForExpanded, setSelectedDurationForExpanded] = useState(30);
+    const [sliderDragPosition, setSliderDragPosition] = useState(0);
+    const sliderWidth = 280;
+
+    const formatDuration = (minutes: number) => {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      if (hours === 0) return `${mins} minutes`;
+      if (mins === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+      return `${hours} hour${hours > 1 ? 's' : ''} ${mins} minutes`;
+    };
+
+    const getDaysInMonth = (date: Date) => {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const daysInMonth = lastDay.getDate();
+
+      const days = [];
+      const startDayOfWeek = firstDay.getDay();
+
+      // Add empty cells for days before the first day of the month
+      for (let i = 0; i < startDayOfWeek; i++) {
+        days.push(null);
+      }
+
+      // Add all days of the month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const isToday = date.toDateString() === new Date().toDateString();
+        const isSelected = date.toDateString() === selectedDate.toDateString();
+        const hasAvailability = Math.random() > 0.3; // Mock availability
+
+        days.push({
+          day,
+          date,
+          isToday,
+          isSelected,
+          hasAvailability,
+        });
+      }
+
+      return days;
+    };
+
+    const changeMonth = (direction: 'prev' | 'next') => {
+      const newDate = new Date(currentDate);
+      if (direction === 'prev') {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+      setCurrentDate(newDate);
+    };
+
+    const selectDate = (date: Date) => {
+      setSelectedDate(date);
+      setExpandedTimeId(null); // Close any expanded rows when changing date
+    };
+
+    const toggleExpandedRow = (timeId: string) => {
+      setExpandedTimeId(expandedTimeId === timeId ? null : timeId);
+    };
+
+    const handleDurationChangeForExpanded = (duration: number) => {
+      setSelectedDurationForExpanded(duration);
+    };
+
+    const handleConfirmBookingForExpanded = (startTime: StartTimeOption) => {
+      setSelectedStartTime(startTime);
+      setSelectedDuration(selectedDurationForExpanded);
+      handleConfirmBooking();
+    };
+
+    // Slider PanResponder for smooth dragging
+    const sliderPanResponder = useRef(
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (evt) => {
+          // Haptic feedback when starting to drag
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+          // Use locationX from the touch event for initial position
+          const { locationX } = evt.nativeEvent;
+          const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
+          const newDuration = Math.round(5 + percentage * (240 - 5));
+          const roundedDuration = Math.round(newDuration / 5) * 5;
+          const finalDuration = Math.max(5, Math.min(240, roundedDuration));
+          setSelectedDurationForExpanded(finalDuration);
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          // Use moveX for smoother tracking - this gives us the absolute position
+          const currentX = gestureState.moveX - gestureState.x0 + evt.nativeEvent.locationX;
+          const percentage = Math.max(0, Math.min(1, currentX / sliderWidth));
+          const newDuration = Math.round(5 + percentage * (240 - 5));
+          const roundedDuration = Math.round(newDuration / 5) * 5;
+          const finalDuration = Math.max(5, Math.min(240, roundedDuration));
+
+          // Update state immediately for smoother visual feedback
+          setSelectedDurationForExpanded(finalDuration);
+
+          // Add haptic feedback on 30-minute intervals (throttled)
+          if (finalDuration % 30 === 0 && finalDuration > 5 && finalDuration !== selectedDurationForExpanded) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }
+        },
+        onPanResponderRelease: () => {
+          // Final haptic feedback when releasing
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        },
+      })
+    ).current;
+
+    const monthDays = getDaysInMonth(currentDate);
+    const availableStartTimes = startTimeOptions.filter(option => option.isAvailable);
+
+    return (
+      <View style={styles.calendlyContainer}>
+        {/* Compact Calendar */}
+        <View style={styles.calendarSection}>
+          <View style={styles.calendarHeader}>
+            <TouchableOpacity onPress={() => changeMonth('prev')}>
+              <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={[styles.calendarTitle, { color: colors.text.primary }]}>
+              {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </Text>
+            <TouchableOpacity onPress={() => changeMonth('next')}>
+              <Ionicons name="chevron-forward" size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.calendarGrid}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <Text key={day} style={[styles.calendarWeekday, { color: colors.text.secondary }]}>
+                {day}
+              </Text>
+            ))}
+
+            {monthDays.map((dayInfo, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.calendarDay,
+                  dayInfo?.isSelected && [styles.calendarDaySelected, { backgroundColor: colors.primary }],
+                  dayInfo?.isToday && styles.calendarDayToday,
+                ]}
+                onPress={() => dayInfo && selectDate(dayInfo.date)}
+                disabled={!dayInfo?.hasAvailability}
+              >
+                {dayInfo ? (
+                  <>
+                    <Text
+                      style={[
+                        styles.calendarDayText,
+                        { color: dayInfo.isSelected ? colors.surface : colors.text.primary },
+                        !dayInfo.hasAvailability && { color: 'rgba(255, 255, 255, 0.4)' },
+                      ]}
+                    >
+                      {dayInfo.day}
+                    </Text>
+                    {dayInfo.hasAvailability && (
+                      <View
+                        style={[
+                          styles.availabilityDot,
+                          { backgroundColor: dayInfo.isSelected ? colors.surface : colors.primary }
+                        ]}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.emptyDay} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Start Times List */}
+        <View style={styles.timesSection}>
+          <Text style={[styles.timesTitle, { color: colors.text.primary }]}>
+            Available times for {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </Text>
+
+          {/* Time Range Selector */}
+          <View style={styles.timeRangeSelector}>
+            <Text style={[styles.timeRangeLabel, { color: colors.text.secondary }]}>Quick Select:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeRangeScroll}>
+              {[
+                { label: 'Morning', hours: [6, 7, 8, 9, 10, 11] },
+                { label: 'Afternoon', hours: [12, 13, 14, 15, 16] },
+                { label: 'Evening', hours: [17, 18, 19, 20, 21] },
+              ].map((range) => (
+                <TouchableOpacity
+                  key={range.label}
+                  style={[styles.timeRangeChip, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => {
+                    // Filter available times to this range
+                    const filteredTimes = availableStartTimes.filter(time =>
+                      range.hours.includes(time.hour)
+                    );
+                    if (filteredTimes.length > 0) {
+                      setExpandedTimeId(filteredTimes[0].id);
+                    }
+                  }}
+                >
+                  <Text style={[styles.timeRangeChipText, { color: colors.text.primary }]}>
+                    {range.label}
+                  </Text>
+                  <Text style={[styles.timeRangeSubtext, { color: colors.text.secondary }]}>
+                    {range.hours[0]}:00 - {range.hours[range.hours.length - 1] + 1}:00
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <ScrollView style={styles.timesList} showsVerticalScrollIndicator={false}>
+            {/* Group times by hour for better organization */}
+            {Array.from({ length: 16 }, (_, i) => 6 + i).map((hour) => {
+              const hourTimes = availableStartTimes.filter(time => time.hour === hour);
+              if (hourTimes.length === 0) return null;
+
+              return (
+                <View key={hour} style={styles.hourGroup}>
+                  <Text style={[styles.hourLabel, { color: colors.text.secondary }]}>
+                    {hour === 0 ? '12' : hour > 12 ? hour - 12 : hour}:00 {hour >= 12 ? 'PM' : 'AM'}
+                  </Text>
+                  <View style={styles.hourTimesGrid}>
+                    {hourTimes.slice(0, 6).map((timeOption) => {
+                      const isExpanded = expandedTimeId === timeOption.id;
+
+                      return (
+                        <TouchableOpacity
+                          key={timeOption.id}
+                          style={[
+                            styles.timeGridItem,
+                            { backgroundColor: colors.surface, borderColor: colors.border },
+                            isExpanded && { borderColor: colors.primary },
+                          ]}
+                          onPress={() => toggleExpandedRow(timeOption.id)}
+                        >
+                          <Text style={[styles.timeGridText, { color: colors.text.primary }]}>
+                            {timeOption.displayTime.split(' ')[0]}
+                          </Text>
+                          <Text style={[styles.timeGridPeriod, { color: colors.text.secondary }]}>
+                            {timeOption.displayTime.split(' ')[1]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Time Details Modal/Expanded View */}
+        {expandedTimeId && (() => {
+          const selectedTime = startTimeOptions.find(opt => opt.id === expandedTimeId);
+          if (!selectedTime) return null;
+
+          return (
+            <View style={styles.expandedModal}>
+              <View style={[styles.expandedContent, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                {/* Duration Slider */}
+                <View style={styles.durationSection}>
+                  <Text style={[styles.durationLabel, { color: colors.text.primary }]}>
+                    {formatDuration(selectedDurationForExpanded)}
+                  </Text>
+
+                  <View style={styles.sliderContainer}>
+                    <View style={styles.sliderTrack}>
+                      <View
+                        style={[
+                          styles.sliderFill,
+                          {
+                            width: `${((selectedDurationForExpanded - 5) / (240 - 5)) * 100}%`,
+                            backgroundColor: colors.primary,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.sliderThumb,
+                          {
+                            left: `${((selectedDurationForExpanded - 5) / (240 - 5)) * 100}%`,
+                            backgroundColor: colors.primary,
+                          },
+                        ]}
+                        {...sliderPanResponder.panHandlers}
+                      >
+                        <View style={[styles.sliderThumbInner, { backgroundColor: colors.surface }]} />
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Real-time Summary */}
+                <View style={styles.expandedSummary}>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                      Start:
+                    </Text>
+                    <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
+                      {selectedTime.displayTime}
+                    </Text>
+                  </View>
+
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                      End:
+                    </Text>
+                    <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
+                      {calculateEndTime(selectedTime, selectedDurationForExpanded)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                      Cost:
+                    </Text>
+                    <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                      ₹{calculateCost(selectedDurationForExpanded)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.expandedActions}>
+                  <TouchableOpacity
+                    style={[styles.cancelButton, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+                    onPress={() => setExpandedTimeId(null)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: colors.text.secondary }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.confirmButton, { backgroundColor: colors.primary }]}
+                    onPress={() => handleConfirmBookingForExpanded(selectedTime)}
+                  >
+                    <Text style={[styles.confirmButtonText, { color: colors.surface }]}>
+                      Confirm & Book
+                    </Text>
+                    <Ionicons name="arrow-forward" size={16} color={colors.surface} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          );
+        })()}
+      </View>
+    );
+  };
+
+  const renderCollapsibleSection = (title: string, content: React.ReactNode, sectionKey: string) => {
+                    style={[
+                      styles.timeRow,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                      isExpanded && { borderColor: colors.primary },
+                    ]}
+                    onPress={() => toggleExpandedRow(timeOption.id)}
+                  >
+                    <Text style={[styles.timeText, { color: colors.text.primary }]}>
+                      {timeOption.displayTime}
+                    </Text>
+                    <Animated.View
+                      style={{
+                        transform: [{ rotate: isExpanded ? '180deg' : '0deg' }],
+                      }}
+                    >
+                      <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
+                    </Animated.View>
+                  </TouchableOpacity>
+
+                  {/* Expanded Content */}
+                  {isExpanded && (
+                    <Animated.View
+                      style={[
+                        styles.expandedContent,
+                        { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+                      ]}
+                    >
+                      {/* Duration Slider */}
+                      <View style={styles.durationSection}>
+                        <Text style={[styles.durationLabel, { color: colors.text.primary }]}>
+                          {formatDuration(selectedDurationForExpanded)}
+                        </Text>
+
+                        <View style={styles.sliderContainer}>
+                          <View style={styles.sliderTrack}>
+                            <View
+                              style={[
+                                styles.sliderFill,
+                                {
+                                  width: `${((selectedDurationForExpanded - 5) / (240 - 5)) * 100}%`,
+                                  backgroundColor: colors.primary,
+                                },
+                              ]}
+                            />
+                            <View
+                              style={[
+                                styles.sliderThumb,
+                                {
+                                  left: `${((selectedDurationForExpanded - 5) / (240 - 5)) * 100}%`,
+                                  backgroundColor: colors.primary,
+                                },
+                              ]}
+                              {...sliderPanResponder.panHandlers}
+                            >
+                              <View style={[styles.sliderThumbInner, { backgroundColor: colors.surface }]} />
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* Real-time Summary */}
+                      <View style={styles.expandedSummary}>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                            Start:
+                          </Text>
+                          <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
+                            {timeOption.displayTime}
+                          </Text>
+                        </View>
+
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                            End:
+                          </Text>
+                          <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
+                            {calculateEndTime(timeOption, selectedDurationForExpanded)}
+                          </Text>
+                        </View>
+
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                            Cost:
+                          </Text>
+                          <Text style={[styles.summaryValue, { color: colors.primary }]}>
+                            ₹{calculateCost(selectedDurationForExpanded)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Confirm Button */}
+                      <TouchableOpacity
+                        style={[styles.expandedConfirmButton, { backgroundColor: colors.primary }]}
+                        onPress={() => handleConfirmBookingForExpanded(timeOption)}
+                      >
+                        <Text style={[styles.expandedConfirmText, { color: colors.surface }]}>
+                          Confirm & Book
+                        </Text>
+                        <Ionicons name="arrow-forward" size={16} color={colors.surface} />
+                      </TouchableOpacity>
+                    </Animated.View>
+                  )}
+                </View>
+              );
+            })()}
+          </ScrollView>
+        </View>
+
+        {/* Close expanded modal */}
+        {expandedTimeId && (
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setExpandedTimeId(null)}
+            activeOpacity={1}
+          />
+        )}
+      </View>
+    );
+  };
+
+  const renderCollapsibleSection = (title: string, content: React.ReactNode, sectionKey: string) => {
+    const isExpanded = expandedSections[sectionKey];
+
+    return (
+      <View style={styles.collapsibleSection}>
+        <TouchableOpacity
+          style={styles.collapsibleHeader}
+          onPress={() => toggleSection(sectionKey)}
+        >
+          <Text style={styles.collapsibleTitle}>{title}</Text>
+          <Animated.View
+            style={[
+              styles.chevronContainer,
+              {
+                transform: [
+                  {
+                    rotate: isExpanded
+                      ? '180deg'
+                      : '0deg'
+                  }
+                ]
+              }
+            ]}
+          >
+            <Ionicons
+              name="chevron-down"
+              size={20}
+              color={colors.text.secondary}
+            />
+          </Animated.View>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <Animated.View
+            style={[
+              styles.collapsibleContent,
+              {
+                opacity: isExpanded ? 1 : 0,
+                transform: [
+                  {
+                    translateY: isExpanded ? 0 : -10
+                  }
+                ]
+              }
+            ]}
+          >
+            {content}
+          </Animated.View>
+        )}
+      </View>
+    );
+  };
+
+  const renderBookingFooter = () => {
+    if (!selectedStartTime || selectedDuration <= 0) return null;
+
+    const cost = calculateCost(selectedDuration);
+
+    return (
+      <Animated.View
+        style={[
+          styles.bookingFooter,
+          {
+            transform: [{ translateY: footerTranslateY }],
+            opacity: footerOpacity,
+          },
+        ]}
+      >
+        <View style={styles.bookingFooterContent}>
+          {/* Frosted glass background */}
+          <View style={styles.bookingFooterBackground} />
+
+          {/* Booking summary */}
+          <View style={styles.priceDisplay}>
+            <Text style={styles.priceLabel}>Total Cost</Text>
+            <Text style={styles.priceValue}>₹{cost}</Text>
+          </View>
+
+          {/* Confirm Booking Button */}
+          <TouchableOpacity
+            style={styles.bookNowButton}
+            onPress={handleConfirmBooking}
+          >
+            <LinearGradient
+              colors={[colors.primary, Colors.semantic.success]}
+              style={styles.bookNowGradient}
+            >
+              <Text style={styles.bookNowText}>Confirm Booking</Text>
+              <Ionicons name="checkmark" size={18} color={LIQUID_COLORS.text.primary} />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Close button */}
+          <TouchableOpacity
+            style={styles.footerCloseButton}
+            onPress={handleCloseBookingFooter}
+          >
+            <Ionicons name="close" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  const renderFallbackBookButton = () => {
+    return (
+      <View style={styles.fallbackFooter}>
+        <View style={styles.fallbackFooterContent}>
+          {/* Frosted glass background */}
+          <View style={styles.fallbackFooterBackground} />
+
+          {/* Message */}
+          <View style={styles.fallbackMessage}>
+            <Ionicons name="time-outline" size={20} color={LIQUID_COLORS.text.secondary} />
+            <Text style={styles.fallbackMessageText}>Select a time slot to continue</Text>
+          </View>
+
+          {/* Disabled Book Button */}
+          <View style={styles.disabledBookButton}>
+            <Text style={styles.disabledBookText}>Book Now</Text>
+            <Ionicons name="arrow-forward" size={18} color={LIQUID_COLORS.text.muted} />
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const getSlotStyles = (state: string, colors: any) => {
+    switch (state) {
+      case 'selected':
+        return {
+          button: {
+            backgroundColor: colors.primary,
+            borderColor: colors.primary,
+            borderWidth: 2,
+            shadowColor: colors.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.4,
+            shadowRadius: 8,
+            elevation: 8,
+          },
+          text: { color: Colors.neutral.white, fontWeight: '700' },
+          subtext: { color: Colors.neutral.white, opacity: 0.9 },
+        };
+      case 'available':
+        return {
+          button: {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            borderWidth: 1,
+          },
+          text: { color: colors.text.primary },
+          subtext: { color: colors.text.secondary },
+        };
+      case 'conflict':
+        return {
+          button: {
+            backgroundColor: Colors.semantic.error,
+            borderColor: Colors.semantic.error,
+            borderWidth: 1,
+          },
+          text: { color: Colors.neutral.white },
+          subtext: { color: Colors.neutral.white, opacity: 0.8 },
+        };
+      case 'unavailable':
+        return {
+          button: {
+            backgroundColor: Colors.neutral.gray,
+            borderColor: Colors.neutral.gray,
+            borderWidth: 1,
+            opacity: 0.5,
+          },
+          text: { color: Colors.neutral.gray, textDecorationLine: 'line-through' },
+          subtext: { color: Colors.neutral.gray, textDecorationLine: 'line-through' },
+        };
+      default:
+        return {
+          button: { backgroundColor: colors.surface },
+          text: { color: colors.text.primary },
+          subtext: { color: colors.text.secondary },
+        };
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+      <Animated.ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Parallax Hero Header */}
+        {renderHeroHeader()}
+
+        {/* Main Content */}
+        <View style={styles.contentContainer}>
+          {/* Booking Timeline - Primary Focus */}
+          {renderCalendlyBooking()}
+
+          {/* Collapsible Sections for Secondary Details */}
+          {renderCollapsibleSection(
+            '🔌 Plug Details & Pricing',
+            <View style={styles.sectionContent}>
+              <Text style={styles.sectionContentText}>
+                Available charger types: {chargerTypes.join(', ')}
+              </Text>
+              <Text style={styles.sectionContentText}>
+                Base pricing: ₹{basePrice} per hour
+              </Text>
+            </View>,
+            'plugs'
+          )}
+
+          {renderCollapsibleSection(
+            '🏪 Amenities & Facilities',
+            <View style={styles.sectionContent}>
+              <Text style={styles.sectionContentText}>
+                Amenities: {station?.amenities?.join(', ') || 'WiFi, Restrooms, Parking'}
+              </Text>
+            </View>,
+            'amenities'
+          )}
+
+          {renderCollapsibleSection(
+            '⭐ Reviews & Ratings',
+            <View style={styles.sectionContent}>
+              <Text style={styles.sectionContentText}>
+                Rating: {station?.rating || '4.5'} ⭐ ({station?.total_reviews || '120'} reviews)
+              </Text>
+              <Text style={styles.sectionContentText}>
+                "Great charging station with fast service!"
+              </Text>
+            </View>,
+            'reviews'
+          )}
+        </View>
+      </Animated.ScrollView>
+
+      {/* Sticky Booking Footer */}
+      {selectedStartTime && selectedDuration > 0 ? renderBookingFooter() : renderFallbackBookButton()}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  // Main Container
+  container: {
+    flex: 1,
+    backgroundColor: LIQUID_COLORS.background,
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    paddingBottom: 200, // Safe area for bottom navigation and footer
+  },
+
+  // Parallax Hero Header
+  heroContainer: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  heroGradient: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+  },
+
+  heroContent: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  titleContainer: {
+    alignItems: 'center',
+  },
+
+  stationName: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+
+  stationAddress: {
+    fontSize: 16,
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  availabilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+  },
+
+  availabilityText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.semantic.success,
+    marginLeft: 6,
+  },
+
+  // Content Container
+  contentContainer: {
+    backgroundColor: LIQUID_COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    paddingTop: 32,
+  },
+
+  // Timeline Section
+  timelineSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+
+  timelineScrollContent: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+
+  timelineSlot: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 100,
+    height: 80,
+    marginHorizontal: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+
+  timelineSlotTime: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  timelineSlotPrice: {
+    fontSize: 12,
+    color: LIQUID_COLORS.text.secondary,
+  },
+
+  timelineSlotGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 18,
+  },
+  timelineSlotSelected: {
+    shadowColor: LIQUID_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+
+  daySeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+    marginHorizontal: 8,
+  },
+
+  daySeparatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  daySeparatorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
+    marginHorizontal: 16,
+    textAlign: 'center',
+  },
+
+  // Collapsible Sections
+  collapsibleSection: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+
+  collapsibleTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+  },
+
+  collapsibleContent: {
+    padding: 20,
+    backgroundColor: LIQUID_COLORS.sheet,
+  },
+
+  sectionContent: {
+    // Add your section content styles here
+  },
+
+  sectionContentText: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+
+  // Loading State
+  loadingContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+
+  loadingText: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    fontStyle: 'italic',
+  },
+
+  // Conflict Icon
+  conflictIcon: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+  },
+
+  // Confirmation Card Styles
+  confirmationCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.7,
+    zIndex: 1000,
+  },
+
+  confirmationCardContent: {
+    flex: 1,
+    backgroundColor: LIQUID_COLORS.sheet,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+
+  confirmationCardBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+
+  confirmationCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  confirmationCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  confirmationCardTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+  },
+
+  confirmationDetails: {
+    padding: 24,
+    flex: 1,
+  },
+
+  confirmationDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+
+  confirmationDetailText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+
+  confirmationDetailLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
+    marginBottom: 4,
+  },
+
+  confirmationDetailValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+  },
+
+  confirmationPriceSection: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+  },
+
+  confirmationPriceLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
+    marginBottom: 8,
+  },
+
+  confirmationPriceValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: LIQUID_COLORS.primary,
+  },
+
+  confirmationButton: {
+    marginHorizontal: 24,
+    marginBottom: 40,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  confirmationButtonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  confirmationButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+  },
+
+  // Booking Footer Styles
+  bookingFooter: {
+    position: 'absolute',
+    bottom: 120, // Above navigation bar and fallback footer
+    left: 20,
+    right: 20,
+    height: 80,
+    zIndex: 1001,
+  },
+
+  bookingFooterContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  bookingFooterBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+  },
+
+  priceDisplay: {
+    flex: 1,
+  },
+
+  priceLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.secondary,
+    marginBottom: 2,
+  },
+
+  priceValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: LIQUID_COLORS.primary,
+  },
+
+  bookNowButton: {
+    marginLeft: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+
+  bookNowGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+
+  bookNowText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginRight: 8,
+  },
+
+  footerCloseButton: {
+    marginLeft: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Fallback Footer Styles
+  fallbackFooter: {
+    position: 'absolute',
+    bottom: 100, // Above navigation bar
+    left: 20,
+    right: 20,
+    height: 80,
+    zIndex: 999,
+  },
+
+  fallbackFooterContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  fallbackFooterBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 16,
+  },
+
+  fallbackMessage: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  fallbackMessageText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.secondary,
+    marginLeft: 8,
+  },
+
+  disabledBookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginLeft: 12,
+  },
+
+  disabledBookText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.muted,
+    marginRight: 6,
+  },
+
+  // Calendly-style Booking Styles
+  calendlyContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 100, // Space for navigation
+  },
+
+  // Calendar Styles
+  calendarSection: {
+    marginBottom: 32,
+  },
+
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+
+  calendarWeekday: {
+    width: `${100/7}%`,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingVertical: 8,
+  },
+
+  calendarDay: {
+    width: `${100/7}%`,
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 2,
+    position: 'relative',
+  },
+
+  calendarDaySelected: {
+    borderRadius: 20,
+  },
+
+  calendarDayToday: {
+    borderWidth: 2,
+    borderColor: LIQUID_COLORS.primary,
+    borderRadius: 20,
+  },
+
+  calendarDayText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+
+  availabilityDot: {
+    position: 'absolute',
+    bottom: 4,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+
+  emptyDay: {
+    width: '100%',
+    height: '100%',
+  },
+
+  // Times Section
+  timesSection: {
+    flex: 1,
+  },
+
+  timesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+
+  timesList: {
+    flex: 1,
+  },
+
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  timeText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Expanded Content Styles
+  expandedContent: {
+    marginTop: -8,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+  },
+
+  durationSection: {
+    marginBottom: 20,
+  },
+
+  durationLabel: {
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+
+  sliderContainer: {
+    alignItems: 'center',
+  },
+
+  sliderTrack: {
+    width: 280,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    position: 'relative',
+  },
+
+  sliderFill: {
+    height: '100%',
+    borderRadius: 3,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+
+  sliderThumb: {
+    position: 'absolute',
+    top: '50%',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    transform: [{ translateY: -12 }],
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+
+  sliderThumbInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+
+  expandedSummary: {
+    marginBottom: 20,
+  },
+
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  summaryLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  expandedConfirmButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+
+  expandedConfirmText: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+
+  // Time Range Selector
+  timeRangeSelector: {
+    marginBottom: 16,
+  },
+
+  timeRangeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+
+  timeRangeScroll: {
+    marginBottom: 8,
+  },
+
+  timeRangeChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+
+  timeRangeChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  timeRangeSubtext: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  // Improved Time Slots Grid
+  hourGroup: {
+    marginBottom: 20,
+  },
+
+  hourLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+    paddingLeft: 4,
+  },
+
+  hourTimesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+
+  timeGridItem: {
+    width: '30%',
+    aspectRatio: 1.2,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+
+  timeGridText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  timeGridPeriod: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+
+  // Modal/Expanded View
+  expandedModal: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+
+  expandedActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+
+  // Missing styles
+  chevronContainer: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+export default StationBookingScreen;

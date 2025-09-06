@@ -8,10 +8,10 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { StationStackParamList } from '../types/api';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../design';
 
-// Import screens (we'll create these next)
+// Import screens
 import StationListScreen from '../screens/stations/StationListScreen';
-import StationDetailScreen from '../screens/stations/StationDetailScreen';
-import BookingFormScreen from '../screens/bookings/BookingFormScreen';
+import StationDetailsScreen from '../screens/stations/StationDetailsScreen';
+import StationBookingScreen from '../screens/stations/StationBookingScreen';
 
 const Stack = createStackNavigator<StationStackParamList>();
 
@@ -26,29 +26,28 @@ const StationNavigator: React.FC = () => {
         cardStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen 
-        name="StationList" 
+      <Stack.Screen
+        name="StationList"
         component={StationListScreen}
         options={{
           title: 'Charging Stations',
           headerTitleAlign: 'center',
         }}
       />
-      <Stack.Screen 
-        name="StationDetail" 
-        component={StationDetailScreen}
+      <Stack.Screen
+        name="StationDetail"
+        component={StationDetailsScreen}
         options={{
           title: 'Station Details',
           headerBackTitle: 'Back',
         }}
       />
-      <Stack.Screen 
-        name="BookingForm" 
-        component={BookingFormScreen}
+      <Stack.Screen
+        name="StationBooking"
+        component={StationBookingScreen}
         options={{
-          title: 'Book Charging Slot',
+          title: 'Book Charging Station',
           headerBackTitle: 'Back',
-          presentation: 'modal',
         }}
       />
     </Stack.Navigator>

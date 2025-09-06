@@ -59,6 +59,14 @@ const BookingNavigator: React.FC = () => {
           title: 'Confirm Booking',
           headerShown: false,
         }}
+        getId={({ params }) => {
+          // Create unique key based on booking parameters to force re-render
+          if (params) {
+            const { station, startTime, endTime, cost, selectedSlot, selectedDate, totalPrice } = params;
+            return `${station?.id || 'unknown'}-${startTime || 'unknown'}-${endTime || 'unknown'}-${cost || totalPrice || 'unknown'}`;
+          }
+          return 'default';
+        }}
       />
     </Stack.Navigator>
   );

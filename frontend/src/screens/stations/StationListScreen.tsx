@@ -12,8 +12,10 @@ import {
   TouchableOpacity,
   Animated,
   RefreshControl,
+  TextInput,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   MapPin,
   Zap,
@@ -31,10 +33,13 @@ import apiService from '../../services/api';
 const StationListScreen: React.FC = () => {
   const { colors } = useThemeColors();
   const navigation = useNavigation();
+  const route = useRoute();
   const [stations, setStations] = useState<EVStation[]>([]);
+  const [filteredStations, setFilteredStations] = useState<EVStation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Animated values
   const scrollY = new Animated.Value(0);
@@ -49,6 +54,28 @@ const StationListScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  // Handle initial query from navigation
+  useEffect(() => {
+    const params = route.params as { initialQuery?: string };
+    if (params?.initialQuery) {
+      setSearchQuery(params.initialQuery);
+    }
+  }, [route.params]);
+
+  // Filter stations based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredStations(stations);
+    } else {
+      const filtered = stations.filter(station =>
+        station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.city?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredStations(filtered);
+    }
+  }, [searchQuery, stations]);
 
   const loadStations = async () => {
     try {
@@ -71,7 +98,7 @@ const StationListScreen: React.FC = () => {
   const handleStationPress = (station: EVStation) => {
     console.log('Station pressed:', station.name, station.id);
     try {
-      (navigation as any).navigate('StationDetail', { stationId: station.id });
+      (navigation as any).navigate('StationBooking', { station });
     } catch (error) {
       console.error('Navigation error:', error);
     }
@@ -199,8 +226,67 @@ const StationListScreen: React.FC = () => {
           fontSize: 16,
           color: '#666666',
         }}>
-          {stations.length} stations found
+          {filteredStations.length} of {stations.length} stations found
         </Text>
+
+        {/* Search Input */}
+        <View style={{
+          marginTop: 16,
+          marginBottom: 8,
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: 20,
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 4,
+          }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(0, 168, 255, 0.1)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Search size={20} color="#00A8FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '500',
+                  paddingVertical: 0,
+                }}
+                placeholder="Search stations..."
+                placeholderTextColor="#A9A9A9"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={{
+                fontSize: 12,
+                color: '#A9A9A9',
+                opacity: 0.7,
+                marginTop: 2,
+              }}>
+                {searchQuery ? `Searching for "${searchQuery}"` : 'Find nearby charging spots'}
+              </Text>
+            </View>
+            <View style={{ marginLeft: 8 }}>
+              <Ionicons name="chevron-forward" size={16} color="#A9A9A9" />
+            </View>
+          </View>
+        </View>
       </View>
 
 
@@ -226,9 +312,9 @@ const StationListScreen: React.FC = () => {
               <AlertCircle size={48} color={colors.text.secondary} />
               <Text style={dynamicStyles.emptyStateText}>{error}</Text>
             </View>
-          ) : stations.length > 0 ? (
+          ) : filteredStations.length > 0 ? (
             <>
-              {stations.map((station, index) => (
+              {filteredStations.map((station, index) => (
                 <StationCard
                   key={station.id || index}
                   station={station}
@@ -240,6 +326,16 @@ const StationListScreen: React.FC = () => {
                 />
               ))}
             </>
+          ) : searchQuery.trim() !== '' ? (
+            <View style={dynamicStyles.emptyState}>
+              <Search size={48} color={colors.text.secondary} />
+              <Text style={dynamicStyles.emptyStateText}>
+                No stations found for "{searchQuery}"
+              </Text>
+              <Text style={[dynamicStyles.emptyStateText, { fontSize: 14, marginTop: 8 }]}>
+                Try a different search term
+              </Text>
+            </View>
           ) : (
             <View style={dynamicStyles.emptyState}>
               <MapPin size={48} color={colors.text.secondary} />

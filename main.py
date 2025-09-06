@@ -1,7 +1,8 @@
 import os
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
 from fastapi import FastAPI, HTTPException, Depends, Query, status
-from pydantic import Field
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import Field, BaseModel
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -9,6 +10,7 @@ from pymongo.errors import ConnectionFailure, OperationFailure, PyMongoError
 from bson import ObjectId
 from typing import List, Optional
 from datetime import datetime
+import razorpay
 
 # Import our models
 from models import (
@@ -28,11 +30,48 @@ from auth import (
 # Load environment variables from .env file
 load_dotenv()
 
+# Payment Models
+class PaymentOrderRequest(BaseModel):
+    amount: float = Field(..., description="Amount in INR")
+    booking_id: Optional[str] = Field(None, description="Optional booking ID for reference")
+
+class PaymentOrderResponse(BaseModel):
+    order_id: str
+    amount: float
+    currency: str = "INR"
+    key_id: str
+
+class PaymentVerificationRequest(BaseModel):
+    razorpay_payment_id: str
+    razorpay_order_id: str
+    razorpay_signature: str
+    booking_id: Optional[str] = None
+
+# Initialize Razorpay
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+    print("🎉 Razorpay client initialized successfully!")
+else:
+    razorpay_client = None
+    print("⚠️  Razorpay credentials not found in environment variables")
+
 # Create the FastAPI app instance
 app = FastAPI(
     title="EV Slot Booking API",
     description="API for booking EV charging slots in Mumbai",
     version="1.0.0"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Get the MongoDB connection string from environment variables
@@ -852,3 +891,118 @@ async def search_stations(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search query error: {str(e)}")
+
+# ==================== PAYMENT ENDPOINTS ====================
+
+@app.post("/api/payment/create-order", response_model=PaymentOrderResponse)
+async def create_payment_order(
+    payment_request: PaymentOrderRequest,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Create a Razorpay order for payment"""
+    if razorpay_client is None:
+        raise HTTPException(status_code=500, detail="Payment service not available")
+    
+    try:
+        print(f"🎯 Creating payment order for amount: {payment_request.amount}")
+        print(f"👤 User: {current_user['email']}")
+        print(f"🔑 Razorpay Key ID: {RAZORPAY_KEY_ID}")
+        
+        # Validate amount
+        if payment_request.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        # Convert amount to paise (smallest currency unit)
+        amount_in_paise = int(payment_request.amount * 100)
+        print(f"💰 Amount in paise: {amount_in_paise}")
+        
+        # Create Razorpay order
+        order_data = {
+            "amount": amount_in_paise,
+            "currency": "INR",
+            "receipt": f"receipt_order_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "notes": {
+                "user_email": current_user["email"],
+                "booking_id": payment_request.booking_id or "N/A"
+            }
+        }
+        
+        print(f"📋 Order data: {order_data}")
+        
+        order = razorpay_client.order.create(order_data)
+        
+        print(f"✅ Order created successfully: {order['id']}")
+        print(f"📊 Order details: {order}")
+        
+        return PaymentOrderResponse(
+            order_id=order["id"],
+            amount=payment_request.amount,
+            currency="INR",
+            key_id=RAZORPAY_KEY_ID
+        )
+        
+    except Exception as e:
+        print(f"❌ Error creating payment order: {str(e)}")
+        print(f"🔍 Error type: {type(e).__name__}")
+        import traceback
+        print(f"📚 Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to create payment order: {str(e)}")
+
+@app.post("/api/payment/verify")
+async def verify_payment(
+    verification_request: PaymentVerificationRequest,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Verify Razorpay payment signature"""
+    if razorpay_client is None:
+        raise HTTPException(status_code=500, detail="Payment service not available")
+    
+    try:
+        # Verify payment signature
+        params_dict = {
+            'razorpay_order_id': verification_request.razorpay_order_id,
+            'razorpay_payment_id': verification_request.razorpay_payment_id,
+        }
+        
+        # Generate signature
+        razorpay_client.utility.verify_payment_signature(params_dict, verification_request.razorpay_signature)
+        
+        # If verification successful, update booking status if booking_id provided
+        if verification_request.booking_id and bookings_collection is not None:
+            if ObjectId.is_valid(verification_request.booking_id):
+                # Get user ID
+                user = users_collection.find_one({"email": current_user["email"]})
+                if user:
+                    user_id = str(user["_id"])
+                    
+                    # Update booking with payment details
+                    bookings_collection.update_one(
+                        {
+                            "_id": ObjectId(verification_request.booking_id),
+                            "user_id": user_id
+                        },
+                        {
+                            "$set": {
+                                "payment_status": "PAID",
+                                "payment_id": verification_request.razorpay_payment_id,
+                                "payment_order_id": verification_request.razorpay_order_id,
+                                "updated_at": datetime.utcnow()
+                            }
+                        }
+                    )
+        
+        return {
+            "status": "success",
+            "message": "Payment verified successfully",
+            "payment_id": verification_request.razorpay_payment_id,
+            "order_id": verification_request.razorpay_order_id
+        }
+        
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Payment verification failed: {str(e)}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

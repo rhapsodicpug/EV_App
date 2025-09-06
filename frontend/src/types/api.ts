@@ -67,6 +67,16 @@ export type ChargerType = 'AC_SLOW' | 'AC_FAST' | 'DC_FAST' | 'DC_ULTRA_FAST';
 export type ConnectorType = 'TYPE_1' | 'TYPE_2' | 'CCS' | 'CHAdeMO' | 'TESLA';
 export type ChargerStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE' | 'OFFLINE';
 
+export interface OperatingHours {
+  monday: string;
+  tuesday: string;
+  wednesday: string;
+  thursday: string;
+  friday: string;
+  saturday: string;
+  sunday: string;
+}
+
 export interface Location {
   type: 'Point';
   coordinates: [number, number]; // [longitude, latitude]
@@ -96,7 +106,7 @@ export interface EVStation {
   pincode: string;
   charging_slots: ChargingSlot[];
   amenities: string[];
-  operating_hours: string;
+  operating_hours: string | OperatingHours;
   contact_number?: string;
   is_24_7: boolean;
   rating?: number;
@@ -320,6 +330,7 @@ export type MainTabParamList = {
 export type StationStackParamList = {
   StationList: undefined;
   StationDetail: { stationId: string };
+  SlotSelection: { station: any };
   BookingForm: { stationId: string; slotNumber?: number };
 };
 
@@ -331,10 +342,15 @@ export type MapStackParamList = {
 export type BookingStackParamList = {
   BookingsMain: undefined;
   SlotSelection: { station: any };
-  BookingConfirmation: { 
-    station: any; 
-    selectedSlot: any; 
-    selectedDate: Date; 
-    totalPrice: number; 
+  BookingConfirmation: {
+    station: any;
+    startTime?: any;
+    duration?: number;
+    endTime?: string;
+    cost?: number;
+    // Legacy parameters for backward compatibility
+    selectedSlot?: any;
+    selectedDate?: Date;
+    totalPrice?: number;
   };
 };

@@ -30,7 +30,7 @@ import {
   Calendar,
   Navigation,
 } from 'lucide-react-native';
-import { EVStation } from '../../types/api';
+import { EVStation, OperatingHours } from '../../types/api';
 import apiService from '../../services/api';
 
 const { width, height } = Dimensions.get('window');
@@ -139,11 +139,17 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
           },
         ],
         amenities: ['wifi', 'restrooms', 'coffee', 'parking'],
-        operating_hours: '24/7',
+        operating_hours: {
+          monday: '06:00-22:00',
+          tuesday: '06:00-22:00',
+          wednesday: '06:00-22:00',
+          thursday: '06:00-22:00',
+          friday: '06:00-22:00',
+          saturday: '06:00-22:00',
+          sunday: '06:00-22:00'
+        },
         rating: 4.5,
-        total_slots: 6,
-        available_slots: 4,
-      });
+      } as EVStation);
     } finally {
       setIsLoading(false);
     }
@@ -162,8 +168,48 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
     }
   };
 
-  const getAvailabilityText = (total: number, available: number) => {
+  const getAvailabilityText = (station: EVStation) => {
+    const total = station.charging_slots?.length || 0;
+    const available = station.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length || 0;
     return `${available} of ${total} Available`;
+  };
+
+  const formatOperatingHours = (hours: string | OperatingHours) => {
+    // Handle string format (e.g., "24/7")
+    if (typeof hours === 'string') {
+      return hours;
+    }
+
+    // Handle object format (day-by-day hours)
+    if (typeof hours === 'object' && hours !== null) {
+      // Check if all days have the same hours (common case)
+      const firstDayHours = hours.monday;
+
+      // If all days have the same hours, show as "Daily: X"
+      const allSame = hours.monday === hours.tuesday &&
+                     hours.tuesday === hours.wednesday &&
+                     hours.wednesday === hours.thursday &&
+                     hours.thursday === hours.friday &&
+                     hours.friday === hours.saturday &&
+                     hours.saturday === hours.sunday;
+
+      if (allSame && firstDayHours) {
+        return `Daily: ${firstDayHours}`;
+      }
+
+      // Otherwise, show weekday vs weekend hours
+      const weekdayHours = hours.monday;
+      const weekendHours = hours.saturday;
+
+      if (weekdayHours === weekendHours) {
+        return `Daily: ${weekdayHours}`;
+      } else {
+        return `Mon-Fri: ${weekdayHours}\nSat-Sun: ${weekendHours}`;
+      }
+    }
+
+    // Default fallback
+    return '24/7';
   };
 
   const handleBookSlot = () => {
@@ -174,7 +220,7 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Book Now',
-          onPress: () => navigation.navigate('SlotSelection', { stationId })
+          onPress: () => navigation.navigate('SlotSelection', { station })
         }
       ]
     );
@@ -220,7 +266,7 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
         </Text>
         <View style={styles.headerAvailability}>
           <Text style={styles.headerAvailabilityText}>
-            {getAvailabilityText(station.total_slots || 0, station.available_slots || 0)}
+            {getAvailabilityText(station)}
           </Text>
         </View>
       </Animated.View>
@@ -251,7 +297,7 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
               {/* Availability Tag */}
               <View style={styles.availabilityTag}>
                 <Text style={styles.availabilityTagText}>
-                  {getAvailabilityText(station.total_slots || 0, station.available_slots || 0)}
+                  {getAvailabilityText(station)}
                 </Text>
               </View>
             </View>
@@ -311,7 +357,7 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
               <View style={styles.infoItem}>
                 <Clock size={16} color="#888888" />
                 <Text style={styles.infoLabel}>Hours</Text>
-                <Text style={styles.infoValue}>{station.operating_hours || '24/7'}</Text>
+                <Text style={styles.infoValue}>{formatOperatingHours(station.operating_hours)}</Text>
               </View>
 
               <View style={styles.infoItem}>
