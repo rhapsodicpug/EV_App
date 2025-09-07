@@ -6,72 +6,112 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Dimensions,
+  StatusBar,
+  Switch,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Bell,
+  Car,
+  CreditCard,
+  ChevronRight,
+  HelpCircle,
+  MessageCircle,
+  LogOut,
+} from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
-import PremiumModal from '../components/ui/PremiumModal';
+import { useNavigation } from '@react-navigation/native';
+// import PremiumModal from '../components/ui/PremiumModal'; // Temporarily disabled due to import issues
 
-const { width } = Dimensions.get('window');
 
-// Premium colors for Profile Dashboard
-const PROFILE_COLORS = {
-  primary: '#00A8FF',
-  secondary: '#6366F1',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  background: '#0F0F0F',
+// Sophisticated Color Palette
+const COLORS = {
+  background: '#101010',
   surface: '#1A1A1A',
-  card: '#2A2A2A',
-  glass: 'rgba(42, 42, 42, 0.8)',
+  surfaceLight: '#2A2A2A',
   text: {
     primary: '#FFFFFF',
     secondary: '#B3B3B3',
-    muted: '#666666',
+    tertiary: '#666666',
   },
+  border: {
+    subtle: '#2A2A2A',
+    light: '#404040',
+  },
+  accent: '#00A8FF',
+  accentLight: '#4DC3FF',
 };
+
+interface SettingItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  icon: React.ComponentType<any>;
+  type: 'toggle' | 'navigation';
+  value?: boolean;
+  onPress?: () => void;
+  onToggle?: (value: boolean) => void;
+}
+
+interface SettingSection {
+  id: string;
+  title: string;
+  items: SettingItem[];
+}
 
 const ProfileScreen: React.FC = () => {
   const { user, logout } = useAuth();
   const navigation = useNavigation();
 
-  // Modal state
+  // Modal state - temporarily disabled
   const [modalVisible, setModalVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState({
-    icon: 'rocket-outline' as keyof typeof Ionicons.glyphMap,
+    icon: 'help-circle-outline',
     title: 'Feature Coming Soon',
     message: 'Our team is hard at work building this. It will be available in a future update!',
     buttonText: 'Got It',
   });
 
+  // State for settings
+  const [settings, setSettings] = useState({
+    pushNotifications: true,
+    emailUpdates: false,
+    promotions: false,
+  });
+
+  // Update interactive settings with proper state binding
+  const interactiveSettings: SettingItem[] = [
+    {
+      id: 'notifications',
+      title: 'Notifications',
+      subtitle: 'Manage notification preferences',
+      icon: Bell,
+      type: 'toggle',
+      value: settings.pushNotifications,
+      onToggle: (value) => setSettings(prev => ({ ...prev, pushNotifications: value })),
+    },
+    {
+      id: 'vehicle-details',
+      title: 'My Vehicle',
+      subtitle: 'Manage vehicle information',
+      icon: Car,
+      type: 'navigation',
+      onPress: () => handleSettingPress('vehicle-details'),
+    },
+    {
+      id: 'payment-methods',
+      title: 'Payment Methods',
+      subtitle: 'Manage payment options',
+      icon: CreditCard,
+      type: 'navigation',
+      onPress: () => handleSettingPress('payment-methods'),
+    },
+  ];
+
   // Helper functions
   const getUserName = (user: any) => {
-    return user?.name || user?.email?.split('@')[0] || 'You';
+    return user?.name || user?.email?.split('@')[0] || 'User';
   };
 
-  const getUserInitials = (user: any) => {
-    const name = getUserName(user);
-    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
-  };
-
-  // Navigation handlers
-  const handleProfilePress = () => {
-    // @ts-ignore
-    navigation.navigate('EditProfile');
-  };
-
-  const handleVehiclePress = () => {
-    // @ts-ignore
-    navigation.navigate('VehicleInfo');
-  };
-
-  const handleSettingsPress = () => {
-    // @ts-ignore
-    navigation.navigate('Settings');
-  };
 
   // Modal handlers
   const showFeatureModal = (config: Partial<typeof modalConfig>) => {
@@ -83,313 +123,397 @@ const ProfileScreen: React.FC = () => {
     setModalVisible(false);
   };
 
-  const handleHelpPress = () => {
-    showFeatureModal({
-      icon: 'help-circle-outline',
+  const handleSettingPress = (settingId: string) => {
+    switch (settingId) {
+      case 'notifications':
+        showFeatureModal({
+          icon: 'notifications-outline',
+          title: 'Notification Settings',
+          message: 'Customize your notification preferences. Choose which updates you want to receive and how.',
+        });
+        break;
+      case 'vehicle-details':
+        showFeatureModal({
+          icon: 'car-outline',
+          title: 'Vehicle Management',
+          message: 'Manage your vehicle information, charging preferences, and add multiple vehicles to your account.',
+        });
+        break;
+      case 'payment-methods':
+        showFeatureModal({
+          icon: 'card-outline',
+          title: 'Payment Methods',
+          message: 'Securely manage your payment options. Add, edit, or remove payment methods for seamless charging.',
+        });
+        break;
+      case 'help-support':
+        showFeatureModal({
+          icon: 'help-circle-outline',
+          title: 'Help & Support',
+          message: 'Get help with using the app, find answers to common questions, or contact our support team.',
+        });
+        break;
+      case 'send-feedback':
+        showFeatureModal({
+          icon: 'mail-outline',
+          title: 'Send Feedback',
+          message: 'Share your thoughts, suggestions, or report issues. Your feedback helps us improve the app.',
+        });
+        break;
+      case 'about-app':
+        showFeatureModal({
+          icon: 'information-circle-outline',
+          title: 'About App',
+          message: 'Detailed app information, version history, and acknowledgments. Learn more about our mission and team.',
+        });
+        break;
+      case 'logout':
+        Alert.alert(
+          'Log Out',
+          'Are you sure you want to log out?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Log Out', style: 'destructive', onPress: logout },
+          ]
+        );
+        break;
+      default:
+        showFeatureModal({
+          icon: 'rocket-outline',
+          title: 'Feature Coming Soon',
+          message: `${settingId} functionality is being developed and will be available soon!`,
+        });
+    }
+  };
+
+
+  // Navigation links section
+  const navigationLinks: SettingItem[] = [
+    {
+      id: 'help-support',
       title: 'Help & Support',
-      message: 'Our comprehensive help center is being developed. You\'ll find guides, FAQs, and contact options for all your questions.',
-    });
-  };
-
-  const handleFeedbackPress = () => {
-    showFeatureModal({
-      icon: 'chatbubble-outline',
+      subtitle: 'Get help and contact support',
+      icon: HelpCircle,
+      type: 'navigation',
+      onPress: () => handleSettingPress('help-support'),
+    },
+    {
+      id: 'send-feedback',
       title: 'Send Feedback',
-      message: 'We\'re building a feedback system where you can share your thoughts, report bugs, and suggest improvements to make the app better.',
-    });
-  };
-
-  const handleAboutPress = () => {
-    showFeatureModal({
-      icon: 'information-circle-outline',
+      subtitle: 'Share your thoughts with us',
+      icon: MessageCircle,
+      type: 'navigation',
+      onPress: () => handleSettingPress('send-feedback'),
+    },
+    {
+      id: 'about-app',
       title: 'About App',
-      message: 'Detailed app information, version history, and acknowledgments are being prepared. Learn more about our mission and team.',
-    });
-  };
-
-  const handleLogoutPress = () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Log Out', style: 'destructive', onPress: logout },
-      ]
-    );
-  };
+      subtitle: 'App information and version',
+      icon: HelpCircle,
+      type: 'navigation',
+      onPress: () => handleSettingPress('about-app'),
+    },
+  ];
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
 
-        {/* Personal Profile Header */}
-        <TouchableOpacity style={styles.profileHeader} onPress={handleProfilePress}>
-          <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>{getUserInitials(user)}</Text>
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{getUserName(user)}</Text>
-            <Text style={styles.profileEmail}>{user?.email || 'user@example.com'}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={PROFILE_COLORS.text.muted} />
+      {/* Sophisticated Textured Background */}
+      <View style={styles.backgroundTexture} />
+
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* Refined Profile Header */}
+        <TouchableOpacity
+          style={styles.header}
+          onPress={() => {
+            // @ts-ignore
+            navigation.navigate('EditProfile');
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.userName}>{getUserName(user)}</Text>
+          <Text style={styles.userEmail}>{user?.email || 'user@example.com'}</Text>
+          <ChevronRight size={20} color={COLORS.text.tertiary} style={styles.headerChevron} />
         </TouchableOpacity>
 
-        {/* Primary Widgets */}
-        <View style={styles.primaryWidgets}>
-          {/* My Vehicle Widget */}
-          <TouchableOpacity style={styles.primaryWidget} onPress={handleVehiclePress}>
-            <LinearGradient
-              colors={[PROFILE_COLORS.glass, 'rgba(32, 32, 32, 0.9)']}
-              style={styles.widgetGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.widgetContent}>
-                <View style={styles.widgetIcon}>
-                  <Ionicons name="car-outline" size={32} color={PROFILE_COLORS.primary} />
-                </View>
-                <Text style={styles.widgetTitle}>My Vehicle</Text>
-                <Text style={styles.widgetSubtitle}>Tesla Model 3</Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+        {/* Interactive Settings Section */}
+        <View style={styles.interactiveSection}>
+          <View style={styles.interactiveContainer}>
+            {interactiveSettings.map((item, index) => (
+              <View key={item.id}>
+                <TouchableOpacity
+                  style={styles.interactiveRow}
+                  onPress={item.onPress}
+                  disabled={item.type === 'toggle'}
+                  activeOpacity={0.7}
+                >
+                  {/* Icon */}
+                  <View style={styles.rowIcon}>
+                    <item.icon size={20} color={COLORS.text.secondary} />
+                  </View>
 
-          {/* Settings Widget */}
-          <TouchableOpacity style={styles.primaryWidget} onPress={handleSettingsPress}>
-            <LinearGradient
-              colors={[PROFILE_COLORS.glass, 'rgba(32, 32, 32, 0.9)']}
-              style={styles.widgetGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.widgetContent}>
-                <View style={styles.widgetIcon}>
-                  <Ionicons name="settings-outline" size={32} color={PROFILE_COLORS.primary} />
-                </View>
-                <Text style={styles.widgetTitle}>Settings</Text>
-                <Text style={styles.widgetSubtitle}>Notifications, Privacy</Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+                  {/* Content */}
+                  <View style={styles.rowContent}>
+                    <Text style={styles.rowTitle}>{item.title}</Text>
+                    <Text style={styles.rowSubtitle}>{item.subtitle}</Text>
+                  </View>
 
-        {/* Secondary List Section */}
-        <View style={styles.secondarySection}>
-          <Text style={styles.sectionTitle}>More</Text>
+                  {/* Control */}
+                  <View style={styles.rowControl}>
+                    {item.type === 'toggle' && (
+                      <Switch
+                        value={item.value}
+                        onValueChange={item.onToggle}
+                        trackColor={{
+                          false: COLORS.surface,
+                          true: COLORS.accent,
+                        }}
+                        thumbColor={item.value ? COLORS.text.primary : COLORS.text.secondary}
+                        ios_backgroundColor={COLORS.surface}
+                      />
+                    )}
+                    {item.type === 'navigation' && (
+                      <ChevronRight size={16} color={COLORS.text.tertiary} />
+                    )}
+                  </View>
+                </TouchableOpacity>
 
-          <View style={styles.listContainer}>
-            {/* Help & Support */}
-            <TouchableOpacity style={styles.listItem} onPress={handleHelpPress}>
-              <View style={styles.listIcon}>
-                <Ionicons name="help-circle-outline" size={20} color={PROFILE_COLORS.primary} />
+                {/* Separator */}
+                {index < interactiveSettings.length - 1 && (
+                  <View style={styles.interactiveSeparator} />
+                )}
               </View>
-              <Text style={styles.listText}>Help & Support</Text>
-              <Ionicons name="chevron-forward" size={16} color={PROFILE_COLORS.text.muted} />
-            </TouchableOpacity>
-            <View style={styles.separator} />
-
-            {/* Send Feedback */}
-            <TouchableOpacity style={styles.listItem} onPress={handleFeedbackPress}>
-              <View style={styles.listIcon}>
-                <Ionicons name="chatbubble-outline" size={20} color={PROFILE_COLORS.primary} />
-              </View>
-              <Text style={styles.listText}>Send Feedback</Text>
-              <Ionicons name="chevron-forward" size={16} color={PROFILE_COLORS.text.muted} />
-            </TouchableOpacity>
-            <View style={styles.separator} />
-
-            {/* About App */}
-            <TouchableOpacity style={styles.listItem} onPress={handleAboutPress}>
-              <View style={styles.listIcon}>
-                <Ionicons name="information-circle-outline" size={20} color={PROFILE_COLORS.primary} />
-              </View>
-              <Text style={styles.listText}>About App</Text>
-              <Ionicons name="chevron-forward" size={16} color={PROFILE_COLORS.text.muted} />
-            </TouchableOpacity>
+            ))}
           </View>
         </View>
 
-        {/* Log Out Action */}
+        {/* Navigation Links Section */}
+        <View style={styles.navigationSection}>
+          {navigationLinks.map((item, index) => (
+            <View key={item.id}>
+              <TouchableOpacity
+                style={styles.navigationRow}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                {/* Icon */}
+                <View style={styles.navIcon}>
+                  <item.icon size={18} color={COLORS.text.secondary} />
+                </View>
+
+                {/* Content */}
+                <View style={styles.navContent}>
+                  <Text style={styles.navTitle}>{item.title}</Text>
+                  <Text style={styles.navSubtitle}>{item.subtitle}</Text>
+                </View>
+
+                {/* Chevron */}
+                <ChevronRight size={16} color={COLORS.text.tertiary} />
+              </TouchableOpacity>
+
+              {/* Separator */}
+              {index < navigationLinks.length - 1 && (
+                <View style={styles.navigationSeparator} />
+              )}
+            </View>
+          ))}
+        </View>
+
+        {/* Log Out Button */}
         <View style={styles.logoutSection}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogoutPress}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => handleSettingPress('logout')}
+            activeOpacity={0.8}
+          >
+            <LogOut size={18} color={COLORS.accent} />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Premium Modal */}
-        <PremiumModal
-          visible={modalVisible}
-          onClose={hideFeatureModal}
-          icon={modalConfig.icon}
-          title={modalConfig.title}
-          message={modalConfig.message}
-          buttonText={modalConfig.buttonText}
-        />
-
       </ScrollView>
+
+      {/* Premium Modal - temporarily disabled due to import issues */}
+      {/* <PremiumModal
+        visible={modalVisible}
+        onClose={hideFeatureModal}
+        icon={modalConfig.icon}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttonText={modalConfig.buttonText}
+      /> */}
     </View>
   );
 };
 
-// Premium Dashboard Styles
+// Sophisticated Styles for Profile & Settings Screen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: PROFILE_COLORS.background,
+    backgroundColor: COLORS.background,
   },
-  scrollContent: {
+
+  // Subtle Textured Background
+  backgroundTexture: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.background,
+    opacity: 0.98,
+  },
+
+  // Scroll View
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
     paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 100,
-  },
-
-  // Profile Header
-  profileHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 24,
     paddingHorizontal: 20,
-    backgroundColor: PROFILE_COLORS.surface,
-    borderRadius: 16,
-    marginBottom: 24,
-  },
-  avatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: PROFILE_COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: PROFILE_COLORS.text.primary,
-    letterSpacing: 1,
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: PROFILE_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  profileEmail: {
-    fontSize: 14,
-    color: PROFILE_COLORS.text.secondary,
+    paddingBottom: 120,
   },
 
-  // Primary Widgets
-  primaryWidgets: {
-    flexDirection: 'row',
-    gap: 16,
+  // Refined Profile Header
+  header: {
+    paddingVertical: 32,
+    paddingBottom: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.subtle,
     marginBottom: 32,
+    position: 'relative',
   },
-  primaryWidget: {
-    flex: 1,
-    height: 140,
-    borderRadius: 16,
-    overflow: 'hidden',
+  userName: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    letterSpacing: -0.5,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 8,
   },
-  widgetGradient: {
-    flex: 1,
-    borderRadius: 16,
+  userEmail: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: COLORS.text.secondary,
+    fontFamily: 'Inter-Regular',
+    letterSpacing: 0.2,
+    marginBottom: 8,
+  },
+  headerChevron: {
+    position: 'absolute',
+    right: 0,
+    top: 32,
+  },
+
+  // Interactive Settings Section
+  interactiveSection: {
+    marginBottom: 48,
+  },
+  interactiveContainer: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  widgetContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-  },
-  widgetIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0, 168, 255, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  widgetTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: PROFILE_COLORS.text.primary,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  widgetSubtitle: {
-    fontSize: 12,
-    color: PROFILE_COLORS.text.secondary,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-
-  // Secondary List Section
-  secondarySection: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PROFILE_COLORS.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 16,
-    marginLeft: 4,
-  },
-  listContainer: {
-    backgroundColor: PROFILE_COLORS.surface,
-    borderRadius: 16,
+    borderColor: COLORS.border.subtle,
     overflow: 'hidden',
   },
-  listItem: {
+  interactiveRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
-  listIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: PROFILE_COLORS.primary + '15',
+  rowIcon: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
   },
-  listText: {
+  rowContent: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-    color: PROFILE_COLORS.text.primary,
   },
-  separator: {
+  rowTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    fontFamily: 'Inter-SemiBold',
+    marginBottom: 2,
+  },
+  rowSubtitle: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: COLORS.text.secondary,
+    fontFamily: 'Inter-Regular',
+  },
+  rowControl: {
+    marginLeft: 16,
+  },
+  interactiveSeparator: {
     height: 1,
-    backgroundColor: PROFILE_COLORS.background,
+    backgroundColor: COLORS.border.subtle,
     marginHorizontal: 20,
   },
 
-  // Log Out Section
-  logoutSection: {
+  // Navigation Links Section
+  navigationSection: {
+    marginBottom: 48,
+  },
+  navigationRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingVertical: 16,
+  },
+  navIcon: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  navContent: {
+    flex: 1,
+  },
+  navTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.text.primary,
+    fontFamily: 'Inter-Medium',
+    marginBottom: 2,
+  },
+  navSubtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: COLORS.text.tertiary,
+    fontFamily: 'Inter-Regular',
+  },
+  navigationSeparator: {
+    height: 1,
+    backgroundColor: COLORS.border.light,
+    marginVertical: 8,
+  },
+
+  // Log Out Button
+  logoutSection: {
+    paddingTop: 32,
+    alignItems: 'center',
   },
   logoutButton: {
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
     paddingHorizontal: 24,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: PROFILE_COLORS.error,
+    color: COLORS.accent,
+    fontFamily: 'Inter-SemiBold',
     letterSpacing: 0.5,
+    marginLeft: 12,
   },
 });
 

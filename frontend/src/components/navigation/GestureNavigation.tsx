@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import { useThemeColors, Animation } from '../../design';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -30,7 +31,7 @@ const GestureNavigation: React.FC<GestureNavigationProps> = ({
   onGestureStart,
   onGestureEnd,
 }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   const { colors } = useThemeColors();
   
   const translateX = useRef(new Animated.Value(0)).current;

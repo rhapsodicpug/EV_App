@@ -12,11 +12,11 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
-  Image,
   StatusBar,
   Alert,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import {
   MapPin,
   Zap,
@@ -280,29 +280,20 @@ const StationDetailsScreen: React.FC<StationDetailsScreenProps> = ({ route, navi
         )}
         scrollEventThrottle={16}
       >
-        {/* Parallax Hero Section */}
-        <Animated.View style={[styles.heroContainer, { height: heroHeight }]}>
-          <Animated.Image
-            source={{ uri: 'https://images.unsplash.com/photo-1593941707882-a5bac6861d75?w=800&h=600&fit=crop' }}
-            style={[styles.heroImage, { opacity: heroOpacity }]}
-            resizeMode="cover"
-          />
+        {/* Station Header Section */}
+        <View style={styles.stationHeader}>
+          <View style={styles.stationHeaderContent}>
+            <Text style={styles.stationTitle}>{station.name}</Text>
+            <Text style={styles.stationAddress}>{station.address}</Text>
 
-          {/* Hero Overlay */}
-          <Animated.View style={[styles.heroOverlay, { opacity: heroOpacity }]}>
-            <View style={styles.heroContent}>
-              <Text style={styles.heroTitle}>{station.name}</Text>
-              <Text style={styles.heroAddress}>{station.address}</Text>
-
-              {/* Availability Tag */}
-              <View style={styles.availabilityTag}>
-                <Text style={styles.availabilityTagText}>
-                  {getAvailabilityText(station)}
-                </Text>
-              </View>
+            {/* Availability Tag */}
+            <View style={styles.availabilityTag}>
+              <Text style={styles.availabilityTagText}>
+                {getAvailabilityText(station)}
+              </Text>
             </View>
-          </Animated.View>
-        </Animated.View>
+          </View>
+        </View>
 
         {/* Content Cards */}
         <Animated.View
@@ -512,42 +503,26 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  // Parallax Hero Section
-  heroContainer: {
-    position: 'relative',
-    width: width,
-  },
-  heroImage: {
-    width: width,
-    height: '100%',
-  },
-  heroOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  // Station Header Section
+  stationHeader: {
+    backgroundColor: '#1A1A1A',
     padding: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#333333',
   },
-  heroContent: {
+  stationHeaderContent: {
     alignItems: 'flex-start',
   },
-  heroTitle: {
+  stationTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: '#ffffff',
     marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
-  heroAddress: {
+  stationAddress: {
     fontSize: 16,
     color: '#e0e0e0',
     marginBottom: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   availabilityTag: {
     backgroundColor: '#4CAF50',

@@ -10,8 +10,12 @@ import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../des
 // Import screens
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
-import VehicleInfoScreen from '../screens/VehicleInfoScreen';
+import MyVehicleScreen from '../screens/MyVehicleScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import PaymentMethodsScreen from '../screens/PaymentMethodsScreen';
+import HelpSupportScreen from '../screens/HelpSupportScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
+import AboutScreen from '../screens/AboutScreen';
 
 const Stack = createStackNavigator();
 
@@ -44,28 +48,66 @@ const ProfileNavigator: React.FC = () => {
           headerShown: false,
         }}
       />
-      <Stack.Screen 
-        name="EditProfile" 
+      <Stack.Screen
+        name="EditProfile"
         component={EditProfileScreen}
         options={{
           title: 'Edit Profile',
           headerBackTitle: 'Back',
+          headerShown: false, // Use custom header
         }}
       />
-      <Stack.Screen 
-        name="VehicleInfo" 
-        component={VehicleInfoScreen}
+      <Stack.Screen
+        name="MyVehicle"
+        component={MyVehicleScreen}
         options={{
-          title: 'Vehicle Information',
+          title: 'My Vehicle',
           headerBackTitle: 'Back',
+          headerShown: false, // Use custom header
         }}
       />
-      <Stack.Screen 
-        name="Settings" 
+      <Stack.Screen
+        name="Settings"
         component={SettingsScreen}
         options={{
           title: 'Settings',
           headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="PaymentMethods"
+        component={PaymentMethodsScreen}
+        options={{
+          title: 'Payment Methods',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="HelpSupport"
+        component={HelpSupportScreen}
+        options={{
+          title: 'Help & Support',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Feedback"
+        component={FeedbackScreen}
+        options={{
+          title: 'Send Feedback',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{
+          title: 'About App',
+          headerBackTitle: 'Back',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

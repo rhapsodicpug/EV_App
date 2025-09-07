@@ -12,6 +12,7 @@ import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../des
 import StationListScreen from '../screens/stations/StationListScreen';
 import StationDetailsScreen from '../screens/stations/StationDetailsScreen';
 import StationBookingScreen from '../screens/stations/StationBookingScreen';
+import StationDetailsBookingScreen from '../screens/stations/StationDetailsBookingScreen';
 
 const Stack = createStackNavigator<StationStackParamList>();
 
@@ -47,6 +48,14 @@ const StationNavigator: React.FC = () => {
         component={StationBookingScreen}
         options={{
           title: 'Book Charging Station',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen
+        name="StationDetailsBooking"
+        component={StationDetailsBookingScreen}
+        options={{
+          title: 'Station Details & Booking',
           headerBackTitle: 'Back',
         }}
       />

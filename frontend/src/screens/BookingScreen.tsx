@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemeColors } from '../design';
 import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -53,7 +54,7 @@ interface Booking {
 }
 
 const BookingScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
 
   // State for premium Bookings screen
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Past'>('Upcoming');

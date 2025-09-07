@@ -200,6 +200,21 @@ class ApiService {
     return response.data;
   }
 
+  async getStationsByLocation(
+    latitude: number,
+    longitude: number,
+    limit = 50
+  ): Promise<{ stations: EVStation[]; count: number; source?: string }> {
+    const response = await this.client.get(API_CONFIG.ENDPOINTS.STATIONS.LIST, {
+      params: {
+        latitude,
+        longitude,
+        limit,
+      },
+    });
+    return response.data;
+  }
+
   async getStation(stationId: string): Promise<EVStation> {
     const response = await this.client.get<EVStation>(`${API_CONFIG.ENDPOINTS.STATIONS.DETAIL}/${stationId}`);
     return response.data;

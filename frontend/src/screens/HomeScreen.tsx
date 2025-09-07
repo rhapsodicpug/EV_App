@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -99,7 +100,7 @@ interface Booking {
 }
 
 const HomeScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   const { user } = useAuth();
   
   // State
@@ -109,6 +110,9 @@ const HomeScreen: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'nearby' | 'recent' | 'favorites'>('nearby');
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [stationsError, setStationsError] = useState<string | null>(null);
   // Animation refs
   const scrollY = useRef(new Animated.Value(0)).current;
   const liquidAnim = useRef(new Animated.Value(0)).current;
@@ -132,6 +136,47 @@ const HomeScreen: React.FC = () => {
 
     animateLiquid();
   }, []);
+
+  // Get user's current location
+  useEffect(() => {
+    const getLocation = async () => {
+      try {
+        console.log('📍 Requesting location permission...');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== 'granted') {
+          setLocationError('Location permission denied. Please enable location services to see nearby stations.');
+          console.log('❌ Location permission denied');
+          return;
+        }
+
+        console.log('✅ Location permission granted, getting current position...');
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+        const { latitude, longitude } = location.coords;
+        console.log('📍 Current location:', { latitude, longitude });
+
+        setUserLocation({ latitude, longitude });
+        setLocationError(null);
+
+      } catch (error) {
+        console.error('❌ Error getting location:', error);
+        setLocationError('Unable to get your location. Please check your GPS settings.');
+      }
+    };
+
+    getLocation();
+  }, []);
+
+  // Fetch stations when location changes
+  useEffect(() => {
+    if (userLocation) {
+      console.log('🔄 Location changed, fetching stations...');
+      loadData();
+    }
+  }, [userLocation]);
 
   // Scroll-based animations
   const heroFade = scrollY.interpolate({
@@ -164,28 +209,59 @@ const HomeScreen: React.FC = () => {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      
-      // Load stations
-      const stationsResponse = await apiService.getStations();
-      setStations(stationsResponse.stations.slice(0, 10));
+      setStationsError(null);
 
-      // Mock upcoming booking
-      setUpcomingBooking({
-        id: '1',
-        stationName: 'Mumbai EV Station',
-        stationAddress: 'Bandra Kurla Complex, Mumbai',
-        date: 'Today',
-        time: '2:00 PM',
-        duration: '2 hours',
-        status: 'upcoming',
-      });
+      let stationsResponse;
 
-      // Mock recent stations
-      setRecentStations(stationsResponse.stations.slice(0, 5));
-      
-    } catch (error) {
-      console.error('Error loading data:', error);
-      Alert.alert('Error', 'Failed to load data');
+      // Use location-based API if we have user location, otherwise fallback to regular API
+      if (userLocation) {
+        console.log('📡 Fetching stations using location:', userLocation);
+        stationsResponse = await apiService.getStationsByLocation(
+          userLocation.latitude,
+          userLocation.longitude,
+          20
+        );
+        console.log('✅ Got stations from API:', stationsResponse.count, 'stations');
+      } else {
+        console.log('📡 Fetching stations without location (fallback)');
+        stationsResponse = await apiService.getStations(0, 20);
+      }
+
+      // Set stations data
+      setStations(stationsResponse.stations || []);
+
+      // Set recent stations (first 5)
+      setRecentStations((stationsResponse.stations || []).slice(0, 5));
+
+      // Mock upcoming booking (you can replace this with real booking data later)
+      if ((stationsResponse.stations || []).length > 0) {
+        const firstStation = stationsResponse.stations[0];
+        setUpcomingBooking({
+          id: '1',
+          stationName: firstStation.name,
+          stationAddress: firstStation.address,
+          date: 'Today',
+          time: '2:00 PM',
+          duration: '2 hours',
+          status: 'upcoming',
+        });
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error loading data:', error);
+      setStationsError('Failed to load charging stations. Please check your connection.');
+
+      // Show user-friendly error message
+      if (error.message?.includes('Network')) {
+        setStationsError('Network error. Please check your internet connection.');
+      } else if (error.response?.status === 404) {
+        setStationsError('Charging station service temporarily unavailable.');
+      } else if (error.response?.status >= 500) {
+        setStationsError('Server error. Please try again later.');
+      }
+
+      // Don't show alert, let the UI handle the error state
+      console.error('❌ Stations API error:', error.response?.data || error.message);
     } finally {
       setIsLoading(false);
     }
@@ -201,30 +277,37 @@ const HomeScreen: React.FC = () => {
 
   const handleStationPress = (station: Station) => {
     (navigation as any).navigate('Search', {
-      screen: 'StationDetail',
-      params: { stationId: station.id }
+      screen: 'StationDetailsBooking',
+      params: { station }
     });
   };
 
   const handleBookingPress = () => {
-    (navigation as any).navigate('BookingConfirmation', {
-      stationName: upcomingBooking?.stationName,
-      stationAddress: upcomingBooking?.stationAddress,
-      date: upcomingBooking?.date,
-      time: upcomingBooking?.time,
-      duration: upcomingBooking?.duration,
+    (navigation as any).navigate('Bookings', {
+      screen: 'BookingConfirmation',
+      params: {
+        stationName: upcomingBooking?.stationName,
+        stationAddress: upcomingBooking?.stationAddress,
+        date: upcomingBooking?.date,
+        time: upcomingBooking?.time,
+        duration: upcomingBooking?.duration,
+      },
     });
   };
 
   useEffect(() => {
-    loadData();
+    // Only load data if we have location or if location failed (for fallback)
+    if (userLocation || locationError) {
+      loadData();
+    }
+
     // Log current greeting for verification
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? 'morning' : currentHour < 18 ? 'afternoon' : 'evening';
     const username = user?.email?.split('@')[0] || 'User';
     console.log('🧪 VERIFICATION: Current greeting should be:', `Good ${greeting}, ${username}!`);
     console.log('🧪 VERIFICATION: Quick action buttons should be REMOVED');
-  }, []);
+  }, [userLocation, locationError]);
 
   const renderLiquidBackground = () => (
     <Animated.View
@@ -359,7 +442,14 @@ const HomeScreen: React.FC = () => {
         <View style={styles.heroHeader}>
           <View style={styles.locationIndicator}>
             <Ionicons name="location" size={16} color={LIQUID_COLORS.primary} />
-            <Text style={styles.locationText}>Mumbai, Maharashtra</Text>
+            <Text style={styles.locationText}>
+              {userLocation
+                ? `${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
+                : locationError
+                  ? 'Location unavailable'
+                  : 'Detecting location...'
+              }
+            </Text>
           </View>
           <Text style={styles.heroHeadline}>
             Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'User'}!
@@ -402,7 +492,14 @@ const HomeScreen: React.FC = () => {
                 </Text>
                 <View style={styles.stickyHeaderLocation}>
                   <Ionicons name="location" size={12} color={LIQUID_COLORS.primary} />
-                  <Text style={styles.stickyHeaderLocationText}>Mumbai, Maharashtra</Text>
+                  <Text style={styles.stickyHeaderLocationText}>
+                    {userLocation
+                      ? `${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
+                      : locationError
+                        ? 'Location unavailable'
+                        : 'Detecting...'
+                    }
+                  </Text>
                 </View>
               </View>
             </View>
@@ -535,7 +632,60 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>{getTabTitle()}</Text>
             <Ionicons name="location-outline" size={18} color={LIQUID_COLORS.primary} />
           </View>
-          {currentStations.map((station, index) => {
+
+          {/* Loading State */}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <View style={styles.loadingItem}>
+                <View style={[styles.statusDot, { backgroundColor: LIQUID_COLORS.surface }]} />
+                <View style={styles.stationIcon}>
+                  <Activity size={20} color={LIQUID_COLORS.text.tertiary} />
+                </View>
+                <View style={styles.loadingTextContainer}>
+                  <View style={styles.loadingText} />
+                  <View style={styles.loadingSubtext} />
+                </View>
+              </View>
+              <Text style={styles.loadingMessage}>Finding nearby charging stations...</Text>
+            </View>
+          )}
+
+          {/* Error State */}
+          {stationsError && !isLoading && (
+            <View style={styles.errorContainer}>
+              <View style={styles.errorIcon}>
+                <AlertCircle size={24} color={LIQUID_COLORS.accent} />
+              </View>
+              <Text style={styles.errorTitle}>Unable to load stations</Text>
+              <Text style={styles.errorMessage}>{stationsError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={loadData}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* No Data State */}
+          {!isLoading && !stationsError && currentStations.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <View style={styles.emptyIcon}>
+                <Zap size={32} color={LIQUID_COLORS.text.tertiary} />
+              </View>
+              <Text style={styles.emptyTitle}>No stations found</Text>
+              <Text style={styles.emptyMessage}>
+                {userLocation
+                  ? 'No charging stations found in your area. Try expanding your search.'
+                  : 'Enable location services to find nearby charging stations.'
+                }
+              </Text>
+            </View>
+          )}
+
+          {/* Station List */}
+          {!isLoading && !stationsError && currentStations.map((station, index) => {
             const getStatusColor = () => {
               if (station.rating && station.rating >= 4.5) return LIQUID_COLORS.success;
               if (station.rating && station.rating >= 3.5) return '#FFA500'; // Orange
@@ -1174,6 +1324,127 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: LIQUID_COLORS.text.tertiary,
     fontWeight: '500',
+  },
+
+  // Loading, Error, and Empty States
+  loadingContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+
+  loadingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+
+  loadingTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  loadingText: {
+    height: 16,
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+
+  loadingSubtext: {
+    height: 12,
+    backgroundColor: LIQUID_COLORS.surface,
+    borderRadius: 6,
+    width: '60%',
+  },
+
+  loadingMessage: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+
+  errorIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+
+  errorMessage: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+
+  retryButton: {
+    backgroundColor: LIQUID_COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: LIQUID_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  retryButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: LIQUID_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+
+  emptyMessage: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

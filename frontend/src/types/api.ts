@@ -330,6 +330,7 @@ export type MainTabParamList = {
 export type StationStackParamList = {
   StationList: undefined;
   StationDetail: { stationId: string };
+  StationDetailsBooking: { station: EVStation };
   SlotSelection: { station: any };
   BookingForm: { stationId: string; slotNumber?: number };
 };
