@@ -11,7 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Callout } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
+import { Zap } from 'lucide-react-native';
 import { EVStation } from '../../types/api';
 import { MAP_CONFIG } from '../../constants/config';
 
@@ -163,7 +163,7 @@ const MapViewComponent: React.FC<MapViewProps> = ({
                   {/* Inner circle */}
                   <View style={[styles.markerInnerCircle, { backgroundColor: statusColor + '40' }]}>
                     {/* Lightning bolt icon */}
-                    <Ionicons name="flash" size={14} color={statusColor} />
+                    <Zap size={14} color={statusColor} />
                   </View>
                 </View>
 

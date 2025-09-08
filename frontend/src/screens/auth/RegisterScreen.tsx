@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Ionicons } from '@expo/vector-icons';
+import { Eye, EyeOff, CheckCircle, Circle, Check, RotateCcw } from 'lucide-react-native';
 
 import { AuthStackParamList } from '../../types/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -180,11 +180,11 @@ const RegisterScreen: React.FC = () => {
                     style={styles.passwordToggle}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color="#666666"
-                    />
+                    {showPassword ? (
+                      <EyeOff size={20} color="#666666" />
+                    ) : (
+                      <Eye size={20} color="#666666" />
+                    )}
                   </TouchableOpacity>
                 </View>
                 <View style={[styles.inputUnderline, passwordFocused && styles.inputUnderlineFocused]} />
@@ -192,31 +192,31 @@ const RegisterScreen: React.FC = () => {
                 {/* Password Requirements */}
                 <View style={styles.passwordRequirements}>
                   <View style={styles.requirementItem}>
-                    <Ionicons
-                      name={passwordReqs.minLength ? "checkmark-circle" : "ellipse-outline"}
-                      size={16}
-                      color={passwordReqs.minLength ? "#32CD32" : "#666666"}
-                    />
+                    {passwordReqs.minLength ? (
+                      <CheckCircle size={16} color="#32CD32" />
+                    ) : (
+                      <Circle size={16} color="#666666" />
+                    )}
                     <Text style={[styles.requirementText, passwordReqs.minLength && styles.requirementTextMet]}>
                       Minimum 8 characters
                     </Text>
                   </View>
                   <View style={styles.requirementItem}>
-                    <Ionicons
-                      name={passwordReqs.hasNumber ? "checkmark-circle" : "ellipse-outline"}
-                      size={16}
-                      color={passwordReqs.hasNumber ? "#32CD32" : "#666666"}
-                    />
+                    {passwordReqs.hasNumber ? (
+                      <CheckCircle size={16} color="#32CD32" />
+                    ) : (
+                      <Circle size={16} color="#666666" />
+                    )}
                     <Text style={[styles.requirementText, passwordReqs.hasNumber && styles.requirementTextMet]}>
                       Includes a number
                     </Text>
                   </View>
                   <View style={styles.requirementItem}>
-                    <Ionicons
-                      name={passwordReqs.hasSpecial ? "checkmark-circle" : "ellipse-outline"}
-                      size={16}
-                      color={passwordReqs.hasSpecial ? "#32CD32" : "#666666"}
-                    />
+                    {passwordReqs.hasSpecial ? (
+                      <CheckCircle size={16} color="#32CD32" />
+                    ) : (
+                      <Circle size={16} color="#666666" />
+                    )}
                     <Text style={[styles.requirementText, passwordReqs.hasSpecial && styles.requirementTextMet]}>
                       Includes a special character
                     </Text>
@@ -232,7 +232,7 @@ const RegisterScreen: React.FC = () => {
                 >
                   <View style={[styles.checkbox, agreeToTerms && styles.checkboxChecked]}>
                     {agreeToTerms && (
-                      <Ionicons name="checkmark" size={16} color="#ffffff" />
+                      <Check size={16} color="#ffffff" />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -255,7 +255,7 @@ const RegisterScreen: React.FC = () => {
               >
                 {isLoading ? (
                   <View style={styles.loadingContainer}>
-                    <Ionicons name="sync-outline" size={20} color="#ffffff" />
+                    <RotateCcw size={20} color="#ffffff" />
                     <Text style={styles.createButtonText}>Creating Account...</Text>
                   </View>
                 ) : (
