@@ -139,6 +139,9 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
 
     fetchStationData();
   }, [station.id]);
+
+  // Shimmer animation
+  useEffect(() => {
     const startShimmer = () => {
       Animated.loop(
         Animated.sequence([
