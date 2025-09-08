@@ -237,22 +237,27 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
   const handleBookingConfirm = () => {
     if (!selectedTimeSlot || !bookingSummary) return;
 
-    Alert.alert(
-      'Confirm Booking',
-      `Book ${station.name} from ${bookingSummary.startTime} to ${bookingSummary.endTime}?\n\nCost: ₹${bookingSummary.cost}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            // TODO: Implement actual booking API call
-            Alert.alert('Success', 'Booking confirmed!', [
-              { text: 'OK', onPress: () => navigation.goBack() }
-            ]);
-          }
-        }
-      ]
-    );
+    // Calculate end time from start time and duration
+    const startTime = new Date(selectedTimeSlot.time);
+    const endTime = new Date(startTime.getTime() + duration * 60000);
+
+    // Navigate to BookingConfirmation screen with all necessary booking details
+    navigation.navigate('BookingConfirmation', {
+      station: station,
+      startTime: {
+        time: selectedTimeSlot.time,
+        displayTime: bookingSummary.startTime,
+      },
+      endTime: endTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+      duration: duration,
+      cost: bookingSummary.cost,
+      selectedDate: selectedDate,
+      totalPrice: bookingSummary.cost,
+    });
   };
 
   // Toggle collapsible section

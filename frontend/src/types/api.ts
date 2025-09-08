@@ -182,9 +182,8 @@ export interface Booking {
 
 export interface BookingCreate {
   station_id: string;
-  slot_number: number;
   start_time: string;
-  end_time: string;
+  duration_minutes: number;
   notes?: string;
 }
 

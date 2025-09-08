@@ -19,6 +19,7 @@ import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { BookingStackParamList } from '../../types/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { apiService } from '../../services/api';
 
 type BookingConfirmationRouteProp = RouteProp<BookingStackParamList, 'BookingConfirmation'>;
 type BookingConfirmationNavigationProp = StackNavigationProp<BookingStackParamList, 'BookingConfirmation'>;
@@ -172,6 +173,36 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
     totalAmount: totalPrice || 0,
   };
 
+  // Create booking after successful payment
+  const createBookingAfterPayment = async (paymentData: any) => {
+    try {
+      console.log('📝 Creating booking after successful payment...');
+      
+      // Prepare booking data
+      const startTime = new Date(route.params?.startTime?.time || new Date());
+      const endTime = new Date(startTime.getTime() + (route.params?.duration || 60) * 60000);
+      
+      const bookingData = {
+        station_id: route.params?.station?.id,
+        start_time: startTime.toISOString(),
+        duration_minutes: route.params?.duration || 60,
+        notes: `Payment ID: ${paymentData.razorpay_payment_id}`,
+      };
+
+      console.log('📋 Booking data:', bookingData);
+
+      // Create booking via API
+      const booking = await apiService.createBooking(bookingData);
+      
+      console.log('✅ Booking created successfully:', booking);
+      return booking;
+      
+    } catch (error: any) {
+      console.error('❌ Booking creation failed:', error);
+      throw error;
+    }
+  };
+
   const initiatePayment = async (amount: number, stationName: string) => {
     setIsProcessing(true);
 
@@ -179,7 +210,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       console.log('🚀 Initiating payment for amount:', amount, 'at station:', stationName);
 
       // 1. Fetch order from backend
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.10:8000'}/api/payment/create-order`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.9:8000'}/api/payment/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,10 +264,42 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       try {
         const data = await RazorpayCheckout.open(options);
         
-        // Handle success
+        // Handle success - Create booking after payment
         console.log('✅ Payment Successful:', data);
-        Alert.alert('Booking Confirmed!', `Your charging slot is reserved.\nPayment ID: ${data.razorpay_payment_id}`);
-        setIsConfirmed(true);
+        
+        try {
+          // Create booking in backend
+          const booking = await createBookingAfterPayment(data);
+          
+          console.log('🎉 Booking and payment completed successfully!');
+          Alert.alert(
+            'Booking Confirmed!', 
+            `Your charging slot is reserved.\nBooking ID: ${booking.id}\nPayment ID: ${data.razorpay_payment_id}`,
+            [
+              {
+                text: 'View My Bookings',
+                onPress: () => {
+                  // Navigate to My Bookings tab
+                  navigation.navigate('Bookings' as never);
+                }
+              }
+            ]
+          );
+          setIsConfirmed(true);
+          
+        } catch (bookingError: any) {
+          console.error('❌ Booking creation failed after payment:', bookingError);
+          Alert.alert(
+            'Payment Successful, Booking Failed',
+            'Your payment was successful but we could not create the booking. Please contact support.',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.goBack()
+              }
+            ]
+          );
+        }
         
       } catch (error: any) {
         // Handle failure
@@ -265,12 +328,13 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   };
 
   const handleBackToHome = () => {
-    navigation.navigate('BookingsMain');
+    // Navigate directly to My Bookings tab
+    navigation.navigate('Bookings' as never);
   };
 
   const handleViewBooking = () => {
-    // Navigate back to bookings main since BookingDetail is not in this stack
-    navigation.navigate('BookingsMain');
+    // Navigate directly to My Bookings tab
+    navigation.navigate('Bookings' as never);
   };
 
   if (isConfirmed) {
