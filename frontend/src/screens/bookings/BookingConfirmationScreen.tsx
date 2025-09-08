@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: LIQUID_COLORS.background,
-    paddingBottom: 100, // Ensure Pay button is visible above navigation bar
+    paddingBottom: 120, // Ensure Pay button is visible above navigation bar with more space
   },
   
   // Sticky Header
