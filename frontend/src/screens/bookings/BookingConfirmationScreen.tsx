@@ -419,7 +419,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar height
+    paddingBottom: 15,
     backgroundColor: LIQUID_COLORS.background,
     borderBottomWidth: 1,
     borderBottomColor: LIQUID_COLORS.border,
