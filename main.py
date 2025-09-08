@@ -1318,7 +1318,7 @@ async def search_stations(
 
 @app.post("/api/bookings/", response_model=BookingResponse)
 async def create_booking_api(
-    booking: BookingCreate,
+    request: Request,
     current_user: dict = Depends(get_current_active_user)
 ):
     """Create a new booking for an EV charging slot"""
@@ -1326,8 +1326,48 @@ async def create_booking_api(
         raise HTTPException(status_code=500, detail="Database connection not available")
     
     try:
+        # Get raw JSON data from request
+        data = await request.json()
+        print(f"🔍 Raw request data: {data}")
+        print(f"🔍 Data types: {[(k, type(v)) for k, v in data.items()]}")
+        
+        # --- CRITICAL FIX: Manual type conversion ---
+        try:
+            # Convert station_id to string (it should be a MongoDB ObjectId string)
+            station_id = str(data.get('station_id', ''))
+            
+            # Convert duration_minutes to integer
+            duration_minutes_raw = data.get('duration_minutes', 60)
+            duration_minutes = int(duration_minutes_raw)
+            
+            # Get other fields
+            start_time_str = data.get('start_time', '')
+            notes = data.get('notes', '')
+            
+            print(f"🔍 Type conversion results:")
+            print(f"   station_id: {station_id} (type: {type(station_id)})")
+            print(f"   duration_minutes: {duration_minutes} (type: {type(duration_minutes)})")
+            print(f"   start_time: {start_time_str} (type: {type(start_time_str)})")
+            print(f"   notes: {notes} (type: {type(notes)})")
+            
+        except (ValueError, TypeError, KeyError) as e:
+            print(f"❌ Type conversion error: {str(e)}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid data format for numeric fields. Error: {str(e)}"
+            )
+        
+        # Validate converted values
+        if not station_id:
+            raise HTTPException(status_code=400, detail="station_id is required")
+        
+        if duration_minutes < 15 or duration_minutes > 480:
+            raise HTTPException(status_code=400, detail="duration_minutes must be between 15 and 480")
+        
+        if not start_time_str:
+            raise HTTPException(status_code=400, detail="start_time is required")
+        
         print(f"🔍 Starting booking creation for user: {current_user['email']}")
-        print(f"🔍 Booking data: {booking}")
         
         # Get user ID
         user = users_collection.find_one({"email": current_user["email"]})
@@ -1338,33 +1378,33 @@ async def create_booking_api(
         print(f"🔍 User ID: {user_id}")
         
         # Validate station exists
-        if not ObjectId.is_valid(booking.station_id):
+        if not ObjectId.is_valid(station_id):
             raise HTTPException(status_code=400, detail="Invalid station ID format")
         
-        station = stations_collection.find_one({"_id": ObjectId(booking.station_id)})
+        station = stations_collection.find_one({"_id": ObjectId(station_id)})
         if not station:
             raise HTTPException(status_code=404, detail="Station not found")
         
         print(f"🔍 Station found: {station['name']}")
         
         # Calculate end time from start time and duration
-        print(f"🔍 Parsing start time: {booking.start_time}")
-        print(f"🔍 Duration minutes: {booking.duration_minutes}")
-        print(f"🔍 Duration type: {type(booking.duration_minutes)}")
+        print(f"🔍 Parsing start time: {start_time_str}")
+        print(f"🔍 Duration minutes: {duration_minutes}")
+        print(f"🔍 Duration type: {type(duration_minutes)}")
         
-        start_time = datetime.fromisoformat(booking.start_time.replace('Z', '+00:00'))
-        end_time = start_time + timedelta(minutes=booking.duration_minutes)
+        start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+        end_time = start_time + timedelta(minutes=duration_minutes)
         
         print(f"🔍 Start time parsed: {start_time}")
         print(f"🔍 End time calculated: {end_time}")
         
         # Check for overlapping bookings
-        print(f"🔍 Checking overlapping bookings for station: {booking.station_id}")
+        print(f"🔍 Checking overlapping bookings for station: {station_id}")
         print(f"🔍 Start time: {start_time.isoformat()}")
         print(f"🔍 End time: {end_time.isoformat()}")
         
         overlapping_count = bookings_collection.count_documents({
-            "station_id": booking.station_id,
+            "station_id": station_id,
             "status": {"$in": ["PENDING", "CONFIRMED"]},
             "$or": [
                 {
@@ -1395,12 +1435,12 @@ async def create_booking_api(
         
         # Calculate cost
         price_per_hour = station.get("price_per_hour", 10)
-        total_cost = (booking.duration_minutes / 60) * price_per_hour
+        total_cost = (duration_minutes / 60) * price_per_hour
         
         # Create booking document
         booking_doc = {
             "user_id": user_id,
-            "station_id": booking.station_id,
+            "station_id": station_id,
             "slot_number": int(available_slot.get("slot_number", 1)),
             "start_time": start_time.isoformat(),
             "end_time": end_time.isoformat(),
@@ -1408,7 +1448,7 @@ async def create_booking_api(
             "total_cost": total_cost,
             "energy_consumed": None,
             "payment_status": "pending",
-            "notes": booking.notes,
+            "notes": notes,
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat()
         }
