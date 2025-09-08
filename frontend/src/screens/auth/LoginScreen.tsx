@@ -21,13 +21,64 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { NavigationProp } from '@react-navigation/native';
-import { Zap, Eye, EyeOff, RotateCcw, Chrome, Apple } from 'lucide-react-native';
+import { Zap, Eye, EyeOff, RotateCcw } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../types/api';
 import { useAuth } from '../../contexts/AuthContext';
 
 
 const { width, height } = Dimensions.get('window');
+
+// Custom Logo Components
+const GoogleLogo = ({ size = 20 }: { size?: number }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: '#ffffff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
+    }}>
+      <Text style={{
+        fontSize: size * 0.6,
+        fontWeight: 'bold',
+        color: '#4285F4',
+        fontFamily: 'System',
+      }}>G</Text>
+    </View>
+  </View>
+);
+
+const AppleLogo = ({ size = 20 }: { size?: number }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{
+      width: size,
+      height: size,
+      borderRadius: size * 0.2,
+      backgroundColor: '#ffffff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
+    }}>
+      <Text style={{
+        fontSize: size * 0.7,
+        fontWeight: 'bold',
+        color: '#000000',
+        fontFamily: 'System',
+      }}>🍎</Text>
+    </View>
+  </View>
+);
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -198,14 +249,14 @@ const LoginScreen: React.FC = () => {
               <View style={styles.socialButtons}>
                 <TouchableOpacity style={styles.socialButton}>
                   <View style={styles.socialIcon}>
-                    <Chrome size={20} color="#ffffff" />
+                    <GoogleLogo size={20} />
                   </View>
                   <Text style={styles.socialButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.socialButton}>
                   <View style={styles.socialIcon}>
-                    <Apple size={20} color="#ffffff" />
+                    <AppleLogo size={20} />
                   </View>
                   <Text style={styles.socialButtonText}>Continue with Apple</Text>
                 </TouchableOpacity>
