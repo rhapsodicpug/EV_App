@@ -16,6 +16,7 @@ import {
   NearbyStationsResponse,
   SearchStationsResponse,
   Booking,
+  BookingWithStationResponse,
   BookingCreate,
   BookingUpdate,
   ApiResponse,
@@ -255,6 +256,16 @@ class ApiService {
     if (status) params.status = status;
 
     const response = await this.client.get<Booking[]>(API_CONFIG.ENDPOINTS.BOOKINGS.LIST, {
+      params,
+    });
+    return response.data;
+  }
+
+  async getMyBookings(skip = 0, limit = 50, status?: string): Promise<BookingWithStationResponse[]> {
+    const params: any = { skip, limit };
+    if (status) params.status = status;
+
+    const response = await this.client.get<BookingWithStationResponse[]>('/api/bookings/my-bookings', {
       params,
     });
     return response.data;

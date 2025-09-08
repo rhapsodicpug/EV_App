@@ -188,11 +188,22 @@ export interface BookingCreate {
   notes?: string;
 }
 
-export interface BookingUpdate {
-  start_time?: string;
-  end_time?: string;
-  status?: BookingStatus;
+export interface BookingWithStationResponse {
+  id: string;
+  user_id: string;
+  station_id: string;
+  station_name: string;
+  station_address: string;
+  slot_number: number;
+  start_time: string;
+  end_time: string;
+  status: BookingStatus;
+  total_cost?: number;
+  energy_consumed?: number;
+  payment_status?: string;
   notes?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ==================== MAP TYPES ====================

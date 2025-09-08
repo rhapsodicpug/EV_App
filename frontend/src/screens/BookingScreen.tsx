@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Calendar } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,8 +19,10 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import { useThemeColors } from '../design';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
+import { apiService } from '../services/api';
+import { BookingWithStationResponse, BookingStatus } from '../types/api';
 
 const { width } = Dimensions.get('window');
 
@@ -40,87 +43,61 @@ const BOOKING_COLORS = {
   },
 };
 
-interface Booking {
-  id: string;
-  stationName: string;
-  stationAddress: string;
-  date: string;
-  timeSlot: string;
-  amount: string;
-  status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled';
-  slotNumber: number;
-  chargerType: string;
-  bookingDate: string;
-}
-
 const BookingScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp<any>>();
+  const isFocused = useIsFocused();
 
   // State for premium Bookings screen
   const [activeTab, setActiveTab] = useState<'Upcoming' | 'Past'>('Upcoming');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [bookings, setBookings] = useState<BookingWithStationResponse[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Animation values for segmented control
   const tabIndicatorPosition = useSharedValue(0);
 
-  // Mock data for premium design
-  const mockBookings: Booking[] = [
-    {
-      id: '1',
-      stationName: 'Mumbai Central EV Station',
-      stationAddress: 'Mumbai Central Railway Station, Mumbai',
-      date: 'Today',
-      timeSlot: '3:00 PM - 4:00 PM',
-      amount: '₹120',
-      status: 'confirmed',
-      slotNumber: 3,
-      chargerType: 'DC Fast',
-      bookingDate: '2024-01-15',
-    },
-    {
-      id: '2',
-      stationName: 'Bandra Kurla Complex Station',
-      stationAddress: 'BKC, Bandra East, Mumbai',
-      date: 'Tomorrow',
-      timeSlot: '10:00 AM - 12:00 PM',
-      amount: '₹160',
-      status: 'upcoming',
-      slotNumber: 1,
-      chargerType: 'DC Ultra Fast',
-      bookingDate: '2024-01-16',
-    },
-    {
-      id: '3',
-      stationName: 'Andheri West Charging Hub',
-      stationAddress: 'Andheri West, Mumbai',
-      date: 'Jan 18',
-      timeSlot: '2:00 PM - 4:00 PM',
-      amount: '₹140',
-      status: 'completed',
-      slotNumber: 2,
-      chargerType: 'AC Fast',
-      bookingDate: '2024-01-18',
-    },
-    {
-      id: '4',
-      stationName: 'Juhu Beach Station',
-      stationAddress: 'Juhu Beach, Mumbai',
-      date: 'Jan 12',
-      timeSlot: '6:00 PM - 8:00 PM',
-      amount: '₹180',
-      status: 'cancelled',
-      slotNumber: 4,
-      chargerType: 'DC Fast',
-      bookingDate: '2024-01-12',
-    },
-  ];
+  // Fetch bookings from API
+  const fetchBookings = async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setIsLoading(true);
+      }
+      setError(null);
 
-  // Filter bookings based on active tab
-  const upcomingBookings = mockBookings.filter(booking =>
-    ['upcoming', 'confirmed'].includes(booking.status)
+      console.log('🔄 Fetching bookings from API...');
+      const data = await apiService.getMyBookings(0, 100);
+      console.log('✅ Bookings fetched:', data.length, 'bookings');
+      
+      setBookings(data);
+    } catch (err: any) {
+      console.error('❌ Error fetching bookings:', err);
+      setError(err.message || 'Failed to fetch bookings');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Refresh handler
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchBookings(false);
+  };
+
+  // Effect to fetch bookings when screen loads or becomes focused
+  useEffect(() => {
+    if (isFocused) {
+      fetchBookings();
+    }
+  }, [isFocused]);
+
+  // Filter bookings based on active tab and status
+  const upcomingBookings = bookings.filter(booking =>
+    ['PENDING', 'CONFIRMED'].includes(booking.status)
   );
-  const pastBookings = mockBookings.filter(booking =>
-    ['completed', 'cancelled'].includes(booking.status)
+  const pastBookings = bookings.filter(booking =>
+    ['COMPLETED', 'CANCELLED'].includes(booking.status)
   );
 
   // Handler functions
@@ -131,11 +108,11 @@ const BookingScreen: React.FC = () => {
     tabIndicatorPosition.value = withTiming(targetPosition, { duration: 300 });
   };
 
-  const handleGetDirections = (booking: Booking) => {
-    Alert.alert('Directions', `Get directions to ${booking.stationName}?`);
+  const handleGetDirections = (booking: BookingWithStationResponse) => {
+    Alert.alert('Directions', `Get directions to ${booking.station_name}?`);
   };
 
-  const handleCancelBooking = (booking: Booking) => {
+  const handleCancelBooking = async (booking: BookingWithStationResponse) => {
     Alert.alert(
       'Cancel Booking',
       'Are you sure you want to cancel this booking?',
@@ -144,17 +121,26 @@ const BookingScreen: React.FC = () => {
         {
           text: 'Cancel',
           style: 'destructive',
-          onPress: () => Alert.alert('Booking Cancelled', 'Your booking has been cancelled.')
+          onPress: async () => {
+            try {
+              await apiService.cancelBooking(booking.id);
+              Alert.alert('Booking Cancelled', 'Your booking has been cancelled.');
+              // Refresh bookings after cancellation
+              fetchBookings();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to cancel booking');
+            }
+          }
         }
       ]
     );
   };
 
-  const handleRebook = (booking: Booking) => {
-    Alert.alert('Re-book', `Re-book at ${booking.stationName}?`);
+  const handleRebook = (booking: BookingWithStationResponse) => {
+    Alert.alert('Re-book', `Re-book at ${booking.station_name}?`);
   };
 
-  const handleLeaveReview = (booking: Booking) => {
+  const handleLeaveReview = (booking: BookingWithStationResponse) => {
     Alert.alert('Review', 'Leave a review for your charging session?');
   };
 
@@ -162,31 +148,70 @@ const BookingScreen: React.FC = () => {
     navigation.navigate('Home' as never);
   };
 
+  // Format date and time helpers
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const bookingDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    if (bookingDate.getTime() === today.getTime()) {
+      return 'Today';
+    } else if (bookingDate.getTime() === today.getTime() + 24 * 60 * 60 * 1000) {
+      return 'Tomorrow';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const formatTimeSlot = (startTime: string, endTime: string) => {
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    
+    const startTimeStr = start.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    const endTimeStr = end.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    return `${startTimeStr} - ${endTimeStr}`;
+  };
+
+  const formatAmount = (cost?: number) => {
+    if (!cost) return '₹0';
+    return `₹${Math.round(cost)}`;
+  };
+
   // Status styling helpers
-  const getStatusInfo = (status: string) => {
+  const getStatusInfo = (status: BookingStatus) => {
     switch (status) {
-      case 'confirmed':
+      case 'CONFIRMED':
         return {
           text: 'CONFIRMED',
           color: BOOKING_COLORS.success,
           icon: 'checkmark-circle',
           bgColor: BOOKING_COLORS.success + '20',
         };
-      case 'upcoming':
+      case 'PENDING':
         return {
-          text: 'UPCOMING',
+          text: 'PENDING',
           color: BOOKING_COLORS.primary,
           icon: 'time',
           bgColor: BOOKING_COLORS.primary + '20',
         };
-      case 'completed':
+      case 'COMPLETED':
         return {
           text: 'COMPLETED',
           color: BOOKING_COLORS.success,
           icon: 'checkmark-circle',
           bgColor: BOOKING_COLORS.success + '20',
         };
-      case 'cancelled':
+      case 'CANCELLED':
         return {
           text: 'CANCELLED',
           color: BOOKING_COLORS.error,
@@ -220,6 +245,39 @@ const BookingScreen: React.FC = () => {
   // Get current bookings based on active tab
   const currentBookings = activeTab === 'Upcoming' ? upcomingBookings : pastBookings;
 
+  // Loading state
+  if (isLoading && bookings.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Bookings</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading your bookings...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error && bookings.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Bookings</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={BOOKING_COLORS.error} />
+          <Text style={styles.errorTitle}>Failed to Load Bookings</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchBookings()}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -248,7 +306,7 @@ const BookingScreen: React.FC = () => {
                 activeTab === 'Upcoming' && styles.activeSegmentedText,
               ]}
             >
-              Upcoming
+              Upcoming ({upcomingBookings.length})
             </Text>
           </TouchableOpacity>
 
@@ -262,7 +320,7 @@ const BookingScreen: React.FC = () => {
                 activeTab === 'Past' && styles.activeSegmentedText,
               ]}
             >
-              Past
+              Past ({pastBookings.length})
             </Text>
           </TouchableOpacity>
         </View>
@@ -273,6 +331,14 @@ const BookingScreen: React.FC = () => {
         style={styles.bookingsScrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.bookingsContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={BOOKING_COLORS.primary}
+            colors={[BOOKING_COLORS.primary]}
+          />
+        }
       >
         {currentBookings.length > 0 ? (
           currentBookings.map((booking) => (
@@ -309,8 +375,8 @@ const BookingScreen: React.FC = () => {
 
               {/* Booking Content */}
               <View style={styles.bookingContent}>
-                <Text style={styles.stationName}>{booking.stationName}</Text>
-                <Text style={styles.stationAddress}>{booking.stationAddress}</Text>
+                <Text style={styles.stationName}>{booking.station_name}</Text>
+                <Text style={styles.stationAddress}>{booking.station_address}</Text>
 
                 <View style={styles.bookingMeta}>
                   <View style={styles.metaItem}>
@@ -320,7 +386,7 @@ const BookingScreen: React.FC = () => {
                       color={BOOKING_COLORS.text.muted}
                     />
                     <Text style={styles.metaText}>
-                      {booking.date} • {booking.timeSlot}
+                      {formatDate(booking.start_time)} • {formatTimeSlot(booking.start_time, booking.end_time)}
                     </Text>
                   </View>
 
@@ -331,7 +397,7 @@ const BookingScreen: React.FC = () => {
                       color={BOOKING_COLORS.text.muted}
                     />
                     <Text style={styles.metaText}>
-                      Slot {booking.slotNumber} • {booking.chargerType}
+                      Slot {booking.slot_number}
                     </Text>
                   </View>
 
@@ -341,7 +407,7 @@ const BookingScreen: React.FC = () => {
                       size={14}
                       color={BOOKING_COLORS.text.muted}
                     />
-                    <Text style={styles.metaText}>{booking.amount}</Text>
+                    <Text style={styles.metaText}>{formatAmount(booking.total_cost)}</Text>
                   </View>
                 </View>
               </View>
@@ -410,17 +476,13 @@ const BookingScreen: React.FC = () => {
           /* Premium Empty State */
           <View style={styles.emptyState}>
             <View style={styles.emptyIconContainer}>
-              <Ionicons
-                name="calendar-outline"
-                size={80}
-                color={BOOKING_COLORS.text.muted}
-              />
+              <Calendar size={80} color={BOOKING_COLORS.text.muted} />
             </View>
 
-            <Text style={styles.emptyTitle}>No Bookings Yet</Text>
+            <Text style={styles.emptyTitle}>No Bookings Yet.</Text>
 
             <Text style={styles.emptySubtitle}>
-              When you book a charging session, it will appear here.
+              Your confirmed charging sessions will appear here.
             </Text>
 
             <TouchableOpacity
@@ -460,6 +522,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: BOOKING_COLORS.text.primary,
     letterSpacing: 0.5,
+  },
+
+  // Loading and Error States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: BOOKING_COLORS.text.secondary,
+    marginTop: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: BOOKING_COLORS.text.primary,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: BOOKING_COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  retryButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: BOOKING_COLORS.primary,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: BOOKING_COLORS.text.primary,
   },
 
   // Segmented Control
