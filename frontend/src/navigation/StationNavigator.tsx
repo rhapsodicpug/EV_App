@@ -13,6 +13,7 @@ import StationListScreen from '../screens/stations/StationListScreen';
 import StationDetailsScreen from '../screens/stations/StationDetailsScreen';
 import StationBookingScreen from '../screens/stations/StationBookingScreen';
 import StationDetailsBookingScreen from '../screens/stations/StationDetailsBookingScreen';
+import { BookingConfirmationScreen } from '../screens/bookings/BookingConfirmationScreen';
 
 const Stack = createStackNavigator<StationStackParamList>();
 
@@ -57,6 +58,22 @@ const StationNavigator: React.FC = () => {
         options={{
           title: 'Station Details & Booking',
           headerBackTitle: 'Back',
+        }}
+      />
+      <Stack.Screen 
+        name="BookingConfirmation" 
+        component={BookingConfirmationScreen}
+        options={{
+          title: 'Confirm Booking',
+          headerShown: false,
+        }}
+        getId={({ params }) => {
+          // Create unique key based on booking parameters to force re-render
+          if (params) {
+            const { station, startTime, endTime, cost, selectedSlot, selectedDate, totalPrice } = params;
+            return `${station?.id || 'unknown'}-${startTime || 'unknown'}-${endTime || 'unknown'}-${cost || totalPrice || 'unknown'}`;
+          }
+          return 'default';
         }}
       />
     </Stack.Navigator>

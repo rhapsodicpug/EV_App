@@ -340,9 +340,21 @@ export type MainTabParamList = {
 export type StationStackParamList = {
   StationList: undefined;
   StationDetail: { stationId: string };
+  StationBooking: { stationId: string };
   StationDetailsBooking: { station: EVStation };
   SlotSelection: { station: any };
   BookingForm: { stationId: string; slotNumber?: number };
+  BookingConfirmation: {
+    station: any;
+    startTime?: any;
+    duration?: number;
+    endTime?: string;
+    cost?: number;
+    // Legacy parameters for backward compatibility
+    selectedSlot?: any;
+    selectedDate?: Date;
+    totalPrice?: number;
+  };
 };
 
 export type MapStackParamList = {
