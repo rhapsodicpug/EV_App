@@ -100,6 +100,11 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
   const [expandedTimeSlot, setExpandedTimeSlot] = useState<string | null>(null);
   const [bookingSummary, setBookingSummary] = useState<BookingSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Calculate available slots
+  const availableSlots = station?.charging_slots?.filter(slot => slot.status === 'AVAILABLE') || [];
+  const totalSlots = station?.charging_slots?.length || 0;
+  const isStationFull = availableSlots.length === 0;
   const [collapsibleSections, setCollapsibleSections] = useState<CollapsibleSection[]>([
     { id: 'connectors', title: 'Connectors', icon: 'hardware-chip-outline', isExpanded: false },
     { id: 'amenities', title: 'Amenities', icon: 'storefront-outline', isExpanded: false },
@@ -270,6 +275,26 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
       )
     );
   };
+
+  // Station Full Message Component
+  const StationFullMessage = () => (
+    <View style={styles.stationFullContainer}>
+      <View style={styles.stationFullCard}>
+        <AlertCircle size={48} color={THEME.error} />
+        <Text style={styles.stationFullTitle}>Station is Full</Text>
+        <Text style={styles.stationFullMessage}>
+          No slots are currently available at this station. Please check back later or try a different location.
+        </Text>
+        <TouchableOpacity
+          style={styles.stationFullButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.stationFullButtonText}>Find Another Station</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   // Duration slider component
   const DurationSlider = () => {
@@ -473,6 +498,69 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
     return <LoadingSkeleton />;
   }
 
+  // Show station full message if no slots are available
+  if (isStationFull) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={THEME.background} />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ChevronLeft size={24} color={THEME.text.primary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.stationName}>{station.name}</Text>
+            <Text style={styles.stationAddress}>{station.address}</Text>
+          </View>
+        </View>
+
+        {/* Station Info Card */}
+        <LinearGradient
+          colors={[THEME.card, THEME.surface]}
+          style={styles.stationInfoCard}
+        >
+          <View style={styles.stationInfoContent}>
+            <View style={[styles.availabilityBadge, styles.availabilityBadgeFull]}>
+              <Text style={styles.availabilityText}>
+                {availableSlots.length} of {totalSlots} Available
+              </Text>
+            </View>
+
+            <View style={styles.stationDetails}>
+              <View style={styles.detailRow}>
+                <MapPin size={16} color={THEME.primary} />
+                <Text style={styles.detailText}>
+                  {formatData(station.distance, '--', 'km away')}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Zap size={16} color={THEME.primary} />
+                <Text style={styles.detailText}>
+                  {formatData(station.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Star size={16} color="#FFD700" />
+                <Text style={styles.detailText}>
+                  {formatData(station.rating, '--', '/5')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Station Full Message */}
+        <StationFullMessage />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.background} />
@@ -499,7 +587,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
         <View style={styles.stationInfoContent}>
           <View style={styles.availabilityBadge}>
             <Text style={styles.availabilityText}>
-              {formatData(station.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length, '--', '')} of {formatData(station.charging_slots?.length, '--', '')} Available
+              {availableSlots.length} of {totalSlots} Available
             </Text>
           </View>
 
@@ -1089,6 +1177,54 @@ const styles = StyleSheet.create({
     color: THEME.text.muted,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+
+  // Station Full Styles
+  stationFullContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  stationFullCard: {
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.border,
+    maxWidth: 400,
+  },
+  stationFullTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: THEME.error,
+    marginTop: 16,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  stationFullMessage: {
+    fontSize: 16,
+    color: THEME.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  stationFullButton: {
+    backgroundColor: THEME.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  stationFullButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: THEME.text.primary,
+  },
+
+  // Availability Badge Full Style
+  availabilityBadgeFull: {
+    backgroundColor: THEME.error,
   },
 });
 
