@@ -93,13 +93,6 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  // Animation values
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerOpacity = useRef(new Animated.Value(0)).current;
-  const headerTranslate = useRef(new Animated.Value(-50)).current;
-  const heroFade = useRef(new Animated.Value(1)).current;
-  const heroTranslate = useRef(new Animated.Value(0)).current;
-
   // Reset confirmation state when route parameters change (new booking)
   useEffect(() => {
     console.log('🔄 Resetting confirmation state due to route params change');
@@ -107,22 +100,6 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
     setIsConfirmed(false);
     setIsProcessing(false);
   }, [route.params]);
-
-  // Animated header logic
-  useEffect(() => {
-    const listener = scrollY.addListener(({ value }) => {
-      const threshold = 100;
-      const opacity = Math.min(value / threshold, 1);
-      const translateY = Math.max(-50 + (value / threshold) * 50, 0);
-
-      headerOpacity.setValue(opacity);
-      headerTranslate.setValue(translateY);
-      heroFade.setValue(Math.max(1 - value / 200, 0.3));
-      heroTranslate.setValue(value * 0.5);
-    });
-
-    return () => scrollY.removeListener(listener);
-  }, []);
 
   // Create booking after successful payment
   const createBookingAfterPayment = async (paymentData: any) => {
@@ -145,7 +122,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       const bookingData = {
         station_id: stationId,
         start_time: startTime.toISOString(),
-        duration_minutes: parseInt(route.params?.duration || 60), // Ensure duration is a number
+        duration_minutes: parseInt(String(route.params?.duration || 60)), // Ensure duration is a number
         notes: `Payment ID: ${paymentData.razorpay_payment_id}`,
       };
 
@@ -274,7 +251,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   };
 
   const handlePayment = async () => {
-    const bookingAmount = parseFloat(route.params?.cost || route.params?.totalPrice || 5); // Ensure amount is a number
+    const bookingAmount = parseFloat(String(route.params?.cost || route.params?.totalPrice || 5)); // Ensure amount is a number
     const stationName = route.params?.station?.name || 'EV Station';
     
     await initiatePayment(bookingAmount, stationName);
@@ -297,12 +274,9 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
 
         {/* Confirmation Success Screen */}
         <View style={styles.successContainer}>
-          <Animated.View style={[styles.successIconContainer, { 
-            opacity: heroFade,
-            transform: [{ translateY: heroTranslate }]
-          }]}>
+          <View style={styles.successIconContainer}>
             <CheckCircle size={80} color={LIQUID_COLORS.success} />
-          </Animated.View>
+          </View>
           
           <Text style={styles.successTitle}>Booking Confirmed!</Text>
           <Text style={styles.successSubtitle}>
@@ -329,39 +303,16 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
 
-      {/* Sticky Header */}
-      <Animated.View style={[styles.stickyHeader, {
-        opacity: headerOpacity,
-        transform: [{ translateY: headerTranslate }]
-      }]}>
-        <Text style={styles.stickyHeaderTitle}>Confirm Booking</Text>
+      {/* Static Header */}
+      <View style={styles.staticHeader}>
+        <Text style={styles.staticHeaderTitle}>Confirm & Book</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="close" size={24} color={LIQUID_COLORS.text.primary} />
         </TouchableOpacity>
-      </Animated.View>
+      </View>
 
       {/* Main Content */}
-      <Animated.ScrollView 
-        style={styles.scrollView}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-      >
-        {/* Hero Section */}
-        <Animated.View style={[styles.heroContainer, { 
-          opacity: heroFade,
-          transform: [{ translateY: heroTranslate }]
-        }]}>
-          <LinearGradient
-            colors={[LIQUID_COLORS.primary, LIQUID_COLORS.secondary]}
-            style={styles.heroGradient}
-          >
-            <Text style={styles.heroTitle}>Confirm & Pay</Text>
-            <Text style={styles.heroSubtitle}>Review your booking details</Text>
-          </LinearGradient>
-        </Animated.View>
+      <ScrollView style={styles.scrollView}>
 
         {/* Booking Summary */}
         <View style={styles.summaryContainer}>
@@ -431,7 +382,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
             </TouchableOpacity>
           ))}
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
 
       {/* Bottom Action */}
       <View style={styles.bottomContainer}>
@@ -462,60 +413,27 @@ const styles = StyleSheet.create({
     paddingBottom: 120, // Ensure Pay button is visible above navigation bar with more space
   },
   
-  // Sticky Header
-  stickyHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 100,
-    backgroundColor: LIQUID_COLORS.background + 'E6',
+  // Static Header
+  staticHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    zIndex: 1000,
+    paddingVertical: 15,
+    backgroundColor: LIQUID_COLORS.background,
     borderBottomWidth: 1,
     borderBottomColor: LIQUID_COLORS.border,
   },
   
-  stickyHeaderTitle: {
+  staticHeaderTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: LIQUID_COLORS.text.primary,
   },
   
   // Scroll View
   scrollView: {
     flex: 1,
-  },
-  
-  // Hero Section
-  heroContainer: {
-    height: 200,
-    marginTop: 0,
-  },
-  
-  heroGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60, // Account for status bar and header
-  },
-  
-  heroTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: LIQUID_COLORS.text.primary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  
-  heroSubtitle: {
-    fontSize: 16,
-    color: LIQUID_COLORS.text.secondary,
-    textAlign: 'center',
   },
   
   // Summary Section
