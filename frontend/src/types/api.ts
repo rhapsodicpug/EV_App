@@ -318,6 +318,7 @@ export type RootStackParamList = {
   Splash: undefined;
   Auth: undefined;
   Main: undefined;
+  PaymentTest: undefined;
 };
 
 export type AuthStackParamList = {

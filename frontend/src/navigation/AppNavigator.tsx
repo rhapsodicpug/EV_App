@@ -11,6 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import SplashScreen from '../screens/SplashScreen';
+import PaymentTestScreen from '../screens/PaymentTestScreen';
 import { RootStackParamList } from '../types/api';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -36,6 +37,23 @@ const AppNavigator: React.FC = () => {
           // User is not authenticated, show auth flow
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
+        
+        {/* Payment Test Screen - Available from anywhere */}
+        <Stack.Screen 
+          name="PaymentTest" 
+          component={PaymentTestScreen}
+          options={{
+            title: 'Payment Test',
+            headerShown: true,
+            headerStyle: {
+              backgroundColor: '#0F0F0F',
+            },
+            headerTintColor: '#FFFFFF',
+            headerTitleStyle: {
+              fontWeight: '600',
+            },
+          }}
+        />
       </Stack.Navigator>
     </SafeAreaProvider>
   );
