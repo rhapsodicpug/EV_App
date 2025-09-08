@@ -18,7 +18,7 @@ from models import (
     EVStation, StationCreate, StationUpdate, 
     ChargingSlot, SlotCreate, 
     User, UserCreate, UserLogin, UserResponse, Token, TokenData,
-    Booking, BookingCreate, BookingUpdate, BookingResponse,
+    Booking, BookingCreate, BookingUpdate, BookingResponse, BookingWithStationResponse,
     ChargerType, ChargerStatus, BookingStatus
 )
 
@@ -1300,6 +1300,250 @@ async def search_stations(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search query error: {str(e)}")
+
+# ==================== API BOOKING ENDPOINTS ====================
+
+@app.post("/api/bookings/", response_model=BookingResponse)
+async def create_booking_api(
+    booking: BookingCreate,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Create a new booking for an EV charging slot"""
+    if bookings_collection is None:
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        print(f"🔍 Starting booking creation for user: {current_user['email']}")
+        print(f"🔍 Booking data: {booking}")
+        
+        # Get user ID
+        user = users_collection.find_one({"email": current_user["email"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_id = str(user["_id"])
+        print(f"🔍 User ID: {user_id}")
+        
+        # Validate station exists
+        if not ObjectId.is_valid(booking.station_id):
+            raise HTTPException(status_code=400, detail="Invalid station ID format")
+        
+        station = stations_collection.find_one({"_id": ObjectId(booking.station_id)})
+        if not station:
+            raise HTTPException(status_code=404, detail="Station not found")
+        
+        print(f"🔍 Station found: {station['name']}")
+        
+        # Calculate end time from start time and duration
+        print(f"🔍 Parsing start time: {booking.start_time}")
+        print(f"🔍 Duration minutes: {booking.duration_minutes}")
+        print(f"🔍 Duration type: {type(booking.duration_minutes)}")
+        
+        start_time = datetime.fromisoformat(booking.start_time.replace('Z', '+00:00'))
+        end_time = start_time + timedelta(minutes=booking.duration_minutes)
+        
+        print(f"🔍 Start time parsed: {start_time}")
+        print(f"🔍 End time calculated: {end_time}")
+        
+        # Check for overlapping bookings
+        print(f"🔍 Checking overlapping bookings for station: {booking.station_id}")
+        print(f"🔍 Start time: {start_time.isoformat()}")
+        print(f"🔍 End time: {end_time.isoformat()}")
+        
+        overlapping_count = bookings_collection.count_documents({
+            "station_id": booking.station_id,
+            "status": {"$in": ["PENDING", "CONFIRMED"]},
+            "$or": [
+                {
+                    "start_time": {"$lt": end_time.isoformat()},
+                    "end_time": {"$gt": start_time.isoformat()}
+                }
+            ]
+        })
+        
+        print(f"🔍 Overlapping bookings count: {overlapping_count}")
+        
+        if overlapping_count > 0:
+            raise HTTPException(status_code=409, detail="Time slot is already booked")
+        
+        # Find available slot
+        available_slot = None
+        for slot in station.get("charging_slots", []):
+            if slot.get("status") == "AVAILABLE":
+                available_slot = slot
+                break
+        
+        if not available_slot:
+            raise HTTPException(status_code=409, detail="No available slots at this station")
+        
+        print(f"🔍 Available slot found: {available_slot}")
+        print(f"🔍 Slot number type: {type(available_slot.get('slot_number'))}")
+        print(f"🔍 Slot number value: {available_slot.get('slot_number')}")
+        
+        # Calculate cost
+        price_per_hour = station.get("price_per_hour", 10)
+        total_cost = (booking.duration_minutes / 60) * price_per_hour
+        
+        # Create booking document
+        booking_doc = {
+            "user_id": user_id,
+            "station_id": booking.station_id,
+            "slot_number": int(available_slot.get("slot_number", 1)),
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+            "status": "PENDING",
+            "total_cost": total_cost,
+            "energy_consumed": None,
+            "payment_status": "pending",
+            "notes": booking.notes,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        result = bookings_collection.insert_one(booking_doc)
+        booking_doc["_id"] = result.inserted_id
+        booking_doc["id"] = str(result.inserted_id)
+        
+        return BookingResponse(**booking_doc)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Booking creation error: {str(e)}")
+
+@app.get("/api/bookings/my-bookings", response_model=List[BookingWithStationResponse])
+async def get_my_bookings_api(
+    current_user: dict = Depends(get_current_active_user),
+    skip: int = Query(0, ge=0, description="Number of bookings to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Number of bookings to return"),
+    status: Optional[BookingStatus] = Query(None, description="Filter by booking status")
+):
+    """Get all bookings for the authenticated user with station details"""
+    if bookings_collection is None:
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Get user ID
+        user = users_collection.find_one({"email": current_user["email"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_id = str(user["_id"])
+        
+        # Build query
+        query = {"user_id": user_id}
+        if status:
+            query["status"] = status
+        
+        # Use aggregation pipeline to join with stations collection
+        pipeline = [
+            {"$match": query},
+            {
+                "$addFields": {
+                    "station_object_id": {"$toObjectId": "$station_id"}
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "stations",
+                    "localField": "station_object_id",
+                    "foreignField": "_id",
+                    "as": "station_info"
+                }
+            },
+            {"$unwind": "$station_info"},
+            {"$sort": {"created_at": -1}},
+            {"$skip": skip},
+            {"$limit": limit}
+        ]
+        
+        bookings_cursor = bookings_collection.aggregate(pipeline)
+        bookings = list(bookings_cursor)
+        
+        # Convert to response format
+        result = []
+        for booking in bookings:
+            booking_with_station = {
+                "id": str(booking["_id"]),
+                "user_id": booking["user_id"],
+                "station_id": booking["station_id"],
+                "station_name": booking["station_info"]["name"],
+                "station_address": booking["station_info"]["address"],
+                "slot_number": booking["slot_number"],
+                "start_time": booking["start_time"],
+                "end_time": booking["end_time"],
+                "status": booking["status"],
+                "total_cost": booking.get("total_cost"),
+                "energy_consumed": booking.get("energy_consumed"),
+                "payment_status": booking.get("payment_status"),
+                "notes": booking.get("notes"),
+                "created_at": booking["created_at"],
+                "updated_at": booking["updated_at"]
+            }
+            result.append(BookingWithStationResponse(**booking_with_station))
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching bookings: {str(e)}")
+
+@app.get("/api/bookings/check-availability/{station_id}")
+async def check_availability_api(
+    station_id: str,
+    start_time: str = Query(..., description="Start time in ISO format"),
+    duration_minutes: int = Query(..., ge=15, le=480, description="Duration in minutes"),
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Check if a station is available for booking at a specific time"""
+    if bookings_collection is None or stations_collection is None:
+        raise HTTPException(status_code=500, detail="Database connection not available")
+    
+    try:
+        # Validate station ID
+        if not ObjectId.is_valid(station_id):
+            raise HTTPException(status_code=400, detail="Invalid station ID format")
+        
+        station = stations_collection.find_one({"_id": ObjectId(station_id)})
+        if not station:
+            raise HTTPException(status_code=404, detail="Station not found")
+        
+        # Parse times
+        start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        end_dt = start_dt + timedelta(minutes=duration_minutes)
+        
+        # Check for overlapping bookings
+        overlapping_count = bookings_collection.count_documents({
+            "station_id": station_id,
+            "status": {"$in": ["PENDING", "CONFIRMED"]},
+            "$or": [
+                {
+                    "start_time": {"$lt": end_dt.isoformat()},
+                    "end_time": {"$gt": start_dt.isoformat()}
+                }
+            ]
+        })
+        
+        # Check available slots
+        available_slots = [slot for slot in station.get("charging_slots", []) 
+                          if slot.get("status") == "AVAILABLE"]
+        
+        is_available = overlapping_count == 0 and len(available_slots) > 0
+        
+        return {
+            "station_id": station_id,
+            "start_time": start_time,
+            "duration_minutes": duration_minutes,
+            "is_available": is_available,
+            "available_slots": len(available_slots),
+            "overlapping_bookings": overlapping_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking availability: {str(e)}")
 
 # ==================== PAYMENT ENDPOINTS ====================
 
