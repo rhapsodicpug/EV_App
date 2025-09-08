@@ -34,6 +34,7 @@ import {
 } from 'lucide-react-native';
 import { useThemeColors } from '../../design';
 import { EVStation } from '../../types/api';
+import { apiService } from '../../services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -100,10 +101,11 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
   const [expandedTimeSlot, setExpandedTimeSlot] = useState<string | null>(null);
   const [bookingSummary, setBookingSummary] = useState<BookingSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentStation, setCurrentStation] = useState<EVStation>(station);
 
-  // Calculate available slots
-  const availableSlots = station?.charging_slots?.filter(slot => slot.status === 'AVAILABLE') || [];
-  const totalSlots = station?.charging_slots?.length || 0;
+  // Calculate available slots from current station data
+  const availableSlots = currentStation?.charging_slots?.filter(slot => slot.status === 'AVAILABLE') || [];
+  const totalSlots = currentStation?.charging_slots?.length || 0;
   const isStationFull = availableSlots.length === 0;
   const [collapsibleSections, setCollapsibleSections] = useState<CollapsibleSection[]>([
     { id: 'connectors', title: 'Connectors', icon: 'hardware-chip-outline', isExpanded: false },
@@ -116,8 +118,27 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
-  // Shimmer animation
+  // Fetch fresh station data on screen load
   useEffect(() => {
+    const fetchStationData = async () => {
+      try {
+        console.log('🔄 Fetching fresh station data for:', station.id);
+        const freshStation = await apiService.getStation(station.id);
+        setCurrentStation(freshStation);
+        console.log('✅ Fresh station data loaded:', {
+          id: freshStation.id,
+          name: freshStation.name,
+          availableSlots: freshStation.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length || 0,
+          totalSlots: freshStation.charging_slots?.length || 0
+        });
+      } catch (error) {
+        console.error('❌ Failed to fetch fresh station data:', error);
+        // Keep using the original station data if fetch fails
+      }
+    };
+
+    fetchStationData();
+  }, [station.id]);
     const startShimmer = () => {
       Animated.loop(
         Animated.sequence([
@@ -204,7 +225,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
       const startTime = new Date(selectedTimeSlot.time);
       const endTime = new Date(startTime.getTime() + duration * 60000);
 
-      const cost = (duration / 60) * (station.pricePerHour || 10); // Mock pricing
+      const cost = (duration / 60) * (currentStation.pricePerHour || 10); // Mock pricing
 
       setBookingSummary({
         startTime: startTime.toLocaleTimeString('en-US', {
@@ -248,7 +269,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
 
     // Navigate to BookingConfirmation screen with all necessary booking details
     navigation.navigate('BookingConfirmation', {
-      station: station,
+      station: currentStation,
       startTime: {
         time: selectedTimeSlot.time,
         displayTime: bookingSummary.startTime,
@@ -422,7 +443,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                 <View style={styles.collapsibleContent}>
                   {section.id === 'connectors' && (
                     <View style={styles.connectorsList}>
-                      {(station.chargingSlots || []).map((slot, index) => (
+                      {(currentStation.charging_slots || []).map((slot, index) => (
                         <View key={index} style={styles.connectorItem}>
                           <View style={styles.connectorInfo}>
                             <Text style={styles.connectorTitle}>
@@ -442,7 +463,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                           </View>
                         </View>
                       ))}
-                      {(station.chargingSlots || []).length === 0 && (
+                      {(currentStation.charging_slots || []).length === 0 && (
                         <Text style={styles.emptyText}>No connector information available</Text>
                       )}
                     </View>
@@ -450,13 +471,13 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
 
                   {section.id === 'amenities' && (
                     <View style={styles.amenitiesList}>
-                      {(station.amenities || []).map((amenity, index) => (
+                      {(currentStation.amenities || []).map((amenity, index) => (
                         <View key={index} style={styles.amenityItem}>
                           <Ionicons name="checkmark-circle" size={16} color={THEME.success} />
                           <Text style={styles.amenityText}>{amenity}</Text>
                         </View>
                       ))}
-                      {(station.amenities || []).length === 0 && (
+                      {(currentStation.amenities || []).length === 0 && (
                         <Text style={styles.emptyText}>No amenities information available</Text>
                       )}
                     </View>
@@ -466,7 +487,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                     <View style={styles.reviewsSection}>
                       <View style={styles.ratingOverview}>
                         <Text style={styles.ratingScore}>
-                          {formatData(station.rating, '--', '/5')}
+                          {formatData(currentStation.rating, '--', '/5')}
                         </Text>
                         <View style={styles.ratingStars}>
                           {[1, 2, 3, 4, 5].map((star) => (
@@ -474,7 +495,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                               key={star}
                               name="star"
                               size={16}
-                              color={(station.rating || 0) >= star ? "#FFD700" : THEME.text.muted}
+                              color={(currentStation.rating || 0) >= star ? "#FFD700" : THEME.text.muted}
                             />
                           ))}
                         </View>
@@ -513,8 +534,8 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
             <ChevronLeft size={24} color={THEME.text.primary} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.stationName}>{station.name}</Text>
-            <Text style={styles.stationAddress}>{station.address}</Text>
+            <Text style={styles.stationName}>{currentStation.name}</Text>
+            <Text style={styles.stationAddress}>{currentStation.address}</Text>
           </View>
         </View>
 
@@ -534,21 +555,21 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
               <View style={styles.detailRow}>
                 <MapPin size={16} color={THEME.primary} />
                 <Text style={styles.detailText}>
-                  {formatData(station.distance, '--', 'km away')}
+                  {formatData(currentStation.distance, '--', 'km away')}
                 </Text>
               </View>
 
               <View style={styles.detailRow}>
                 <Zap size={16} color={THEME.primary} />
                 <Text style={styles.detailText}>
-                  {formatData(station.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
+                  {formatData(currentStation.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
                 </Text>
               </View>
 
               <View style={styles.detailRow}>
                 <Star size={16} color="#FFD700" />
                 <Text style={styles.detailText}>
-                  {formatData(station.rating, '--', '/5')}
+                  {formatData(currentStation.rating, '--', '/5')}
                 </Text>
               </View>
             </View>
@@ -574,8 +595,8 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
           <ChevronLeft size={24} color={THEME.text.primary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
-          <Text style={styles.stationName}>{station.name}</Text>
-          <Text style={styles.stationAddress}>{station.address}</Text>
+          <Text style={styles.stationName}>{currentStation.name}</Text>
+          <Text style={styles.stationAddress}>{currentStation.address}</Text>
         </View>
       </View>
 
@@ -595,21 +616,21 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
             <View style={styles.detailRow}>
               <MapPin size={16} color={THEME.primary} />
               <Text style={styles.detailText}>
-                {formatData(station.distance, '--', 'km away')}
+                {formatData(currentStation.distance, '--', 'km away')}
               </Text>
             </View>
 
             <View style={styles.detailRow}>
               <Zap size={16} color={THEME.primary} />
               <Text style={styles.detailText}>
-                {formatData(station.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
+                {formatData(currentStation.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
               </Text>
             </View>
 
             <View style={styles.detailRow}>
               <Star size={16} color="#FFD700" />
               <Text style={styles.detailText}>
-                {formatData(station.rating, '--', '/5')}
+                {formatData(currentStation.rating, '--', '/5')}
               </Text>
             </View>
           </View>
