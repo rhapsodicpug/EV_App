@@ -70,6 +70,11 @@ class PaymentVerificationRequest(BaseModel):
     razorpay_signature: str
     booking_id: Optional[str] = None
 
+class BookingWithUpdatedStationResponse(BaseModel):
+    message: str
+    booking: BookingResponse
+    updated_station: dict
+
 # Initialize Razorpay
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
@@ -1316,7 +1321,7 @@ async def search_stations(
 
 # ==================== API BOOKING ENDPOINTS ====================
 
-@app.post("/api/bookings/", response_model=BookingResponse)
+@app.post("/api/bookings/", response_model=BookingWithUpdatedStationResponse)
 async def create_booking_api(
     request: Request,
     current_user: dict = Depends(get_current_active_user)
@@ -1457,7 +1462,52 @@ async def create_booking_api(
         booking_doc["_id"] = result.inserted_id
         booking_doc["id"] = str(result.inserted_id)
         
-        return BookingResponse(**booking_doc)
+        print(f"✅ Booking created successfully: {booking_doc['id']}")
+        
+        # Update the slot status to OCCUPIED in the station
+        slot_number = booking_doc["slot_number"]
+        print(f"🔄 Updating slot {slot_number} status to OCCUPIED")
+        
+        stations_collection.update_one(
+            {
+                "_id": ObjectId(station_id),
+                "charging_slots.slot_number": slot_number
+            },
+            {
+                "$set": {
+                    "charging_slots.$.status": "OCCUPIED",
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+            }
+        )
+        
+        print(f"✅ Slot {slot_number} marked as OCCUPIED")
+        
+        # Fetch updated station data to reflect new availability
+        print(f"🔄 Fetching updated station data for: {station_id}")
+        updated_station = stations_collection.find_one({"_id": ObjectId(station_id)})
+        
+        if updated_station:
+            # Convert ObjectId to string for JSON serialization
+            updated_station["id"] = str(updated_station["_id"])
+            del updated_station["_id"]
+            
+            # Count available slots
+            available_slots = [slot for slot in updated_station.get("charging_slots", []) 
+                              if slot.get("status") == "AVAILABLE"]
+            updated_station["available_slots_count"] = len(available_slots)
+            updated_station["total_slots_count"] = len(updated_station.get("charging_slots", []))
+            
+            print(f"📊 Updated station availability: {len(available_slots)}/{len(updated_station.get('charging_slots', []))} slots available")
+        else:
+            print(f"⚠️ Could not fetch updated station data")
+            updated_station = {}
+        
+        return BookingWithUpdatedStationResponse(
+            message="Booking confirmed!",
+            booking=BookingResponse(**booking_doc),
+            updated_station=updated_station
+        )
         
     except HTTPException:
         raise

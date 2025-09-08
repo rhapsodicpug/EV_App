@@ -17,6 +17,7 @@ import {
   SearchStationsResponse,
   Booking,
   BookingWithStationResponse,
+  BookingWithUpdatedStationResponse,
   BookingCreate,
   BookingUpdate,
   ApiResponse,
@@ -246,8 +247,8 @@ class ApiService {
 
   // ==================== BOOKING METHODS ====================
 
-  async createBooking(data: BookingCreate): Promise<Booking> {
-    const response = await this.client.post<Booking>(API_CONFIG.ENDPOINTS.BOOKINGS.CREATE, data);
+  async createBooking(data: BookingCreate): Promise<BookingWithUpdatedStationResponse> {
+    const response = await this.client.post<BookingWithUpdatedStationResponse>(API_CONFIG.ENDPOINTS.BOOKINGS.CREATE, data);
     return response.data;
   }
 

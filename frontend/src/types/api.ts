@@ -205,6 +205,15 @@ export interface BookingWithStationResponse {
   updated_at: string;
 }
 
+export interface BookingWithUpdatedStationResponse {
+  message: string;
+  booking: Booking;
+  updated_station: EVStation & {
+    available_slots_count: number;
+    total_slots_count: number;
+  };
+}
+
 // ==================== MAP TYPES ====================
 
 export interface MapRegion {

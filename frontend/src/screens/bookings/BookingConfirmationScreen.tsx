@@ -155,10 +155,13 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       }
 
       // Create booking via API
-      const booking = await apiService.createBooking(bookingData);
+      const response = await apiService.createBooking(bookingData);
       
-      console.log('✅ Booking created successfully:', booking);
-      return booking;
+      console.log('✅ Booking created successfully:', response.booking);
+      console.log('🔄 Updated station data:', response.updated_station);
+      console.log('📊 Station availability:', `${response.updated_station.available_slots_count}/${response.updated_station.total_slots_count} slots available`);
+      
+      return response;
       
     } catch (error: any) {
       console.error('❌ Booking creation failed:', error);
@@ -223,12 +226,14 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       // Handle success - Create booking after payment
       try {
         // Create booking in backend
-        const booking = await createBookingAfterPayment(data);
+        const response = await createBookingAfterPayment(data);
         
         console.log('🎉 Booking and payment completed successfully!');
+        console.log('🔄 Updated station availability:', `${response.updated_station.available_slots_count}/${response.updated_station.total_slots_count} slots available`);
+        
         Alert.alert(
           'Booking Confirmed!', 
-          `Your charging slot is reserved.\nBooking ID: ${booking.id}\nPayment ID: ${data.razorpay_payment_id}`,
+          `Your charging slot is reserved.\nBooking ID: ${response.booking.id}\nPayment ID: ${data.razorpay_payment_id}\n\nStation availability updated: ${response.updated_station.available_slots_count}/${response.updated_station.total_slots_count} slots available`,
           [
             {
               text: 'View My Bookings',
@@ -240,6 +245,13 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
           ]
         );
         setIsConfirmed(true);
+        
+        // Store updated station data for potential use by other screens
+        // This could be used by the station details screen to refresh its data
+        console.log('💾 Updated station data available for UI refresh:', response.updated_station);
+        
+        // You could also emit an event or use a context to notify other screens
+        // about the station data update
         
       } catch (bookingError: any) {
         console.error('❌ Booking creation failed after payment:', bookingError);
