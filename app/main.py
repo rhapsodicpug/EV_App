@@ -117,6 +117,23 @@ async def ping_database():
 app.include_router(stations.router)
 app.include_router(bookings.router)
 
+# Legacy booking endpoints for backward compatibility
+@app.post("/bookings/")
+async def bookings_legacy():
+    """Redirect to new booking endpoint"""
+    raise HTTPException(
+        status_code=301, 
+        detail="This endpoint has moved to /api/bookings/"
+    )
+
+@app.get("/bookings/")
+async def bookings_get_legacy():
+    """Redirect to new booking endpoint"""
+    raise HTTPException(
+        status_code=301, 
+        detail="This endpoint has moved to /api/bookings/my-bookings"
+    )
+
 # Include auth routers
 for auth_router in auth_routers:
     app.include_router(auth_router)

@@ -182,9 +182,8 @@ class SlotCreate(BaseModel):
 
 class BookingCreate(BaseModel):
     station_id: str = Field(..., description="EV station ID")
-    slot_number: int = Field(..., description="Charging slot number")
     start_time: datetime = Field(..., description="Booking start time")
-    end_time: datetime = Field(..., description="Booking end time")
+    duration_minutes: int = Field(..., description="Duration in minutes", ge=15, le=480)  # 15 min to 8 hours
     notes: Optional[str] = Field(None, description="Additional notes")
 
 class BookingUpdate(BaseModel):
@@ -197,6 +196,28 @@ class BookingResponse(BaseModel):
     id: str = Field(..., description="Booking ID")
     user_id: str = Field(..., description="User ID who made the booking")
     station_id: str = Field(..., description="EV station ID")
+    slot_number: int = Field(..., description="Charging slot number")
+    start_time: datetime = Field(..., description="Booking start time")
+    end_time: datetime = Field(..., description="Booking end time")
+    status: BookingStatus = Field(..., description="Booking status")
+    total_cost: Optional[float] = Field(None, description="Total cost of the booking")
+    energy_consumed: Optional[float] = Field(None, description="Energy consumed in kWh")
+    payment_status: Optional[str] = Field(None, description="Payment status")
+    notes: Optional[str] = Field(None, description="Additional notes")
+    created_at: datetime = Field(..., description="Booking creation date")
+    updated_at: datetime = Field(..., description="Last update date")
+    
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+
+class BookingWithStationResponse(BaseModel):
+    id: str = Field(..., description="Booking ID")
+    user_id: str = Field(..., description="User ID who made the booking")
+    station_id: str = Field(..., description="EV station ID")
+    station_name: str = Field(..., description="Station name")
+    station_address: str = Field(..., description="Station address")
     slot_number: int = Field(..., description="Charging slot number")
     start_time: datetime = Field(..., description="Booking start time")
     end_time: datetime = Field(..., description="Booking end time")
