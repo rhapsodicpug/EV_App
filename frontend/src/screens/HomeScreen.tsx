@@ -50,7 +50,7 @@ import {
   Home,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { MapPin, Clock, Battery } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 
@@ -441,7 +441,7 @@ const HomeScreen: React.FC = () => {
       <View style={styles.heroContentInner}>
         <View style={styles.heroHeader}>
           <View style={styles.locationIndicator}>
-            <Ionicons name="location" size={16} color={LIQUID_COLORS.primary} />
+            <MapPin size={16} color={LIQUID_COLORS.primary} />
             <Text style={styles.locationText}>
               {userLocation
                 ? `${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
@@ -491,7 +491,7 @@ const HomeScreen: React.FC = () => {
                   Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {user?.name?.split(' ')[0] || 'User'}!
                 </Text>
                 <View style={styles.stickyHeaderLocation}>
-                  <Ionicons name="location" size={12} color={LIQUID_COLORS.primary} />
+                  <MapPin size={12} color={LIQUID_COLORS.primary} />
                   <Text style={styles.stickyHeaderLocationText}>
                     {userLocation
                       ? `${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
@@ -585,13 +585,13 @@ const HomeScreen: React.FC = () => {
                 </View>
                 <View style={styles.bookingDetails}>
                   <View style={styles.bookingDetailRow}>
-                    <Ionicons name="time-outline" size={14} color={LIQUID_COLORS.text.secondary} />
+                    <Clock size={14} color={LIQUID_COLORS.text.secondary} />
                     <Text style={styles.bookingDetail}>
                       {upcomingBooking.date} • {upcomingBooking.time}
                     </Text>
                   </View>
                   <View style={styles.bookingDetailRow}>
-                    <Ionicons name="battery-charging" size={14} color={LIQUID_COLORS.text.secondary} />
+                    <Battery size={14} color={LIQUID_COLORS.text.secondary} />
                     <Text style={styles.bookingDetail}>
                       Duration: {upcomingBooking.duration}
                     </Text>
@@ -630,7 +630,7 @@ const HomeScreen: React.FC = () => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{getTabTitle()}</Text>
-            <Ionicons name="location-outline" size={18} color={LIQUID_COLORS.primary} />
+            <MapPin size={18} color={LIQUID_COLORS.primary} />
           </View>
 
           {/* Loading State */}

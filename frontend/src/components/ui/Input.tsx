@@ -8,7 +8,7 @@ import {
   TextStyle,
   TouchableOpacity,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Eye, EyeOff, Search, Mail, Lock, User, Phone, MapPin } from 'lucide-react-native';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../../design';
 
 export interface InputProps {
@@ -27,8 +27,8 @@ export interface InputProps {
   autoCorrect?: boolean;
   multiline?: boolean;
   numberOfLines?: number;
-  leftIcon?: keyof typeof Ionicons.glyphMap;
-  rightIcon?: keyof typeof Ionicons.glyphMap;
+  leftIcon?: string;
+  rightIcon?: string;
   onRightIconPress?: () => void;
   style?: ViewStyle;
   inputStyle?: TextStyle;
@@ -61,6 +61,31 @@ const Input: React.FC<InputProps> = ({
   editable = true,
 }) => {
   const { colors } = useThemeColors();
+
+  // Icon mapping function
+  const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+      case 'search':
+        return Search;
+      case 'mail':
+      case 'email':
+        return Mail;
+      case 'lock':
+      case 'key':
+        return Lock;
+      case 'person':
+      case 'user':
+        return User;
+      case 'call':
+      case 'phone':
+        return Phone;
+      case 'location':
+      case 'map-pin':
+        return MapPin;
+      default:
+        return Search;
+    }
+  };
   const [isFocused, setIsFocused] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -167,11 +192,11 @@ const Input: React.FC<InputProps> = ({
     if (secureTextEntry) {
       return (
         <TouchableOpacity onPress={handlePasswordToggle} style={styles.iconButton}>
-          <Ionicons
-            name={showPassword ? 'eye-off' : 'eye'}
-            size={20}
-            style={getIconStyle()}
-          />
+          {showPassword ? (
+            <EyeOff size={20} style={getIconStyle()} />
+          ) : (
+            <Eye size={20} style={getIconStyle()} />
+          )}
         </TouchableOpacity>
       );
     }
@@ -183,7 +208,10 @@ const Input: React.FC<InputProps> = ({
           style={styles.iconButton}
           disabled={!onRightIconPress}
         >
-          <Ionicons name={rightIcon} size={20} style={getIconStyle()} />
+          {React.createElement(getIconComponent(rightIcon), {
+            size: 20,
+            style: getIconStyle(),
+          })}
         </TouchableOpacity>
       );
     }
@@ -201,7 +229,10 @@ const Input: React.FC<InputProps> = ({
       
       <View style={getContainerStyle()}>
         {leftIcon && (
-          <Ionicons name={leftIcon} size={20} style={getIconStyle()} />
+          React.createElement(getIconComponent(leftIcon), {
+            size: 20,
+            style: getIconStyle(),
+          })
         )}
         
         <TextInput

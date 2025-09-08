@@ -7,7 +7,7 @@ import {
   TextStyle,
   ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ChevronRight, ChevronLeft, Plus, Check, X, AlertCircle } from 'lucide-react-native';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../../design';
 
 export interface ButtonProps {
@@ -39,24 +39,47 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const { colors } = useThemeColors();
 
+  // Icon mapping function
+  const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+      case 'chevron-forward':
+      case 'arrow-forward':
+        return ChevronRight;
+      case 'chevron-back':
+      case 'arrow-back':
+        return ChevronLeft;
+      case 'add':
+      case 'plus':
+        return Plus;
+      case 'checkmark':
+      case 'check':
+        return Check;
+      case 'close':
+      case 'x':
+        return X;
+      case 'alert-circle':
+      case 'warning':
+        return AlertCircle;
+      default:
+        return ChevronRight;
+    }
+  };
+
   // Helper function to render icon
   const renderIcon = (icon: string | React.ReactNode, position: 'left' | 'right') => {
     if (!icon) return null;
     
     if (typeof icon === 'string') {
-      // Convert string to Ionicons
-      return (
-        <Ionicons
-          name={icon as any}
-          size={size === 'small' ? 16 : size === 'medium' ? 18 : 20}
-          color={
-            variant === 'outline' || variant === 'text'
-              ? disabled ? colors.text.secondary : colors.primary
-              : disabled ? colors.text.secondary : Colors.neutral.white
-          }
-          style={getIconStyle()}
-        />
-      );
+      // Convert string to Lucide icon
+      const IconComponent = getIconComponent(icon);
+      return React.createElement(IconComponent, {
+        size: size === 'small' ? 16 : size === 'medium' ? 18 : 20,
+        color:
+          variant === 'outline' || variant === 'text'
+            ? disabled ? colors.text.secondary : colors.primary
+            : disabled ? colors.text.secondary : Colors.neutral.white,
+        style: getIconStyle(),
+      });
     }
     
     // If it's already a ReactNode, render it directly

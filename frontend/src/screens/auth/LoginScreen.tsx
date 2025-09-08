@@ -21,7 +21,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { NavigationProp } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Zap, Eye, EyeOff, RotateCcw, Chrome, Apple } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthStackParamList } from '../../types/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -106,7 +106,7 @@ const LoginScreen: React.FC = () => {
           >
             {/* App Logo */}
             <View style={styles.logoContainer}>
-              <Ionicons name="flash" size={48} color="#ffffff" />
+              <Zap size={48} color="#ffffff" />
             </View>
 
             {/* Welcome Text */}
@@ -155,11 +155,11 @@ const LoginScreen: React.FC = () => {
                     style={styles.passwordToggle}
                     onPress={() => setShowPassword(!showPassword)}
                   >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color="#666666"
-                    />
+                    {showPassword ? (
+                      <EyeOff size={20} color="#666666" />
+                    ) : (
+                      <Eye size={20} color="#666666" />
+                    )}
                   </TouchableOpacity>
                 </View>
                 <View style={[styles.inputUnderline, passwordFocused && styles.inputUnderlineFocused]} />
@@ -179,7 +179,7 @@ const LoginScreen: React.FC = () => {
               >
                 {isLoading ? (
                   <View style={styles.loadingContainer}>
-                    <Ionicons name="sync-outline" size={20} color="#ffffff" />
+                    <RotateCcw size={20} color="#ffffff" />
                     <Text style={styles.loginButtonText}>Signing In...</Text>
                   </View>
                 ) : (
@@ -198,14 +198,14 @@ const LoginScreen: React.FC = () => {
               <View style={styles.socialButtons}>
                 <TouchableOpacity style={styles.socialButton}>
                   <View style={styles.socialIcon}>
-                    <Ionicons name="logo-google" size={20} color="#ffffff" />
+                    <Chrome size={20} color="#ffffff" />
                   </View>
                   <Text style={styles.socialButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.socialButton}>
                   <View style={styles.socialIcon}>
-                    <Ionicons name="logo-apple" size={20} color="#ffffff" />
+                    <Apple size={20} color="#ffffff" />
                   </View>
                   <Text style={styles.socialButtonText}>Continue with Apple</Text>
                 </TouchableOpacity>

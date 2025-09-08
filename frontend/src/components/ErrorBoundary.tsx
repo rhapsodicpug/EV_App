@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AlertCircle, RotateCcw, Bug } from 'lucide-react-native';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../design';
 
 interface Props {
@@ -72,7 +72,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry, onReport 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.content, { backgroundColor: colors.surface }]}>
-        <Ionicons name="alert-circle" size={64} color={Colors.semantic.error} />
+        <AlertCircle size={64} color={Colors.semantic.error} />
         
         <Text style={[styles.title, { color: colors.text.primary }]}>
           Oops! Something went wrong
@@ -101,7 +101,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry, onReport 
             style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={onRetry}
           >
-            <Ionicons name="refresh" size={20} color={Colors.neutral.white} />
+            <RotateCcw size={20} color={Colors.neutral.white} />
             <Text style={[styles.retryText, { color: Colors.neutral.white }]}>
               Try Again
             </Text>
@@ -111,7 +111,7 @@ const ErrorFallback: React.FC<ErrorFallbackProps> = ({ error, onRetry, onReport 
             style={[styles.reportButton, { backgroundColor: colors.surface }]}
             onPress={onReport}
           >
-            <Ionicons name="bug" size={20} color={colors.text.secondary} />
+            <Bug size={20} color={colors.text.secondary} />
             <Text style={[styles.reportText, { color: colors.text.secondary }]}>
               Report Issue
             </Text>
