@@ -172,7 +172,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       console.log('🔑 Key ID received:', key_id);
       console.log('💰 Amount being charged:', amount);
 
-      // 2. Create proper Razorpay checkout URL - This will show the multi-option payment page
+      // 2. Create proper Razorpay checkout URL using the correct format
       const checkoutUrl = `https://checkout.razorpay.com/v1/checkout.js?key_id=${key_id}&order_id=${order_id}&amount=${amount * 100}&currency=INR&name=EV%20Charging%20App&description=EV%20Charging%20Slot%20Booking&prefill[email]=${encodeURIComponent(user?.email || 'user@example.com')}&prefill[contact]=${user?.phone || '9999999999'}&prefill[name]=${encodeURIComponent(user?.name || 'User')}&theme[color]=${encodeURIComponent(LIQUID_COLORS.primary)}`;
       
       console.log('🌐 Opening Razorpay checkout URL:', checkoutUrl);
@@ -197,15 +197,18 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       
       console.log('✅ Payment Successful (Simulated):', mockPaymentData);
       
+      // Use the mock payment data for booking creation
+      const data = mockPaymentData;
+      
       // Handle success - Create booking after payment
       try {
         // Create booking in backend
-        const booking = await createBookingAfterPayment(mockPaymentData);
+        const booking = await createBookingAfterPayment(data);
         
         console.log('🎉 Booking and payment completed successfully!');
         Alert.alert(
           'Booking Confirmed!', 
-          `Your charging slot is reserved.\nBooking ID: ${booking.id}\nPayment ID: ${mockPaymentData.razorpay_payment_id}`,
+          `Your charging slot is reserved.\nBooking ID: ${booking.id}\nPayment ID: ${data.razorpay_payment_id}`,
           [
             {
               text: 'View My Bookings',
