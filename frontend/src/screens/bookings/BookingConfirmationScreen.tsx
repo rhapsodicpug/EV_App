@@ -145,11 +145,17 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       const bookingData = {
         station_id: stationId,
         start_time: startTime.toISOString(),
-        duration_minutes: route.params?.duration || 60,
+        duration_minutes: parseInt(route.params?.duration || 60), // Ensure duration is a number
         notes: `Payment ID: ${paymentData.razorpay_payment_id}`,
       };
 
       console.log('📋 Booking data:', bookingData);
+      console.log('🔍 Data types:', {
+        station_id: typeof bookingData.station_id,
+        duration_minutes: typeof bookingData.duration_minutes,
+        start_time: typeof bookingData.start_time,
+        notes: typeof bookingData.notes
+      });
 
       // Create booking via API
       const booking = await apiService.createBooking(bookingData);
@@ -268,7 +274,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   };
 
   const handlePayment = async () => {
-    const bookingAmount = route.params?.cost || route.params?.totalPrice || 5;
+    const bookingAmount = parseFloat(route.params?.cost || route.params?.totalPrice || 5); // Ensure amount is a number
     const stationName = route.params?.station?.name || 'EV Station';
     
     await initiatePayment(bookingAmount, stationName);
