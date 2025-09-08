@@ -368,14 +368,14 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 48,
   },
-  // Google Button - Following Google's branding guidelines
+  // Google Button - Black background with white text
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
     borderWidth: 1,
-    borderColor: '#dadce0',
+    borderColor: '#333333',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -385,14 +385,14 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  // Apple Button - Following Apple's branding guidelines (white/light gray background)
+  // Apple Button - Black background with white text
   appleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
     borderWidth: 1,
-    borderColor: '#d1d1d6',
+    borderColor: '#333333',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -402,18 +402,18 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  // Google Button Text - Following Google's guidelines
+  // Google Button Text - White text on black background
   googleButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#3c4043',
+    color: '#ffffff',
     fontFamily: 'System',
   },
-  // Apple Button Text - Following Apple's guidelines (dark text on white background)
+  // Apple Button Text - White text on black background
   appleButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1d1d1f',
+    color: '#ffffff',
     fontFamily: 'System',
   },
   footer: {
