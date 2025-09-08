@@ -50,7 +50,7 @@ import {
   Home,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MapPin, Clock, Battery } from 'lucide-react-native';
+import { MapPin } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 
