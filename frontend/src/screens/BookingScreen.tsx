@@ -9,8 +9,21 @@ import {
   Dimensions,
   RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Calendar } from 'lucide-react-native';
+import { 
+  Calendar, 
+  AlertCircle, 
+  CheckCircle, 
+  Clock, 
+  XCircle, 
+  Calendar as CalendarIcon,
+  Battery,
+  DollarSign,
+  Navigation,
+  X,
+  RotateCcw,
+  Star,
+  Search
+} from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -194,35 +207,35 @@ const BookingScreen: React.FC = () => {
         return {
           text: 'CONFIRMED',
           color: BOOKING_COLORS.success,
-          icon: 'checkmark-circle',
+          icon: CheckCircle,
           bgColor: BOOKING_COLORS.success + '20',
         };
       case 'PENDING':
         return {
           text: 'PENDING',
           color: BOOKING_COLORS.primary,
-          icon: 'time',
+          icon: Clock,
           bgColor: BOOKING_COLORS.primary + '20',
         };
       case 'COMPLETED':
         return {
           text: 'COMPLETED',
           color: BOOKING_COLORS.success,
-          icon: 'checkmark-circle',
+          icon: CheckCircle,
           bgColor: BOOKING_COLORS.success + '20',
         };
       case 'CANCELLED':
         return {
           text: 'CANCELLED',
           color: BOOKING_COLORS.error,
-          icon: 'close-circle',
+          icon: XCircle,
           bgColor: BOOKING_COLORS.error + '20',
         };
       default:
         return {
           text: status.toUpperCase(),
           color: BOOKING_COLORS.text.secondary,
-          icon: 'help-circle',
+          icon: AlertCircle,
           bgColor: BOOKING_COLORS.surface,
         };
     }
@@ -267,7 +280,7 @@ const BookingScreen: React.FC = () => {
           <Text style={styles.headerTitle}>My Bookings</Text>
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={BOOKING_COLORS.error} />
+          <AlertCircle size={48} color={BOOKING_COLORS.error} />
           <Text style={styles.errorTitle}>Failed to Load Bookings</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => fetchBookings()}>
@@ -357,11 +370,10 @@ const BookingScreen: React.FC = () => {
                     { backgroundColor: getStatusInfo(booking.status).bgColor },
                   ]}
                 >
-                  <Ionicons
-                    name={getStatusInfo(booking.status).icon as any}
-                    size={16}
-                    color={getStatusInfo(booking.status).color}
-                  />
+                  {React.createElement(getStatusInfo(booking.status).icon, {
+                    size: 16,
+                    color: getStatusInfo(booking.status).color,
+                  })}
                   <Text
                     style={[
                       styles.statusText,
@@ -380,8 +392,7 @@ const BookingScreen: React.FC = () => {
 
                 <View style={styles.bookingMeta}>
                   <View style={styles.metaItem}>
-                    <Ionicons
-                      name="calendar-outline"
+                    <CalendarIcon
                       size={14}
                       color={BOOKING_COLORS.text.muted}
                     />
@@ -391,8 +402,7 @@ const BookingScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.metaItem}>
-                    <Ionicons
-                      name="battery-charging-outline"
+                    <Battery
                       size={14}
                       color={BOOKING_COLORS.text.muted}
                     />
@@ -402,8 +412,7 @@ const BookingScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.metaItem}>
-                    <Ionicons
-                      name="cash-outline"
+                    <DollarSign
                       size={14}
                       color={BOOKING_COLORS.text.muted}
                     />
@@ -420,8 +429,7 @@ const BookingScreen: React.FC = () => {
                       style={styles.actionButton}
                       onPress={() => handleGetDirections(booking)}
                     >
-                      <Ionicons
-                        name="navigate-outline"
+                      <Navigation
                         size={16}
                         color={BOOKING_COLORS.primary}
                       />
@@ -432,8 +440,7 @@ const BookingScreen: React.FC = () => {
                       style={[styles.actionButton, styles.cancelButton]}
                       onPress={() => handleCancelBooking(booking)}
                     >
-                      <Ionicons
-                        name="close-outline"
+                      <X
                         size={16}
                         color={BOOKING_COLORS.error}
                       />
@@ -448,8 +455,7 @@ const BookingScreen: React.FC = () => {
                       style={styles.actionButton}
                       onPress={() => handleRebook(booking)}
                     >
-                      <Ionicons
-                        name="refresh-outline"
+                      <RotateCcw
                         size={16}
                         color={BOOKING_COLORS.primary}
                       />
@@ -460,8 +466,7 @@ const BookingScreen: React.FC = () => {
                       style={styles.actionButton}
                       onPress={() => handleLeaveReview(booking)}
                     >
-                      <Ionicons
-                        name="star-outline"
+                      <Star
                         size={16}
                         color={BOOKING_COLORS.primary}
                       />
@@ -489,8 +494,7 @@ const BookingScreen: React.FC = () => {
               style={styles.findChargerButton}
               onPress={handleFindCharger}
             >
-              <Ionicons
-                name="search-outline"
+              <Search
                 size={20}
                 color={BOOKING_COLORS.text.primary}
               />

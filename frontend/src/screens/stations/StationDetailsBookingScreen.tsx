@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Calendar,
@@ -31,6 +30,12 @@ import {
   ChevronRight,
   Check,
   AlertCircle,
+  Cpu,
+  Store,
+  Star as StarIcon,
+  ChevronUp,
+  ChevronDown,
+  CheckCircle,
 } from 'lucide-react-native';
 import { useThemeColors } from '../../design';
 import { EVStation } from '../../types/api';
@@ -107,6 +112,20 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
   const availableSlots = currentStation?.charging_slots?.filter(slot => slot.status === 'AVAILABLE') || [];
   const totalSlots = currentStation?.charging_slots?.length || 0;
   const isStationFull = availableSlots.length === 0;
+  // Icon mapping function
+  const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+      case 'hardware-chip-outline':
+        return Cpu;
+      case 'storefront-outline':
+        return Store;
+      case 'star-outline':
+        return StarIcon;
+      default:
+        return Cpu;
+    }
+  };
+
   const [collapsibleSections, setCollapsibleSections] = useState<CollapsibleSection[]>([
     { id: 'connectors', title: 'Connectors', icon: 'hardware-chip-outline', isExpanded: false },
     { id: 'amenities', title: 'Amenities', icon: 'storefront-outline', isExpanded: false },
@@ -426,20 +445,19 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                 activeOpacity={0.8}
               >
                 <View style={styles.collapsibleHeaderLeft}>
-                  <Ionicons
-                    name={section.icon as any}
-                    size={20}
-                    color={THEME.primary}
-                  />
+                  {React.createElement(getIconComponent(section.icon), {
+                    size: 20,
+                    color: THEME.primary,
+                  })}
                   <Text style={styles.collapsibleHeaderText}>
                     {section.title}
                   </Text>
                 </View>
-                <Ionicons
-                  name={section.isExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color={THEME.text.secondary}
-                />
+                {section.isExpanded ? (
+                  <ChevronUp size={20} color={THEME.text.secondary} />
+                ) : (
+                  <ChevronDown size={20} color={THEME.text.secondary} />
+                )}
               </TouchableOpacity>
 
               {section.isExpanded && (
@@ -476,7 +494,7 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                     <View style={styles.amenitiesList}>
                       {(currentStation.amenities || []).map((amenity, index) => (
                         <View key={index} style={styles.amenityItem}>
-                          <Ionicons name="checkmark-circle" size={16} color={THEME.success} />
+                          <CheckCircle size={16} color={THEME.success} />
                           <Text style={styles.amenityText}>{amenity}</Text>
                         </View>
                       ))}
@@ -494,11 +512,11 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
                         </Text>
                         <View style={styles.ratingStars}>
                           {[1, 2, 3, 4, 5].map((star) => (
-                            <Ionicons
+                            <StarIcon
                               key={star}
-                              name="star"
                               size={16}
                               color={(currentStation.rating || 0) >= star ? "#FFD700" : THEME.text.muted}
+                              fill={(currentStation.rating || 0) >= star ? "#FFD700" : "transparent"}
                             />
                           ))}
                         </View>

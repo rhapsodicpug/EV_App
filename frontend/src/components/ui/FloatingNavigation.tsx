@@ -10,7 +10,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Home, Zap, MapPin, Calendar, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -24,7 +24,7 @@ const { width } = Dimensions.get('window');
 interface NavigationItem {
   id: string;
   label: string;
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   screen: string;
 }
 
@@ -39,6 +39,24 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
   activeIndex = 0,
   onItemPress,
 }) => {
+  // Icon mapping function
+  const getIconComponent = (iconName: string) => {
+    switch (iconName) {
+      case 'home-outline':
+        return Home;
+      case 'flash-outline':
+        return Zap;
+      case 'map-outline':
+        return MapPin;
+      case 'calendar-outline':
+        return Calendar;
+      case 'person-outline':
+        return User;
+      default:
+        return Home;
+    }
+  };
+
   // Ensure we have valid items
   if (!items || items.length === 0) {
     return null;
@@ -167,11 +185,10 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Animated.View style={[styles.iconContainer, iconAnimatedStyles[index]]}>
-                  <Ionicons
-                    name={item.icon}
-                    size={24}
-                    color={activeIndex === index ? '#00A8FF' : '#B3B3B3'}
-                  />
+                  {React.createElement(getIconComponent(item.icon), {
+                    size: 24,
+                    color: activeIndex === index ? '#00A8FF' : '#B3B3B3',
+                  })}
                 </Animated.View>
               </TouchableOpacity>
             ))}

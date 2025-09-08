@@ -10,9 +10,8 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle, CreditCard, Smartphone, Wallet } from 'lucide-react-native';
+import { CheckCircle, CreditCard, Smartphone, Wallet, X } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
@@ -357,7 +356,7 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
       <View style={styles.staticHeader}>
         <Text style={styles.staticHeaderTitle}>Confirm & Book</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="close" size={24} color={LIQUID_COLORS.text.primary} />
+          <X size={24} color={LIQUID_COLORS.text.primary} />
         </TouchableOpacity>
       </View>
 
