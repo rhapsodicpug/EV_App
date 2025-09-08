@@ -65,9 +65,13 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
     razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
     print("🎉 Razorpay client initialized successfully!")
+    print(f"🔑 Key ID: {RAZORPAY_KEY_ID}")
+    print(f"🔐 Key Secret: {'*' * (len(RAZORPAY_KEY_SECRET) - 4) + RAZORPAY_KEY_SECRET[-4:] if len(RAZORPAY_KEY_SECRET) > 4 else '****'}")
 else:
     razorpay_client = None
     print("⚠️  Razorpay credentials not found in environment variables")
+    print(f"🔍 RAZORPAY_KEY_ID: {'Found' if RAZORPAY_KEY_ID else 'Missing'}")
+    print(f"🔍 RAZORPAY_KEY_SECRET: {'Found' if RAZORPAY_KEY_SECRET else 'Missing'}")
 
 # Create the FastAPI app instance
 app = FastAPI(
@@ -1312,14 +1316,25 @@ async def create_payment_order(
         print(f"🎯 Creating payment order for amount: {payment_request.amount}")
         print(f"👤 User: {current_user['email']}")
         print(f"🔑 Razorpay Key ID: {RAZORPAY_KEY_ID}")
+        print(f"🔐 Razorpay Key Secret: {'*' * (len(RAZORPAY_KEY_SECRET) - 4) + RAZORPAY_KEY_SECRET[-4:] if len(RAZORPAY_KEY_SECRET) > 4 else '****'}")
         
         # Validate amount
         if payment_request.amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
         
+        if payment_request.amount < 1:
+            raise HTTPException(status_code=400, detail="Amount must be at least ₹1 (100 paise)")
+        
         # Convert amount to paise (smallest currency unit)
         amount_in_paise = int(payment_request.amount * 100)
         print(f"💰 Amount in paise: {amount_in_paise}")
+        
+        # Additional validation for Razorpay requirements
+        if amount_in_paise < 100:
+            raise HTTPException(status_code=400, detail="Amount must be at least ₹1 (100 paise)")
+        
+        if amount_in_paise > 100000000:  # ₹10,00,000
+            raise HTTPException(status_code=400, detail="Amount exceeds maximum limit")
         
         # Create Razorpay order
         order_data = {
@@ -1346,12 +1361,68 @@ async def create_payment_order(
             key_id=RAZORPAY_KEY_ID
         )
         
+    except razorpay.errors.BadRequestError as e:
+        print(f"❌ Razorpay Bad Request Error: {str(e)}")
+        print(f"🔍 Error details: {e.error if hasattr(e, 'error') else 'No error details'}")
+        print(f"📋 Error description: {e.description if hasattr(e, 'description') else 'No description'}")
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "message": "Razorpay Bad Request",
+                "error": str(e),
+                "details": e.error if hasattr(e, 'error') else None,
+                "description": e.description if hasattr(e, 'description') else None
+            }
+        )
+    except razorpay.errors.ServerError as e:
+        print(f"❌ Razorpay Server Error: {str(e)}")
+        print(f"🔍 Error details: {e.error if hasattr(e, 'error') else 'No error details'}")
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "message": "Razorpay Server Error",
+                "error": str(e),
+                "details": e.error if hasattr(e, 'error') else None
+            }
+        )
+    except razorpay.errors.GatewayError as e:
+        print(f"❌ Razorpay Gateway Error: {str(e)}")
+        print(f"🔍 Error details: {e.error if hasattr(e, 'error') else 'No error details'}")
+        raise HTTPException(
+            status_code=502, 
+            detail={
+                "message": "Razorpay Gateway Error",
+                "error": str(e),
+                "details": e.error if hasattr(e, 'error') else None
+            }
+        )
     except Exception as e:
-        print(f"❌ Error creating payment order: {str(e)}")
+        print(f"❌ General Error creating payment order: {str(e)}")
         print(f"🔍 Error type: {type(e).__name__}")
+        print(f"🔍 Error attributes: {dir(e)}")
+        
+        # Check if it's a Razorpay error with nested details
+        if hasattr(e, 'error'):
+            print(f"🔍 Nested error details: {e.error}")
+        if hasattr(e, 'description'):
+            print(f"🔍 Error description: {e.description}")
+        if hasattr(e, 'field'):
+            print(f"🔍 Error field: {e.field}")
+            
         import traceback
-        print(f"📚 Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Failed to create payment order: {str(e)}")
+        print(f"📚 Full traceback: {traceback.format_exc()}")
+        
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "message": "Failed to create payment order",
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "nested_error": e.error if hasattr(e, 'error') else None,
+                "description": e.description if hasattr(e, 'description') else None,
+                "field": e.field if hasattr(e, 'field') else None
+            }
+        )
 
 @app.post("/api/payment/verify")
 async def verify_payment(
