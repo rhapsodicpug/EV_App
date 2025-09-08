@@ -32,8 +32,8 @@ export const API_CONFIG = {
     
     // Booking endpoints
     BOOKINGS: {
-      LIST: '/bookings/',
-      CREATE: '/bookings/',
+      LIST: '/api/bookings/my-bookings',
+      CREATE: '/api/bookings/',
       DETAIL: '/bookings',
       UPDATE: '/bookings',
       CANCEL: '/bookings',
