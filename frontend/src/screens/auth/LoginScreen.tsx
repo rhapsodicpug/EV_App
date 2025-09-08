@@ -29,96 +29,6 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
-// Official Company Logo Components
-const GoogleLogo = ({ size = 20 }: { size?: number }) => (
-  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-    {/* Official Google "G" Logo */}
-    <View style={{
-      width: size,
-      height: size,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}>
-      {/* Multi-color Google G using SVG-like approach */}
-      <View style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: '#ffffff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-      }}>
-        {/* Google G - Blue section */}
-        <View style={{
-          position: 'absolute',
-          width: size * 0.6,
-          height: size * 0.6,
-          borderRadius: size * 0.3,
-          backgroundColor: '#4285F4',
-          top: size * 0.1,
-          left: size * 0.1,
-        }} />
-        {/* Google G - Red section */}
-        <View style={{
-          position: 'absolute',
-          width: size * 0.3,
-          height: size * 0.6,
-          backgroundColor: '#EA4335',
-          top: size * 0.1,
-          left: size * 0.1,
-          borderTopLeftRadius: size * 0.3,
-          borderBottomLeftRadius: size * 0.3,
-        }} />
-        {/* Google G - Yellow section */}
-        <View style={{
-          position: 'absolute',
-          width: size * 0.3,
-          height: size * 0.3,
-          backgroundColor: '#FBBC05',
-          top: size * 0.1,
-          left: size * 0.4,
-          borderTopRightRadius: size * 0.3,
-        }} />
-        {/* Google G - Green section */}
-        <View style={{
-          position: 'absolute',
-          width: size * 0.3,
-          height: size * 0.4,
-          backgroundColor: '#34A853',
-          bottom: size * 0.1,
-          left: size * 0.4,
-          borderBottomRightRadius: size * 0.3,
-        }} />
-      </View>
-    </View>
-  </View>
-);
-
-const AppleLogo = ({ size = 20 }: { size?: number }) => (
-  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-    {/* Official Apple Logo */}
-    <View style={{
-      width: size,
-      height: size,
-      justifyContent: 'center',
-      alignItems: 'center',
-    }}>
-      {/* Apple logo using Unicode symbol */}
-      <Text style={{
-        fontSize: size * 0.8,
-        color: '#000000',
-        fontWeight: '400',
-        fontFamily: 'System',
-      }}>🍎</Text>
-    </View>
-  </View>
-);
-
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
 const LoginScreen: React.FC = () => {
@@ -287,16 +197,10 @@ const LoginScreen: React.FC = () => {
               {/* Social Login */}
               <View style={styles.socialButtons}>
                 <TouchableOpacity style={styles.googleButton}>
-                  <View style={styles.socialIcon}>
-                    <GoogleLogo size={20} />
-                  </View>
                   <Text style={styles.googleButtonText}>Continue with Google</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.appleButton}>
-                  <View style={styles.socialIcon}>
-                    <AppleLogo size={20} />
-                  </View>
                   <Text style={styles.appleButtonText}>Continue with Apple</Text>
                 </TouchableOpacity>
               </View>
@@ -497,13 +401,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-  },
-  socialIcon: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
   // Google Button Text - Following Google's guidelines
   googleButtonText: {
