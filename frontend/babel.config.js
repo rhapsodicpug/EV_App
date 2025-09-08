@@ -9,6 +9,15 @@ module.exports = function (api) {
       '@babel/plugin-transform-optional-chaining',
       // Support for nullish coalescing
       '@babel/plugin-transform-nullish-coalescing-operator',
+      // Support for environment variables
+      ['module:react-native-dotenv', {
+        moduleName: '@env',
+        path: '.env',
+        blocklist: null,
+        allowlist: null,
+        safe: false,
+        allowUndefined: true
+      }]
     ],
   };
 };
