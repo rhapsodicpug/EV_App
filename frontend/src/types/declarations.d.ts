@@ -92,10 +92,4 @@ declare module 'react-native-razorpay' {
     code: string;
     description: string;
   }
-
-  class RazorpayCheckout {
-    static open(options: RazorpayOptions): Promise<RazorpayResponse>;
-  }
-
-  export default RazorpayCheckout;
 }
