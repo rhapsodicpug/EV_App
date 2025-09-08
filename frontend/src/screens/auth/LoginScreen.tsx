@@ -481,20 +481,20 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  // Apple Button - Following Apple's branding guidelines
+  // Apple Button - Following Apple's branding guidelines (white/light gray background)
   appleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#000000',
+    borderColor: '#d1d1d6',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
@@ -512,11 +512,11 @@ const styles = StyleSheet.create({
     color: '#3c4043',
     fontFamily: 'System',
   },
-  // Apple Button Text - Following Apple's guidelines
+  // Apple Button Text - Following Apple's guidelines (dark text on white background)
   appleButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#ffffff',
+    color: '#1d1d1f',
     fontFamily: 'System',
   },
   footer: {
