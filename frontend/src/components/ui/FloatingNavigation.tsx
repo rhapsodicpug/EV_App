@@ -143,13 +143,16 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.floatingPill}>
-        {/* Background gradient */}
+        {/* Enhanced Glassmorphism Background Gradient */}
         <LinearGradient
-          colors={['rgba(42, 42, 42, 0.95)', 'rgba(32, 32, 32, 0.9)', 'rgba(42, 42, 42, 0.95)']}
+          colors={['rgba(44, 44, 46, 0.7)', 'rgba(30, 30, 32, 0.6)']}
           style={styles.backgroundGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
+        
+        {/* Additional glassmorphism overlay for enhanced effect */}
+        <View style={styles.glassmorphismOverlay} />
 
         {/* Navigation content */}
         <View style={styles.contentContainer}>
@@ -203,17 +206,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     minHeight: 60, // Ensure minimum height for touch area
 
-    // Frosted glass effect
-    backgroundColor: 'rgba(42, 42, 42, 0.8)',
+    // Enhanced Glassmorphism Effect
+    backgroundColor: 'rgba(44, 44, 46, 0.7)', // Semi-transparent base
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.1)', // Subtle edge highlight
 
-    // Shadow for floating effect
+    // Enhanced shadow for glassmorphism floating effect
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 16,
   },
   backgroundGradient: {
     position: 'absolute',
@@ -222,6 +225,17 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderRadius: 32,
+  },
+  glassmorphismOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Subtle white overlay for glass effect
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)', // Enhanced edge highlight
   },
   contentContainer: {
     position: 'relative',
@@ -275,11 +289,15 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: '#00A8FF',
+    // Enhanced glassmorphism glow effect
     shadowColor: '#00A8FF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 8,
+    // Additional inner glow effect
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 
 
