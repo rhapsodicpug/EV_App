@@ -1,6 +1,6 @@
 import os
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
-from fastapi import FastAPI, HTTPException, Depends, Query, status
+from fastapi import FastAPI, HTTPException, Depends, Query, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import Field, BaseModel
 from datetime import datetime, timedelta
@@ -52,6 +52,18 @@ class PaymentOrderResponse(BaseModel):
     currency: str = "INR"
     key_id: str
 
+class PaymentLinkRequest(BaseModel):
+    amount: float = Field(..., description="Amount in INR")
+    booking_id: Optional[str] = Field(None, description="Optional booking ID for reference")
+    user_name: Optional[str] = Field(None, description="User name for payment link")
+    user_email: Optional[str] = Field(None, description="User email for payment link")
+
+class PaymentLinkResponse(BaseModel):
+    payment_url: str
+    amount: float
+    currency: str = "INR"
+    booking_id: Optional[str] = None
+
 class PaymentVerificationRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_order_id: str
@@ -61,6 +73,7 @@ class PaymentVerificationRequest(BaseModel):
 # Initialize Razorpay
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "your_webhook_secret_here")
 
 if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
     razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
@@ -1722,6 +1735,232 @@ async def verify_payment(
         raise HTTPException(status_code=400, detail="Invalid payment signature")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Payment verification failed: {str(e)}")
+
+@app.post("/api/payment/create-link", response_model=PaymentLinkResponse)
+async def create_payment_link(
+    payment_request: PaymentLinkRequest,
+    current_user: dict = Depends(get_current_active_user)
+):
+    """Create a Razorpay payment link for web-based payment"""
+    if razorpay_client is None:
+        raise HTTPException(status_code=500, detail="Payment service not available")
+    
+    try:
+        print(f"🎯 Creating payment link for amount: {payment_request.amount}")
+        print(f"👤 User: {current_user['email']}")
+        print(f"🔑 Razorpay Key ID: {RAZORPAY_KEY_ID}")
+        
+        # Validate amount
+        if payment_request.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+        
+        if payment_request.amount < 1:
+            raise HTTPException(status_code=400, detail="Amount must be at least ₹1 (100 paise)")
+        
+        # Convert amount to paise (smallest currency unit)
+        amount_in_paise = int(payment_request.amount * 100)
+        print(f"💰 Amount in paise: {amount_in_paise}")
+        
+        # Additional validation for Razorpay requirements
+        if amount_in_paise < 100:
+            raise HTTPException(status_code=400, detail="Amount must be at least ₹1 (100 paise)")
+        
+        if amount_in_paise > 100000000:  # ₹10,00,000
+            raise HTTPException(status_code=400, detail="Amount exceeds maximum limit")
+        
+        # Create Razorpay payment link
+        payment_link_data = {
+            "amount": amount_in_paise,
+            "currency": "INR",
+            "description": "EV Charging Slot Booking",
+            "customer": {
+                "name": payment_request.user_name or current_user.get("name", "User"),
+                "email": payment_request.user_email or current_user["email"],
+            },
+            "callback_url": "https://yourapp.com/payment-success",  # Replace with your actual callback URL
+            "callback_method": "get",
+            "notes": {
+                "user_email": current_user["email"],
+                "booking_id": payment_request.booking_id or "N/A",
+                "created_at": datetime.now().isoformat()
+            }
+        }
+        
+        print(f"📋 Payment link data: {payment_link_data}")
+        
+        payment_link = razorpay_client.payment_link.create(payment_link_data)
+        
+        print(f"✅ Payment link created successfully: {payment_link['id']}")
+        print(f"🔗 Short URL: {payment_link['short_url']}")
+        print(f"📊 Payment link details: {payment_link}")
+        
+        return PaymentLinkResponse(
+            payment_url=payment_link["short_url"],
+            amount=payment_request.amount,
+            currency="INR",
+            booking_id=payment_request.booking_id
+        )
+        
+    except razorpay.errors.BadRequestError as e:
+        print(f"❌ Razorpay Bad Request Error: {str(e)}")
+        print(f"🔍 Error details: {e.error if hasattr(e, 'error') else 'No error details'}")
+        print(f"📋 Error description: {e.description if hasattr(e, 'description') else 'No description'}")
+        raise HTTPException(
+            status_code=400, 
+            detail={
+                "message": "Razorpay Bad Request",
+                "error": str(e),
+                "details": e.error if hasattr(e, 'error') else None,
+                "description": e.description if hasattr(e, 'description') else None
+            }
+        )
+    except razorpay.errors.ServerError as e:
+        print(f"❌ Razorpay Server Error: {str(e)}")
+        print(f"🔍 Error details: {e.error if hasattr(e, 'error') else 'No error details'}")
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "message": "Razorpay Server Error",
+                "error": str(e),
+                "details": e.error if hasattr(e, 'error') else None
+            }
+        )
+    except razorpay.errors.GatewayError as e:
+        print(f"❌ Razorpay Gateway Error: {str(e)}")
+        print(f"🔍 Error details: {e.error if hasattr(e, 'error') else 'No error details'}")
+        raise HTTPException(
+            status_code=502, 
+            detail={
+                "message": "Razorpay Gateway Error",
+                "error": str(e),
+                "details": e.error if hasattr(e, 'error') else None
+            }
+        )
+    except Exception as e:
+        print(f"❌ Unexpected error creating payment link: {str(e)}")
+        print(f"🔍 Error type: {type(e).__name__}")
+        import traceback
+        print(f"📋 Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, 
+            detail={
+                "message": "Failed to create payment link",
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "nested_error": str(e.error) if hasattr(e, 'error') else None,
+                "description": str(e.description) if hasattr(e, 'description') else None,
+                "field": str(e.field) if hasattr(e, 'field') else None
+            }
+        )
+
+@app.post("/api/payment/webhook")
+async def payment_webhook(request: Request):
+    """Handle Razorpay webhook for payment confirmation"""
+    try:
+        # Get the raw request body
+        body = await request.body()
+        signature = request.headers.get("X-Razorpay-Signature")
+        
+        if not signature:
+            raise HTTPException(status_code=400, detail="Missing signature header")
+        
+        print(f"🔔 Webhook received: {len(body)} bytes")
+        print(f"🔐 Signature: {signature}")
+        
+        # Verify webhook signature
+        if razorpay_client is None:
+            raise HTTPException(status_code=500, detail="Payment service not available")
+        
+        try:
+            razorpay_client.utility.verify_webhook_signature(body.decode('utf-8'), signature, WEBHOOK_SECRET)
+            print("✅ Webhook signature verified successfully")
+        except Exception as e:
+            print(f"❌ Webhook signature verification failed: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+        
+        # Parse the webhook payload
+        import json
+        webhook_data = json.loads(body.decode('utf-8'))
+        event_type = webhook_data.get("event")
+        
+        print(f"📋 Webhook event type: {event_type}")
+        print(f"📊 Webhook payload: {webhook_data}")
+        
+        # Handle payment.paid event
+        if event_type == "payment.paid":
+            payment_data = webhook_data.get("payload", {}).get("payment", {})
+            payment_link_data = webhook_data.get("payload", {}).get("payment_link", {})
+            
+            payment_id = payment_data.get("id")
+            payment_link_id = payment_link_data.get("id")
+            amount = payment_data.get("amount", 0) / 100  # Convert from paise to rupees
+            customer_email = payment_data.get("email")
+            
+            print(f"💰 Payment successful!")
+            print(f"   Payment ID: {payment_id}")
+            print(f"   Payment Link ID: {payment_link_id}")
+            print(f"   Amount: ₹{amount}")
+            print(f"   Customer Email: {customer_email}")
+            
+            # Update booking status if booking_id is in the notes
+            notes = payment_link_data.get("notes", {})
+            booking_id = notes.get("booking_id")
+            
+            if booking_id and booking_id != "N/A" and bookings_collection is not None:
+                print(f"🔄 Updating booking {booking_id} with payment details")
+                
+                # Find user by email
+                user = None
+                if customer_email and users_collection is not None:
+                    user = users_collection.find_one({"email": customer_email})
+                
+                if user:
+                    user_id = str(user["_id"])
+                    
+                    # Update booking with payment details
+                    update_result = bookings_collection.update_one(
+                        {
+                            "_id": ObjectId(booking_id),
+                            "user_id": user_id
+                        },
+                        {
+                            "$set": {
+                                "payment_status": "PAID",
+                                "payment_id": payment_id,
+                                "payment_link_id": payment_link_id,
+                                "updated_at": datetime.utcnow()
+                            }
+                        }
+                    )
+                    
+                    if update_result.modified_count > 0:
+                        print(f"✅ Booking {booking_id} updated successfully")
+                    else:
+                        print(f"⚠️ No booking found with ID {booking_id} for user {user_id}")
+                else:
+                    print(f"⚠️ No user found with email {customer_email}")
+            
+            return {
+                "status": "success",
+                "message": "Payment webhook processed successfully",
+                "payment_id": payment_id,
+                "amount": amount
+            }
+        
+        else:
+            print(f"ℹ️ Unhandled webhook event type: {event_type}")
+            return {
+                "status": "ignored",
+                "message": f"Event type {event_type} not handled"
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Webhook processing error: {str(e)}")
+        import traceback
+        print(f"📋 Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Webhook processing failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

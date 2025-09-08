@@ -11,32 +11,33 @@ const PaymentTestScreen = () => {
     const amount = 5; // Test amount: ₹5.00
 
     try {
-      // STEP 1: Fetch the order_id from YOUR server
-      const response = await fetch('http://192.168.1.9:8000/api/payment/create-order', {
+      // STEP 1: Fetch the payment URL from YOUR server
+      const response = await fetch('http://192.168.1.9:8000/api/payment/create-link', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${'your-token-here'}`, // Add auth token if needed
         },
-        body: JSON.stringify({ amount: amount }),
+        body: JSON.stringify({ 
+          amount: amount,
+          user_name: 'Test User',
+          user_email: 'test@example.com',
+          booking_id: 'test-booking-123'
+        }),
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to create order from backend.');
+        throw new Error(errorData.detail || 'Failed to create payment link from backend.');
       }
       
-      const { order_id, key_id } = await response.json();
-      console.log('✅ Order ID received:', order_id);
-      console.log('🔑 Key ID received:', key_id);
+      const { payment_url } = await response.json();
+      console.log('✅ Payment URL received:', payment_url);
       
-      // STEP 2: Create proper Razorpay checkout URL
-      const checkoutUrl = `https://checkout.razorpay.com/v1/checkout.js?key_id=${key_id}&order_id=${order_id}&amount=${amount * 100}&currency=INR&name=EV%20Charging%20App&description=Payment%20Test&prefill[email]=user@example.com&prefill[contact]=9999999999&prefill[name]=Test%20User&theme[color]=%2300A8FF`;
+      // STEP 2: Open the Razorpay payment link in WebBrowser
+      console.log('🌐 Opening Razorpay payment link:', payment_url);
       
-      console.log('🌐 Opening Razorpay checkout URL:', checkoutUrl);
-      
-      // STEP 3: Open the Razorpay checkout page in WebBrowser
-      const result = await WebBrowser.openBrowserAsync(checkoutUrl, {
+      const result = await WebBrowser.openBrowserAsync(payment_url, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
         controlsColor: '#00A8FF',
         showTitle: true,
@@ -45,12 +46,19 @@ const PaymentTestScreen = () => {
       
       console.log('🌐 WebBrowser result:', result);
       
-      // Simulate successful payment for testing
-      Alert.alert(
-        'Payment Test Complete',
-        `Order ID: ${order_id}\nAmount: ₹${amount}\nStatus: Test Complete\n\nNote: This is a test environment. In production, you would handle the actual payment response.`,
-        [{ text: 'OK' }]
-      );
+      // Handle the browser closing
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        Alert.alert(
+          "Payment session closed", 
+          "Please check 'My Bookings' to see if your payment was successful."
+        );
+      } else {
+        Alert.alert(
+          'Payment Test Complete',
+          `Amount: ₹${amount}\nStatus: Payment link opened successfully\n\nNote: This is a test environment. In production, you would handle the actual payment response via webhooks.`,
+          [{ text: 'OK' }]
+        );
+      }
       
     } catch (error: any) {
       console.error('❌ Payment Test Error:', error);
@@ -73,7 +81,7 @@ const PaymentTestScreen = () => {
       </TouchableOpacity>
       
       <Text style={styles.infoText}>
-        This will open Razorpay checkout in a web browser
+        This will open Razorpay payment link in a web browser
       </Text>
     </View>
   );
