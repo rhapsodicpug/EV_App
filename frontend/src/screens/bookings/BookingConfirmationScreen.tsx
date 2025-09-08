@@ -119,10 +119,21 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
         stationId = '68b816dc69d7135624c7a3d8'; // Use the known working MongoDB ObjectId
       }
       
+      // Ensure all numeric values are properly converted
+      const durationValue = route.params?.duration || 60;
+      const durationAsNumber = parseInt(String(durationValue));
+      
+      console.log('🔍 Duration conversion:', {
+        original: durationValue,
+        type: typeof durationValue,
+        converted: durationAsNumber,
+        convertedType: typeof durationAsNumber
+      });
+
       const bookingData = {
-        station_id: stationId,
+        station_id: String(stationId), // Ensure station_id is a string
         start_time: startTime.toISOString(),
-        duration_minutes: parseInt(String(route.params?.duration || 60)), // Ensure duration is a number
+        duration_minutes: durationAsNumber, // Ensure duration is a number
         notes: `Payment ID: ${paymentData.razorpay_payment_id}`,
       };
 
@@ -133,6 +144,15 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
         start_time: typeof bookingData.start_time,
         notes: typeof bookingData.notes
       });
+      
+      // Additional validation
+      if (isNaN(bookingData.duration_minutes)) {
+        throw new Error(`Invalid duration_minutes: ${durationValue} (converted to: ${durationAsNumber})`);
+      }
+      
+      if (bookingData.duration_minutes < 15 || bookingData.duration_minutes > 480) {
+        throw new Error(`Duration must be between 15 and 480 minutes, got: ${bookingData.duration_minutes}`);
+      }
 
       // Create booking via API
       const booking = await apiService.createBooking(bookingData);
@@ -254,7 +274,22 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   };
 
   const handlePayment = async () => {
-    const bookingAmount = parseFloat(String(route.params?.cost || route.params?.totalPrice || 5)); // Ensure amount is a number
+    const costValue = route.params?.cost || route.params?.totalPrice || 5;
+    const bookingAmount = parseFloat(String(costValue)); // Ensure amount is a number
+    
+    console.log('💰 Amount conversion:', {
+      original: costValue,
+      type: typeof costValue,
+      converted: bookingAmount,
+      convertedType: typeof bookingAmount,
+      isNaN: isNaN(bookingAmount)
+    });
+    
+    if (isNaN(bookingAmount)) {
+      Alert.alert('Invalid Amount', `Could not convert amount: ${costValue}`);
+      return;
+    }
+    
     const stationName = route.params?.station?.name || 'EV Station';
     
     await initiatePayment(bookingAmount, stationName);
