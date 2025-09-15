@@ -7,12 +7,12 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from bson import ObjectId
 
-from app.models import (
+from models import (
     Booking, BookingCreate, BookingUpdate, BookingResponse, 
     BookingWithStationResponse, BookingStatus
 )
-from app.core.auth import get_current_active_user
-from app.db.database import get_collections
+from core.auth import get_current_active_user
+from db.database import get_collections
 
 router = APIRouter(
     prefix="/api/bookings",

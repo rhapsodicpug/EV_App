@@ -11,10 +11,15 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("⚠️  python-dotenv not available - using environment variables only")
+    def load_dotenv(*args, **kwargs):
+        pass
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from config.env
+load_dotenv('config.env')
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "ev-booking-app-super-secret-key-2024-mumbai")

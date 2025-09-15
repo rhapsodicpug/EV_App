@@ -41,6 +41,9 @@ class ApiService {
       headers: {
         'Content-Type': 'application/json',
       },
+      // Enhanced axios configuration for better connectivity
+      maxRedirects: 5,
+      validateStatus: (status) => status < 500, // Accept all status codes below 500
     });
 
     this.setupInterceptors();
@@ -100,9 +103,50 @@ class ApiService {
           return Promise.reject(authError);
         }
 
+        // Enhanced error handling for connection issues
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          const timeoutError = new Error('Connection timeout. Please check your network and try again.');
+          timeoutError.name = 'TimeoutError';
+          (timeoutError as any).status = 408;
+          return Promise.reject(timeoutError);
+        }
+        
+        if (error.code === 'NETWORK_ERROR' || !error.response) {
+          const networkError = new Error('Network error. Please check your connection and server status.');
+          networkError.name = 'NetworkError';
+          (networkError as any).status = 0;
+          return Promise.reject(networkError);
+        }
+
         return Promise.reject(error);
       }
     );
+  }
+
+  // ==================== CONNECTION TESTING ====================
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await this.client.get('/');
+      return response.status === 200;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('❌ Connection test failed:', error);
+      }
+      return false;
+    }
+  }
+
+  async testDatabase(): Promise<boolean> {
+    try {
+      const response = await this.client.get('/ping-db');
+      return response.status === 200;
+    } catch (error) {
+      if (__DEV__) {
+        console.error('❌ Database test failed:', error);
+      }
+      return false;
+    }
   }
 
   // ==================== AUTH METHODS ====================

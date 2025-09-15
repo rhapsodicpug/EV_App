@@ -7,12 +7,12 @@ from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 
-from app.models import (
+from models import (
     EVStation, StationCreate, StationUpdate,
     ChargingSlot, SlotCreate,
     ChargerType
 )
-from app.db.database import get_collections
+from db.database import get_collections
 
 router = APIRouter(
     prefix="/stations",

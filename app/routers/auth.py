@@ -5,14 +5,14 @@ Authentication and user-related API endpoints
 from fastapi import APIRouter, HTTPException, Depends, status
 from datetime import timedelta
 
-from app.models import (
+from models import (
     UserCreate, UserLogin, UserResponse, Token
 )
-from app.core.auth import (
+from core.auth import (
     get_password_hash, verify_password, create_access_token,
     get_current_user, get_current_active_user
 )
-from app.db.database import get_collections
+from db.database import get_collections
 
 router = APIRouter(
     prefix="/auth",
@@ -36,7 +36,7 @@ async def register_user(user: UserCreate):
             raise HTTPException(status_code=400, detail="Email already registered")
         
         # Create new user with hashed password
-        from app.models import User
+        from models import User
         user_data = User(
             name=user.name,
             email=user.email,
