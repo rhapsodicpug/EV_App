@@ -1,402 +1,327 @@
 /**
- * API Service Layer
- * Handles all HTTP requests to the backend
+ * API Service
+ * Handles all HTTP requests to the backend API
  */
 
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG, STORAGE_KEYS } from '../constants/config';
-import {
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { 
+  User, 
+  UserLogin, 
+  UserRegistration, 
   AuthToken,
-  User,
-  UserLogin,
-  UserRegistration,
   EVStation,
-  StationSearchParams,
+  StationCreate,
+  StationUpdate,
+  StationsResponse,
   NearbyStationsResponse,
-  SearchStationsResponse,
   Booking,
-  BookingWithStationResponse,
-  BookingWithUpdatedStationResponse,
   BookingCreate,
   BookingUpdate,
-  ApiResponse,
+  BookingResponse,
+  BookingWithStationResponse,
+  AvailabilityCheck,
+  StationSearchParams,
+  NearbySearchParams,
+  ApiError,
+  AuthenticationError
 } from '../types/api';
+import { storageService } from './StorageService';
+import { STORAGE_KEYS } from '../constants/config';
+
+// ==================== CONFIGURATION ====================
+
+const API_BASE_URL = __DEV__ 
+  ? 'http://127.0.0.1:8000'  // Development
+  : 'https://your-production-api.com';  // Production
+
+const API_TIMEOUT = 30000; // 30 seconds
+
+// ==================== AXIOS INSTANCE ====================
 
 class ApiService {
-  private client: AxiosInstance;
+  private api: AxiosInstance;
 
   constructor() {
-    // Debug logging
-    if (__DEV__) {
-      console.log('🔧 API Service Initializing...');
-      console.log('🔧 Base URL:', API_CONFIG.BASE_URL);
-      console.log('🔧 Auth Endpoints:', API_CONFIG.ENDPOINTS.AUTH);
-      console.log('🔧 Station Endpoints:', API_CONFIG.ENDPOINTS.STATIONS);
-    }
-
-    this.client = axios.create({
-      baseURL: API_CONFIG.BASE_URL,
-      timeout: API_CONFIG.TIMEOUT,
+    this.api = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
       },
-      // Enhanced axios configuration for better connectivity
-      maxRedirects: 5,
-      validateStatus: (status) => status < 500, // Accept all status codes below 500
     });
 
     this.setupInterceptors();
   }
 
+  // ==================== INTERCEPTORS ====================
+
   private setupInterceptors() {
-    // Request interceptor to add auth token
-    this.client.interceptors.request.use(
+    // Request interceptor - Add auth token
+    this.api.interceptors.request.use(
       async (config) => {
-        const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        try {
+          const token = await storageService.getItem(STORAGE_KEYS.AUTH_TOKEN);
+          if (token && config.headers) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
+        } catch (error) {
+          console.error('Error getting auth token:', error);
         }
         
-        if (__DEV__) {
-          console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
-        }
-        
+        console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
-        if (__DEV__) {
-          console.error('❌ Request Error:', error);
-        }
+        console.error('❌ Request interceptor error:', error);
         return Promise.reject(error);
       }
     );
 
-    // Response interceptor for error handling
-    this.client.interceptors.response.use(
+    // Response interceptor - Handle errors
+    this.api.interceptors.response.use(
       (response: AxiosResponse) => {
-        if (__DEV__) {
-          console.log(`✅ API Response: ${response.status} ${response.config.url}`);
-        }
+        console.log(`✅ API Response: ${response.status} ${response.config.url}`);
         return response;
       },
-      async (error: AxiosError) => {
-        if (__DEV__) {
-          console.error(`❌ API Error: ${error.response?.status} ${error.config?.url || 'unknown URL'}`, error.response?.data);
-        }
-
-        // Handle 401 - Unauthorized (token expired)
-        if (error.response?.status === 401) {
-          // Clear expired token data
-          await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.USER_DATA]);
-
-          // Create a more informative error
-          const authError = new Error('Your session has expired. Please log in again.');
-          authError.name = 'AuthenticationError';
-          (authError as any).status = 401;
-          (authError as any).expired = true;
-
-          if (__DEV__) {
-            console.log('🔑 Token expired - user needs to log in again');
-          }
-
-          return Promise.reject(authError);
-        }
-
-        // Enhanced error handling for connection issues
-        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-          const timeoutError = new Error('Connection timeout. Please check your network and try again.');
-          timeoutError.name = 'TimeoutError';
-          (timeoutError as any).status = 408;
-          return Promise.reject(timeoutError);
-        }
+      async (error) => {
+        console.error('❌ API Error:', error.response?.status, error.response?.data);
         
-        if (error.code === 'NETWORK_ERROR' || !error.response) {
-          const networkError = new Error('Network error. Please check your connection and server status.');
-          networkError.name = 'NetworkError';
-          (networkError as any).status = 0;
-          return Promise.reject(networkError);
+        // Handle 401 Unauthorized - Token expired
+        if (error.response?.status === 401) {
+          await this.handleAuthError();
+          throw new AuthenticationError('Session expired', true);
         }
 
-        return Promise.reject(error);
+        // Handle network errors
+        if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+          throw new Error('Network error. Please check your internet connection.');
+        }
+
+        // Handle other HTTP errors
+        const apiError: ApiError = {
+          message: error.response?.data?.detail || error.message || 'An error occurred',
+          status: error.response?.status,
+          code: error.code,
+          details: error.response?.data,
+        };
+
+        throw apiError;
       }
     );
   }
 
-  // ==================== CONNECTION TESTING ====================
-
-  async testConnection(): Promise<boolean> {
+  private async handleAuthError() {
     try {
-      const response = await this.client.get('/');
-      return response.status === 200;
+      await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await storageService.removeItem(STORAGE_KEYS.USER_DATA);
     } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Connection test failed:', error);
-      }
-      return false;
+      console.error('Error clearing auth data:', error);
     }
   }
 
-  async testDatabase(): Promise<boolean> {
+  // ==================== HELPER METHODS ====================
+
+  private async request<T>(config: AxiosRequestConfig): Promise<T> {
     try {
-      const response = await this.client.get('/ping-db');
-      return response.status === 200;
+      const response = await this.api.request<T>(config);
+      return response.data;
     } catch (error) {
-      if (__DEV__) {
-        console.error('❌ Database test failed:', error);
-      }
-      return false;
+      throw error;
     }
   }
 
-  // ==================== AUTH METHODS ====================
-
-  async register(data: UserRegistration): Promise<User> {
-    // Debug logging
-    if (__DEV__) {
-      console.log('🔧 Register attempt with endpoint:', API_CONFIG.ENDPOINTS.AUTH.REGISTER);
-      console.log('🔧 Full URL:', `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.REGISTER}`);
-    }
-
-    const response = await this.client.post<User>(API_CONFIG.ENDPOINTS.AUTH.REGISTER, data);
-    return response.data;
-  }
+  // ==================== AUTH ENDPOINTS ====================
 
   async login(credentials: UserLogin): Promise<AuthToken> {
-    // Debug logging
-    if (__DEV__) {
-      console.log('🔧 Login attempt with endpoint:', API_CONFIG.ENDPOINTS.AUTH.LOGIN);
-      console.log('🔧 Full URL:', `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGIN}`);
-      console.log('🔧 Credentials:', { email: credentials.email, password: '***' });
-    }
+    return this.request<AuthToken>({
+      method: 'POST',
+      url: '/auth/token',
+      data: credentials,
+    });
+  }
 
-    try {
-      // Backend expects JSON data for login
-      const response = await this.client.post<AuthToken>(
-        API_CONFIG.ENDPOINTS.AUTH.LOGIN,
-        {
-          email: credentials.email,
-          password: credentials.password,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      // Handle different response structures
-      const tokenData = response.data;
-      const accessToken = tokenData.access_token;
-      
-      if (!accessToken) {
-        throw new Error('No access token received from server');
-      }
-      
-      // Store token
-      await AsyncStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, accessToken);
-      
-      return {
-        access_token: accessToken,
-        token_type: tokenData.token_type || 'bearer',
-        expires_in: tokenData.expires_in || 3600,
-      };
-    } catch (error: any) {
-      console.error('❌ Login API error:', error);
-      
-      // Enhanced error handling
-      if (error.response?.status === 401) {
-        throw new Error('Invalid email or password');
-      } else if (error.response?.status === 422) {
-        throw new Error('Invalid credentials format');
-      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network')) {
-        throw new Error('Network error. Please check your internet connection.');
-      } else if (error.response?.data?.detail) {
-        throw new Error(error.response.data.detail);
-      } else {
-        throw new Error('Login failed. Please try again.');
-      }
-    }
+  async register(userData: UserRegistration): Promise<User> {
+    return this.request<User>({
+      method: 'POST',
+      url: '/auth/register',
+      data: userData,
+    });
   }
 
   async getProfile(): Promise<User> {
-    const response = await this.client.get<User>(API_CONFIG.ENDPOINTS.AUTH.PROFILE);
-    
-    // Store user data
-    await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.data));
-    
-    return response.data;
+    return this.request<User>({
+      method: 'GET',
+      url: '/users/me',
+    });
   }
 
-  async logout(): Promise<void> {
-    try {
-      await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.USER_DATA]);
-      console.log('✅ Logged out and cleared stored data');
-    } catch (error) {
-      console.error('❌ Error during logout:', error);
-    }
+  async updateProfile(userData: Partial<User>): Promise<User> {
+    return this.request<User>({
+      method: 'PUT',
+      url: '/users/me',
+      data: userData,
+    });
   }
 
-  // ==================== STATION METHODS ====================
+  // ==================== STATION ENDPOINTS ====================
 
-  async getStations(skip = 0, limit = 100): Promise<{ stations: EVStation[]; count: number }> {
-    const response = await this.client.get(API_CONFIG.ENDPOINTS.STATIONS.LIST, {
+  async getStations(skip: number = 0, limit: number = 100): Promise<StationsResponse> {
+    return this.request<StationsResponse>({
+      method: 'GET',
+      url: '/stations/',
       params: { skip, limit },
     });
-    return response.data;
-  }
-
-  async getStationsByLocation(
-    latitude: number,
-    longitude: number,
-    limit = 50
-  ): Promise<{ stations: EVStation[]; count: number; source?: string }> {
-    const response = await this.client.get(API_CONFIG.ENDPOINTS.STATIONS.LIST, {
-      params: {
-        latitude,
-        longitude,
-        limit,
-      },
-    });
-    return response.data;
   }
 
   async getStation(stationId: string): Promise<EVStation> {
-    const response = await this.client.get<EVStation>(`${API_CONFIG.ENDPOINTS.STATIONS.DETAIL}/${stationId}`);
-    return response.data;
+    return this.request<EVStation>({
+      method: 'GET',
+      url: `/stations/${stationId}`,
+    });
   }
 
-  async getNearbyStations(params: StationSearchParams): Promise<NearbyStationsResponse> {
-    const response = await this.client.get<NearbyStationsResponse>(
-      API_CONFIG.ENDPOINTS.STATIONS.NEARBY,
-      { params }
-    );
-    return response.data;
+  async createStation(stationData: StationCreate): Promise<EVStation> {
+    return this.request<EVStation>({
+      method: 'POST',
+      url: '/stations/',
+      data: stationData,
+    });
   }
 
-  async searchStations(params: StationSearchParams): Promise<SearchStationsResponse> {
-    const response = await this.client.get<SearchStationsResponse>(
-      API_CONFIG.ENDPOINTS.STATIONS.SEARCH,
-      { params }
-    );
-    return response.data;
+  async updateStation(stationId: string, stationData: StationUpdate): Promise<EVStation> {
+    return this.request<EVStation>({
+      method: 'PUT',
+      url: `/stations/${stationId}`,
+      data: stationData,
+    });
   }
 
-  async getStationSlots(stationId: string): Promise<any[]> {
-    const response = await this.client.get(
-      API_CONFIG.ENDPOINTS.STATIONS.SLOTS.replace('{id}', stationId)
-    );
-    return response.data;
+  async deleteStation(stationId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>({
+      method: 'DELETE',
+      url: `/stations/${stationId}`,
+    });
   }
 
-  // ==================== BOOKING METHODS ====================
-
-  async createBooking(data: BookingCreate): Promise<BookingWithUpdatedStationResponse> {
-    const response = await this.client.post<BookingWithUpdatedStationResponse>(API_CONFIG.ENDPOINTS.BOOKINGS.CREATE, data);
-    return response.data;
+  async getNearbyStations(params: NearbySearchParams): Promise<NearbyStationsResponse> {
+    return this.request<NearbyStationsResponse>({
+      method: 'GET',
+      url: '/stations/nearby/',
+      params,
+    });
   }
 
-  async getBookings(skip = 0, limit = 50, status?: string): Promise<Booking[]> {
+  async searchStations(params: StationSearchParams): Promise<StationsResponse> {
+    return this.request<StationsResponse>({
+      method: 'GET',
+      url: '/stations/search/',
+      params,
+    });
+  }
+
+  // ==================== BOOKING ENDPOINTS ====================
+
+  async createBooking(bookingData: BookingCreate): Promise<BookingResponse> {
+    return this.request<BookingResponse>({
+      method: 'POST',
+      url: '/api/bookings/',
+      data: bookingData,
+    });
+  }
+
+  async getMyBookings(
+    skip: number = 0, 
+    limit: number = 50, 
+    status?: string
+  ): Promise<BookingWithStationResponse[]> {
     const params: any = { skip, limit };
     if (status) params.status = status;
 
-    const response = await this.client.get<Booking[]>(API_CONFIG.ENDPOINTS.BOOKINGS.LIST, {
+    return this.request<BookingWithStationResponse[]>({
+      method: 'GET',
+      url: '/api/bookings/my-bookings',
       params,
     });
-    return response.data;
   }
 
-  async getMyBookings(skip = 0, limit = 50, status?: string): Promise<BookingWithStationResponse[]> {
-    const params: any = { skip, limit };
-    if (status) params.status = status;
-
-    const response = await this.client.get<BookingWithStationResponse[]>('/api/bookings/my-bookings', {
-      params,
+  async getBooking(bookingId: string): Promise<BookingResponse> {
+    return this.request<BookingResponse>({
+      method: 'GET',
+      url: `/api/bookings/${bookingId}`,
     });
-    return response.data;
   }
 
-  async getBooking(bookingId: string): Promise<Booking> {
-    const response = await this.client.get<Booking>(`${API_CONFIG.ENDPOINTS.BOOKINGS.DETAIL}/${bookingId}`);
-    return response.data;
-  }
-
-  async updateBooking(bookingId: string, data: BookingUpdate): Promise<Booking> {
-    const response = await this.client.put<Booking>(
-      `${API_CONFIG.ENDPOINTS.BOOKINGS.UPDATE}/${bookingId}`,
-      data
-    );
-    return response.data;
+  async updateBooking(bookingId: string, bookingData: BookingUpdate): Promise<BookingResponse> {
+    return this.request<BookingResponse>({
+      method: 'PUT',
+      url: `/api/bookings/${bookingId}`,
+      data: bookingData,
+    });
   }
 
   async cancelBooking(bookingId: string): Promise<{ message: string }> {
-    const response = await this.client.delete(`${API_CONFIG.ENDPOINTS.BOOKINGS.CANCEL}/${bookingId}`);
-    return response.data;
+    return this.request<{ message: string }>({
+      method: 'DELETE',
+      url: `/api/bookings/${bookingId}`,
+    });
+  }
+
+  async checkAvailability(
+    stationId: string,
+    startTime: string,
+    durationMinutes: number = 60
+  ): Promise<AvailabilityCheck> {
+    return this.request<AvailabilityCheck>({
+      method: 'GET',
+      url: `/api/bookings/check-availability/${stationId}`,
+      params: {
+        start_time: startTime,
+        duration_minutes: durationMinutes,
+      },
+    });
+  }
+
+  // ==================== HEALTH CHECK ====================
+
+  async pingDatabase(): Promise<{ status: string; message: string; database: string }> {
+    return this.request<{ status: string; message: string; database: string }>({
+      method: 'GET',
+      url: '/ping-db',
+    });
+  }
+
+  async getApiStatus(): Promise<{ message: string; version: string; features: string[] }> {
+    return this.request<{ message: string; version: string; features: string[] }>({
+      method: 'GET',
+      url: '/',
+    });
   }
 
   // ==================== UTILITY METHODS ====================
 
-  async checkHealth(): Promise<{ status: string; message: string }> {
-    const response = await this.client.get('/ping-db');
-    return response.data;
+  getBaseUrl(): string {
+    return API_BASE_URL;
   }
 
-  // Generic method for custom requests
-  async request<T = any>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
-    url: string,
-    data?: any,
-    config?: any
-  ): Promise<T> {
-    const response = await this.client.request<T>({
-      method,
-      url,
-      data,
-      ...config,
+  setTimeout(timeout: number): void {
+    this.api.defaults.timeout = timeout;
+  }
+
+  // ==================== FILE UPLOAD ====================
+
+  async uploadFile(file: FormData, endpoint: string): Promise<any> {
+    return this.request<any>({
+      method: 'POST',
+      url: endpoint,
+      data: file,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
-    return response.data;
-  }
-
-  // Method to check if user is authenticated
-  async isAuthenticated(): Promise<boolean> {
-    try {
-      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-      return !!token;
-    } catch {
-      return false;
-    }
-  }
-
-  // Method to get stored token
-  async getToken(): Promise<string | null> {
-    try {
-      return await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-    } catch {
-      return null;
-    }
-  }
-
-  // Method to get stored user data
-  async getStoredUser(): Promise<User | null> {
-    try {
-      const userData = await AsyncStorage.getItem(STORAGE_KEYS.USER_DATA);
-      return userData ? JSON.parse(userData) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  // Method to set auth token (for AuthContext)
-  setAuthToken(token: string): void {
-    this.client.defaults.headers.common.Authorization = `Bearer ${token}`;
-  }
-
-  // Method to clear auth token (for AuthContext)
-  clearAuthToken(): void {
-    delete this.client.defaults.headers.common.Authorization;
   }
 }
 
-// Export singleton instance
+// ==================== EXPORT ====================
+
 export const apiService = new ApiService();
 export default apiService;
