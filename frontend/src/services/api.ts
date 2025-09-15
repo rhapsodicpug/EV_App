@@ -31,7 +31,7 @@ import { STORAGE_KEYS } from '../constants/config';
 // ==================== CONFIGURATION ====================
 
 const API_BASE_URL = __DEV__ 
-  ? 'http://127.0.0.1:8000'  // Development
+  ? 'http://192.168.0.234:8000'  // Development - Use network IP for device access
   : 'https://your-production-api.com';  // Production
 
 const API_TIMEOUT = 30000; // 30 seconds
