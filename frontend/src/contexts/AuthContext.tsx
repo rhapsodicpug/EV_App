@@ -170,8 +170,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorMessage = 'Invalid email or password';
       } else if (error.response?.status === 422) {
         errorMessage = 'Invalid credentials format';
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Server timeout. Please check if the backend server is running.';
       } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
+        errorMessage = 'Cannot connect to server. Please check if the backend server is running.';
+      } else if (error.message?.includes('ECONNREFUSED')) {
+        errorMessage = 'Backend server is not running. Please start the server.';
       } else if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       } else if (error.message) {
@@ -299,9 +303,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           type: 'AUTH_FAILURE',
           payload: 'Session expired. Please log in again.'
         });
-      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network')) {
-        console.log('🌐 Network error during auth check, keeping current state');
-        // Don't logout on network errors, just keep current state
+      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network') || error.message?.includes('ECONNREFUSED') || error.message?.includes('timeout')) {
+        console.log('🌐 Network/server error during auth check, showing login screen');
+        // Show login screen when backend is not available
+        dispatch({ type: 'LOGOUT' });
         return;
       } else {
         console.log('⚠️ Other error during auth check');
@@ -327,7 +332,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const timeoutId = setTimeout(() => {
       console.log('⏰ Auth check timeout, forcing logout');
       dispatch({ type: 'LOGOUT' });
-    }, 5000); // 5 second timeout
+    }, 2000); // 2 second timeout
 
     checkAuthStatus().finally(() => {
       clearTimeout(timeoutId);

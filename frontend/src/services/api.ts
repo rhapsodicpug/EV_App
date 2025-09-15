@@ -97,6 +97,11 @@ class ApiService {
           throw new Error('Network error. Please check your internet connection.');
         }
 
+        // Handle connection refused (server not running)
+        if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
+          throw new Error('Backend server is not running. Please start the server.');
+        }
+
         // Handle other HTTP errors
         const apiError: ApiError = {
           message: error.response?.data?.detail || error.message || 'An error occurred',

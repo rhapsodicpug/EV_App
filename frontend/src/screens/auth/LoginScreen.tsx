@@ -75,10 +75,17 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
-      await login({ email, password });
+      const result = await login({ email, password });
+      if (result.success) {
+        // Login successful - navigation will be handled by AppNavigator
+        console.log('✅ Login successful');
+      } else {
+        // Error message is already handled in AuthContext
+        console.log('❌ Login failed');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
-      const errorMessage = error?.response?.data?.detail || 'Login failed. Please try again.';
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Login failed. Please try again.';
       Alert.alert('⚡ Login Failed', errorMessage);
     }
   };
