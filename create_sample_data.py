@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from datetime import datetime
 
 # Load environment variables
-load_dotenv()
+load_dotenv('config.env')
 
 def create_sample_stations():
     """Create sample EV charging stations in Mumbai"""

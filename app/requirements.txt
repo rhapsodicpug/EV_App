@@ -1,0 +1,14 @@
+# EV Booking App Backend Dependencies
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pymongo==4.15.0
+python-dotenv==1.1.1
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+pydantic==2.11.9
+dnspython==2.8.0
+
+# Optional dependencies for enhanced functionality
+requests==2.32.3
+httpx==0.28.1

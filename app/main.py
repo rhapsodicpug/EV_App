@@ -7,9 +7,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.db.database import connect_to_mongo, close_connection
-from app.routers import stations, bookings
-from app.routers.auth import routers as auth_routers
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from db.database import connect_to_mongo, close_connection
+from routers import stations, bookings
+from routers.auth import routers as auth_routers
 
 # Application metadata
 app_metadata = {
@@ -96,7 +100,7 @@ async def root():
 @app.get("/ping-db", tags=["health"])
 async def ping_database():
     """Database health check"""
-    from app.db.database import get_database
+    from db.database import get_database
     
     db = get_database()
     if db is None:
@@ -165,4 +169,5 @@ async def users_me_legacy():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Bind to all interfaces to allow remote connections
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

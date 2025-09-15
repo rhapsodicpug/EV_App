@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import OperationFailure
 
 # Load environment variables
-load_dotenv()
+load_dotenv('config.env')
 
 def setup_indexes():
     """Create necessary indexes for the EV booking app"""

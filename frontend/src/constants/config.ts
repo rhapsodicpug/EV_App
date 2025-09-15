@@ -4,20 +4,38 @@
 
 import Constants from 'expo-constants';
 
-// API Configuration
+// API Configuration with enhanced connectivity options
+const getApiBaseUrl = () => {
+  if (__DEV__) {
+    // Try multiple possible local IPs and localhost
+    const possibleUrls = [
+      'http://192.168.0.234:8000', // Current network IP
+      'http://192.168.1.9:8000',   // Original IP
+      'http://localhost:8000',      // Standard localhost
+      'http://127.0.0.1:8000',     // Localhost IP
+    ];
+    
+    // In a real app, you could test connectivity to each URL
+    // For now, we'll use the first one as default but make it easy to change
+    return possibleUrls[0];
+  }
+  return 'https://your-production-api.com';  // Production URL
+};
+
 export const API_CONFIG = {
-  // Use local IP for development - update for production
-  BASE_URL: __DEV__
-    ? 'http://192.168.1.9:8000'  // Local development (use your machine's IP)
-    : 'https://your-production-api.com',  // Production URL
+  BASE_URL: getApiBaseUrl(),
   
-  TIMEOUT: 10000, // 10 seconds
+  TIMEOUT: 15000, // 15 seconds - increased for better reliability
+  
+  // Retry configuration
+  RETRY_ATTEMPTS: 3,
+  RETRY_DELAY: 1000, // 1 second
   
   ENDPOINTS: {
     // Auth endpoints
     AUTH: {
-      REGISTER: '/register',
-      LOGIN: '/token',
+      REGISTER: '/auth/register',
+      LOGIN: '/auth/token',
       PROFILE: '/users/me',
     },
     
