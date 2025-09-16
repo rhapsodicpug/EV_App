@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/design/ThemeContext';
-import { useThemeColors } from './src/design';
+// import { useThemeColors } from './src/design';
 import AppNavigator from './src/navigation/AppNavigator';
 
 const AppContent: React.FC = () => {

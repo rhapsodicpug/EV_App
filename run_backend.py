@@ -21,6 +21,7 @@ def find_working_python():
         r"C:\Python310\python.exe",
         r"C:\Users\Siddharth\AppData\Local\Programs\Python\Python311\python.exe",
         r"C:\Users\Siddharth\AppData\Local\Programs\Python\Python310\python.exe",
+        r"C:\Users\Siddharth\Downloads\EV_App\venv\Scripts\python.exe",  # Virtual environment Python
     ]
     
     for python_cmd in possible_pythons:
