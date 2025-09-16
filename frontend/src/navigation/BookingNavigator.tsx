@@ -11,7 +11,6 @@ import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../des
 // Import screens
 import BookingScreen from '../screens/BookingScreen';
 import { SlotSelectionScreen } from '../screens/bookings/SlotSelectionScreen';
-import { BookingConfirmationScreen } from '../screens/bookings/BookingConfirmationScreen';
 
 const Stack = createStackNavigator<BookingStackParamList>();
 
@@ -50,22 +49,6 @@ const BookingNavigator: React.FC = () => {
         options={{
           title: 'Select Time Slot',
           headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="BookingConfirmation" 
-        component={BookingConfirmationScreen}
-        options={{
-          title: 'Confirm Booking',
-          headerShown: false,
-        }}
-        getId={({ params }) => {
-          // Create unique key based on booking parameters to force re-render
-          if (params) {
-            const { station, startTime, endTime, cost, selectedSlot, selectedDate, totalPrice } = params;
-            return `${station?.id || 'unknown'}-${startTime || 'unknown'}-${endTime || 'unknown'}-${cost || totalPrice || 'unknown'}`;
-          }
-          return 'default';
         }}
       />
     </Stack.Navigator>

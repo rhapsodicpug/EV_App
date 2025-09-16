@@ -1,58 +1,49 @@
 /**
- * Dynamic Dashboard Home Screen
- * Fully data-driven with live API integration
+ * Home Screen
+ * Modern dashboard matching the provided design with full functionality
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp } from '@react-navigation/native';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  RefreshControl,
+  ScrollView,
   StatusBar,
   Dimensions,
-  Image,
+  Animated,
   Alert,
+  Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
   User,
   MapPin,
   Zap,
   Calendar,
-  History,
-  Battery,
   Clock,
+  Battery,
+  Star,
   ChevronRight,
-  Car,
-  Plus,
-  QrCode,
-  BookOpen,
-  TrendingUp,
-  Repeat,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { apiService } from '../services/api';
-import { EVStation, Booking } from '../types/api';
 
 const { width, height } = Dimensions.get('window');
 
-// Dashboard Color Palette
-const DASHBOARD_COLORS = {
-  primary: '#00A8FF',
+// Color palette for the home screen
+const HOME_COLORS = {
+  primary: '#8cd279',
   secondary: '#8B5CF6',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  background: '#0A0A0A',
-  surface: '#1A1A1A',
-  card: '#2A2A2A',
-  border: '#3A3A3A',
+  success: '#8cd279',
+  background: '#1A1A1A',
+  surface: '#2A2A2A',
+  card: '#3A3A3A',
+  border: '#4A4A4A',
   text: {
     primary: '#FFFFFF',
     secondary: '#B0B0B0',
@@ -60,305 +51,154 @@ const DASHBOARD_COLORS = {
   },
 };
 
-// Types for dashboard data
-interface VehicleInfo {
-  id: string;
-  name: string;
-  image?: string;
-  batteryPercentage: number;
-  estimatedRange: number;
-  make?: string;
-  model?: string;
-}
-
-interface ChargingSession {
-  id: string;
-  stationName: string;
-  stationAddress: string;
-  currentPercentage: number;
-  timeRemaining: number;
-  powerKw: number;
-  costSoFar: number;
-}
-
-interface Promotion {
-  id: string;
-  title: string;
-  description: string;
-  image?: string;
-  validUntil: string;
-  discount?: number;
-}
-
 const HomeScreen: React.FC = () => {
-  const navigation = useNavigation<NavigationProp<any>>();
-  const { user } = useAuth();
+  const navigation = useNavigation();
+  const { user, logout } = useAuth();
   
-  // State for all dashboard data
-  const [vehicleInfo, setVehicleInfo] = useState<VehicleInfo | null>(null);
-  const [recentBooking, setRecentBooking] = useState<Booking | null>(null);
-  const [chargingSession, setChargingSession] = useState<ChargingSession | null>(null);
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  // State for dynamic data
+  const [vehicleInfo, setVehicleInfo] = useState<any>(null);
+  const [recentBooking, setRecentBooking] = useState<any>(null);
+  const [chargingSession, setChargingSession] = useState<any>(null);
+  const [promotions, setPromotions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Load all dashboard data
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    loadDashboardData();
+    startAnimations();
+  }, []);
+
+  const startAnimations = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      setErrors({});
-
-      // Load all data in parallel for better performance
-      const [
-        vehicleResponse,
-        bookingsResponse,
-        chargingResponse,
-        promotionsResponse,
-      ] = await Promise.allSettled([
-        loadVehicleInfo(),
-        loadRecentBooking(),
-        loadChargingSession(),
-        loadPromotions(),
+      
+      // Load all dashboard data in parallel
+      const [vehicleData, bookingData, chargingData, promotionsData] = await Promise.all([
+        apiService.getMyVehicle().catch(() => null),
+        apiService.getMyBookings().catch(() => []),
+        apiService.getCurrentChargingSession().catch(() => null),
+        apiService.getPromotions().catch(() => []),
       ]);
 
-      // Handle vehicle info
-      if (vehicleResponse.status === 'fulfilled') {
-        setVehicleInfo(vehicleResponse.value);
-      } else {
-        console.log('No vehicle info available');
-        setVehicleInfo(null);
-      }
-
-      // Handle recent booking
-      if (bookingsResponse.status === 'fulfilled') {
-        setRecentBooking(bookingsResponse.value);
-      } else {
-        console.log('No recent bookings');
-        setRecentBooking(null);
-      }
-
-      // Handle charging session
-      if (chargingResponse.status === 'fulfilled') {
-        setChargingSession(chargingResponse.value);
-      } else {
-        console.log('No active charging session');
-        setChargingSession(null);
-      }
-
-      // Handle promotions
-      if (promotionsResponse.status === 'fulfilled') {
-        setPromotions(promotionsResponse.value);
-      } else {
-        console.log('No promotions available');
-        setPromotions([]);
-      }
-
-    } catch (error: any) {
-      console.error('❌ Error loading dashboard data:', error);
-      setErrors({ general: 'Failed to load dashboard data' });
+      setVehicleInfo(vehicleData);
+      setRecentBooking(bookingData?.[0] || null);
+      setChargingSession(chargingData);
+      setPromotions(promotionsData);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load vehicle information
-  const loadVehicleInfo = async (): Promise<VehicleInfo | null> => {
-    try {
-      // Call the new API endpoint
-      const vehicleData = await apiService.getMyVehicle();
-      return {
-        id: vehicleData.id,
-        name: vehicleData.name,
-        batteryPercentage: vehicleData.battery_percentage,
-        estimatedRange: vehicleData.estimated_range,
-        make: vehicleData.make,
-        model: vehicleData.model,
-        image: vehicleData.image,
-      };
-    } catch (error: any) {
-      console.error('Error loading vehicle info:', error);
-      // If 404, user has no vehicle - return null to show "Add Vehicle" prompt
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw error;
-    }
+  const handleProfilePress = () => {
+    navigation.navigate('Profile' as never);
   };
 
-  // Load recent booking
-  const loadRecentBooking = async (): Promise<Booking | null> => {
-    try {
-      const bookings = await apiService.getMyBookings(0, 1);
-      return bookings.length > 0 ? bookings[0] : null;
-    } catch (error) {
-      console.error('Error loading recent booking:', error);
-      return null;
-    }
-  };
-
-  // Load charging session
-  const loadChargingSession = async (): Promise<ChargingSession | null> => {
-    try {
-      // Call the new API endpoint
-      const sessionData = await apiService.getCurrentChargingSession();
-      return {
-        id: sessionData.id,
-        stationName: sessionData.station_name,
-        stationAddress: sessionData.station_address,
-        currentPercentage: sessionData.current_percentage,
-        timeRemaining: sessionData.time_remaining,
-        powerKw: sessionData.power_kw,
-        costSoFar: sessionData.cost_so_far,
-      };
-    } catch (error: any) {
-      console.error('Error loading charging session:', error);
-      // If 404, no active session - return null
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw error;
-    }
-  };
-
-  // Load promotions
-  const loadPromotions = async (): Promise<Promotion[]> => {
-    try {
-      // Call the new API endpoint
-      const promotionsData = await apiService.getPromotions();
-      return promotionsData.map(promo => ({
-        id: promo.id,
-        title: promo.title,
-        description: promo.description,
-        image: promo.image,
-        validUntil: promo.valid_until,
-        discount: promo.discount,
-      }));
-    } catch (error) {
-      console.error('Error loading promotions:', error);
-      return [];
-    }
-  };
-
-  // Handle refresh
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadDashboardData();
-    setIsRefreshing(false);
-  };
-
-  // Load data on mount
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  // Quick action handlers
   const handleFindCharger = () => {
-    navigation.navigate('Search', { screen: 'StationList' });
+    navigation.navigate('Search' as never);
   };
 
   const handleStartCharging = () => {
-    // Navigate to QR scanner or charging flow
-    Alert.alert('Start Charging', 'QR code scanner would open here');
+    Alert.alert('Start Charging', 'QR code scanner would open here to start charging');
   };
 
   const handleBookSlot = () => {
-    navigation.navigate('Bookings', { screen: 'BookingForm' });
+    navigation.navigate('Bookings' as never);
   };
 
-  const handleViewHistory = () => {
-    navigation.navigate('Bookings', { screen: 'BookingList' });
-  };
-
-  const handleAddVehicle = () => {
-    navigation.navigate('Profile', { screen: 'EditProfile' });
-  };
-
-  const handleNotifications = () => {
-    // Navigate to notifications screen
-    Alert.alert('Notifications', 'Notifications screen would open here');
-  };
-
-  const handleProfile = () => {
-    navigation.navigate('Profile');
-  };
-
-  // Render shimmer loading component
-  const renderShimmer = () => (
-    <View style={styles.shimmerContainer}>
-      <View style={styles.shimmerCard}>
-        <View style={styles.shimmerLine} />
-        <View style={[styles.shimmerLine, { width: '60%' }]} />
-      </View>
-      <View style={styles.shimmerCard}>
-        <View style={styles.shimmerLine} />
-        <View style={[styles.shimmerLine, { width: '80%' }]} />
-      </View>
-      <View style={styles.shimmerCard}>
-        <View style={styles.shimmerLine} />
-        <View style={[styles.shimmerLine, { width: '70%' }]} />
-      </View>
-    </View>
-  );
-
-  // Render header
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.headerButton} onPress={handleNotifications}>
-        <Bell size={24} color={DASHBOARD_COLORS.text.primary} />
-      </TouchableOpacity>
-      
-      <Text style={styles.headerTitle}>Home</Text>
-      
-      <TouchableOpacity style={styles.headerButton} onPress={handleProfile}>
-        <User size={24} color={DASHBOARD_COLORS.text.primary} />
-      </TouchableOpacity>
-    </View>
-  );
-
-  // Render My Vehicle card
-  const renderVehicleCard = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.card}>
-          <View style={styles.shimmerLine} />
-          <View style={[styles.shimmerLine, { width: '60%', marginTop: 8 }]} />
-        </View>
-      );
+  const handleRepeatBooking = () => {
+    if (recentBooking) {
+      Alert.alert('Repeat Booking', `Would repeat booking at ${recentBooking.station_name}`);
     }
+  };
 
+  const handleNotificationPress = () => {
+    // Navigate to notifications screen or show notification modal
+    Alert.alert('Notifications', 'Notification feature coming soon!');
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <LinearGradient
+        colors={[
+          'rgba(0, 0, 0, 0.95)', 
+          'rgba(10, 10, 10, 0.9)', 
+          'rgba(20, 20, 20, 0.85)',
+          'rgba(30, 30, 30, 0.8)',
+          'rgba(26, 26, 26, 0.75)'
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerOverlay} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+            <Bell size={24} color={HOME_COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Home</Text>
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+            <User size={24} color={HOME_COLORS.text.primary} />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+
+  const renderVehicleCard = () => {
     if (!vehicleInfo) {
       return (
-        <View style={styles.card}>
-          <View style={styles.addVehicleContainer}>
-            <View style={styles.addVehicleIcon}>
-              <Car size={32} color={DASHBOARD_COLORS.primary} />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>My Vehicle</Text>
+          <View style={styles.vehicleCard}>
+            <View style={styles.noVehicleContainer}>
+              <Text style={styles.noVehicleText}>No vehicle added yet</Text>
+              <TouchableOpacity style={styles.addVehicleButton}>
+                <Text style={styles.addVehicleButtonText}>Add Vehicle</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.addVehicleContent}>
-              <Text style={styles.addVehicleTitle}>Add Your Vehicle</Text>
-              <Text style={styles.addVehicleSubtitle}>
-                Get personalized charging recommendations
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.addVehicleButton} onPress={handleAddVehicle}>
-              <Plus size={20} color={DASHBOARD_COLORS.text.primary} />
-            </TouchableOpacity>
           </View>
         </View>
       );
     }
 
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>My Vehicle</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>My Vehicle</Text>
         <View style={styles.vehicleCard}>
-          <View style={styles.vehicleIconContainer}>
-            <Car size={40} color={DASHBOARD_COLORS.text.secondary} />
-          </View>
+          {vehicleInfo.image ? (
+            <Image
+              source={{ uri: vehicleInfo.image }}
+              style={styles.vehicleImage}
+            />
+          ) : (
+            <View style={styles.vehicleImagePlaceholder}>
+              <Zap size={24} color={HOME_COLORS.text.secondary} />
+            </View>
+          )}
           <View style={styles.vehicleInfo}>
             <Text style={styles.vehicleName}>{vehicleInfo.name}</Text>
-            <Text style={styles.vehicleSubtitle}>
-              Battery: {vehicleInfo.batteryPercentage}% - Range: {vehicleInfo.estimatedRange} mi
+            <Text style={styles.vehicleDetails}>
+              Battery: {vehicleInfo.battery_percentage}% - Range: {vehicleInfo.estimated_range} mi
             </Text>
           </View>
         </View>
@@ -366,63 +206,66 @@ const HomeScreen: React.FC = () => {
     );
   };
 
-  // Render Quick Actions
   const renderQuickActions = () => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Quick Actions</Text>
-      <View style={styles.quickActionsGrid}>
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Quick Actions</Text>
+      <View style={styles.quickActionsContainer}>
         <TouchableOpacity style={styles.quickActionButton} onPress={handleFindCharger}>
-          <MapPin size={24} color={DASHBOARD_COLORS.text.primary} />
+          <MapPin size={24} color={HOME_COLORS.text.primary} />
           <Text style={styles.quickActionText}>Find Charger</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.quickActionButton} onPress={handleStartCharging}>
-          <Zap size={24} color={DASHBOARD_COLORS.text.primary} />
+          <Zap size={24} color={HOME_COLORS.text.primary} />
           <Text style={styles.quickActionText}>Start Charging</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.quickActionButton} onPress={handleBookSlot}>
-          <Calendar size={24} color={DASHBOARD_COLORS.text.primary} />
+          <Calendar size={24} color={HOME_COLORS.text.primary} />
           <Text style={styles.quickActionText}>Book Slot</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.quickActionButton} onPress={handleViewHistory}>
-          <History size={24} color={DASHBOARD_COLORS.text.primary} />
-          <Text style={styles.quickActionText}>View History</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  // Render Recent Booking card
   const renderRecentBooking = () => {
-    if (isLoading) {
+    if (!recentBooking) {
       return (
-        <View style={styles.card}>
-          <View style={styles.shimmerLine} />
-          <View style={[styles.shimmerLine, { width: '70%', marginTop: 8 }]} />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recent Booking</Text>
+          <View style={styles.bookingCard}>
+            <View style={styles.noBookingContainer}>
+              <Text style={styles.noBookingText}>No recent bookings</Text>
+            </View>
+          </View>
         </View>
       );
     }
 
-    if (!recentBooking) {
-      return null; // Don't show card if no recent booking
-    }
-
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Recent Booking</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Recent Booking</Text>
         <View style={styles.bookingCard}>
-          <View style={styles.bookingIconContainer}>
-            <Calendar size={24} color={DASHBOARD_COLORS.text.primary} />
-            <Text style={styles.bookingDay}>12</Text>
+          <View style={styles.bookingIcon}>
+            <Calendar size={20} color={HOME_COLORS.text.primary} />
+            <Text style={styles.bookingDay}>{new Date(recentBooking.start_time).getDate()}</Text>
           </View>
           <View style={styles.bookingInfo}>
-            <Text style={styles.bookingDate}>July 15, 2024</Text>
-            <Text style={styles.bookingDetails}>Duration: 2 hours</Text>
-            <Text style={styles.bookingDetails}>Station: Green Energy Hub</Text>
+            <Text style={styles.bookingDate}>
+              {new Date(recentBooking.start_time).toLocaleDateString('en-US', { 
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric' 
+              })}
+            </Text>
+            <Text style={styles.bookingDetails}>
+              Duration: {recentBooking.duration_minutes} minutes
+            </Text>
+            <Text style={styles.bookingDetails}>
+              Station: {recentBooking.station_name || 'Unknown Station'}
+            </Text>
           </View>
-          <TouchableOpacity style={styles.repeatButton}>
+          <TouchableOpacity style={styles.repeatButton} onPress={handleRepeatBooking}>
             <Text style={styles.repeatButtonText}>Repeat Booking</Text>
           </TouchableOpacity>
         </View>
@@ -430,117 +273,96 @@ const HomeScreen: React.FC = () => {
     );
   };
 
-  // Render Charging Status card
   const renderChargingStatus = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.card}>
-          <View style={styles.shimmerLine} />
-          <View style={[styles.shimmerLine, { width: '50%', marginTop: 8 }]} />
-        </View>
-      );
-    }
-
-    if (!chargingSession) {
-      return null; // Don't show card if no active charging session
-    }
+    if (!chargingSession) return null;
 
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Charging Status</Text>
-        <Text style={styles.chargingProgressLabel}>Charging Progress</Text>
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBar}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { width: `${chargingSession.currentPercentage}%` }
-              ]} 
-            />
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Charging Status</Text>
+        <View style={styles.chargingCard}>
+          <Text style={styles.chargingProgressLabel}>Charging Progress</Text>
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${chargingSession.current_percentage}%` }
+                ]} 
+              />
+            </View>
           </View>
+          <Text style={styles.progressText}>
+            {chargingSession.current_percentage}% - {chargingSession.time_remaining} left
+          </Text>
         </View>
-        <Text style={styles.progressText}>
-          {chargingSession.currentPercentage}% - 1 hour 30 minutes left
-        </Text>
       </View>
     );
   };
 
-  // Render Promotions card
   const renderPromotions = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.card}>
-          <View style={styles.shimmerLine} />
-          <View style={[styles.shimmerLine, { width: '80%', marginTop: 8 }]} />
-        </View>
-      );
-    }
+    if (!promotions.length) return null;
 
-    if (promotions.length === 0) {
-      return null; // Don't show card if no promotions
-    }
-
-    const promotion = promotions[0]; // Show first promotion
-
+    const promotion = promotions[0];
+    
     return (
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Promotions & Updates</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Promotions & Updates</Text>
         <View style={styles.promotionCard}>
           <View style={styles.promotionContent}>
             <Text style={styles.promotionNew}>New</Text>
-            <Text style={styles.promotionTitle}>Summer Charging Discounts</Text>
+            <Text style={styles.promotionTitle}>{promotion.title}</Text>
             <Text style={styles.promotionDescription}>
-              Enjoy 20% off on all charging sessions this month.
+              {promotion.description}
             </Text>
           </View>
-          <View style={styles.promotionIconContainer}>
-            <Zap size={32} color={DASHBOARD_COLORS.text.secondary} />
-          </View>
+          {promotion.image && (
+            <Image
+              source={{ uri: promotion.image }}
+              style={styles.promotionImage}
+            />
+          )}
         </View>
       </View>
     );
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={HOME_COLORS.background} />
+        {renderHeader()}
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={DASHBOARD_COLORS.background} />
-      
+      <StatusBar barStyle="light-content" backgroundColor={HOME_COLORS.background} />
       {renderHeader()}
       
-      <ScrollView
+      <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={handleRefresh}
-            tintColor={DASHBOARD_COLORS.primary}
-          />
-        }
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
-        {isLoading ? (
-          renderShimmer()
-        ) : (
-          <>
-            {renderVehicleCard()}
-            {renderQuickActions()}
-            {renderRecentBooking()}
-            {renderChargingStatus()}
-            {renderPromotions()}
-          </>
-        )}
-        
-        {/* Error state */}
-        {errors.general && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{errors.general}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={loadDashboardData}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {renderVehicleCard()}
+          {renderQuickActions()}
+          {renderRecentBooking()}
+          {renderChargingStatus()}
+          {renderPromotions()}
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -549,244 +371,129 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: DASHBOARD_COLORS.background,
+    backgroundColor: HOME_COLORS.background,
   },
-  
-  // Header
+
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 10,
+  },
+
+  headerBlur: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: DASHBOARD_COLORS.background,
   },
-  
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: DASHBOARD_COLORS.surface,
+
+  notificationButton: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  
+
   headerTitle: {
     fontSize: 20,
-    color: DASHBOARD_COLORS.text.primary,
     fontWeight: '700',
+    color: HOME_COLORS.text.primary,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  
-  // Scroll View
-  scrollView: {
-    flex: 1,
-  },
-  
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 100,
-  },
-  
-  // Cards
-  card: {
-    backgroundColor: DASHBOARD_COLORS.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: DASHBOARD_COLORS.border,
-  },
-  
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: DASHBOARD_COLORS.text.primary,
-    marginBottom: 16,
-  },
-  
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  
-  // Vehicle Card
-  addVehicleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  addVehicleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${DASHBOARD_COLORS.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  
-  addVehicleContent: {
-    flex: 1,
-  },
-  
-  addVehicleTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  
-  addVehicleSubtitle: {
-    fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
-  },
-  
-  addVehicleButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: DASHBOARD_COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  
-  vehicleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  
-  vehicleImageContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${DASHBOARD_COLORS.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  
-  vehicleImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  
-  // Quick Actions
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  
-  quickActionButton: {
-    width: '48%',
-    height: 80,
-    backgroundColor: DASHBOARD_COLORS.success,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  
-  quickActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-    marginTop: 8,
-  },
-  
-  // Booking Card
-  bookingContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  bookingIcon: {
+
+  profileButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: `${DASHBOARD_COLORS.primary}20`,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  
-  bookingInfo: {
+
+  scrollView: {
     flex: 1,
   },
-  
-  bookingStation: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  
-  // Shimmer Loading
-  shimmerContainer: {
-    gap: 16,
-  },
-  
-  shimmerCard: {
-    backgroundColor: DASHBOARD_COLORS.card,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: DASHBOARD_COLORS.border,
-  },
-  
-  shimmerLine: {
-    height: 16,
-    backgroundColor: DASHBOARD_COLORS.surface,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  
-  // Error State
-  errorContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  
-  errorText: {
-    fontSize: 16,
-    color: DASHBOARD_COLORS.error,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  
-  retryButton: {
-    backgroundColor: DASHBOARD_COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  
-  retryButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
+
+  scrollContent: {
+    paddingTop: 140,
+    paddingBottom: 100,
   },
 
-  // New styles for updated design
+  content: {
+    paddingHorizontal: 20,
+  },
+
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  loadingText: {
+    fontSize: 16,
+    color: HOME_COLORS.text.secondary,
+  },
+
+  section: {
+    marginBottom: 24,
+  },
+
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: HOME_COLORS.text.primary,
+    marginBottom: 12,
+  },
+
   vehicleCard: {
+    backgroundColor: HOME_COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
   },
 
-  vehicleIconContainer: {
+  vehicleImage: {
     width: 60,
     height: 60,
-    borderRadius: 8,
-    backgroundColor: DASHBOARD_COLORS.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 30,
     marginRight: 16,
   },
 
@@ -795,74 +502,104 @@ const styles = StyleSheet.create({
   },
 
   vehicleName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
+    color: HOME_COLORS.text.primary,
     marginBottom: 4,
   },
 
-  vehicleSubtitle: {
+  vehicleDetails: {
     fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
+    color: HOME_COLORS.text.secondary,
+  },
+
+  quickActionsContainer: {
+    gap: 12,
+  },
+
+  quickActionButton: {
+    backgroundColor: HOME_COLORS.success,
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  quickActionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 8,
   },
 
   bookingCard: {
+    backgroundColor: HOME_COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
   },
 
-  bookingIconContainer: {
+  bookingIcon: {
     width: 50,
     height: 50,
-    borderRadius: 8,
-    backgroundColor: DASHBOARD_COLORS.surface,
+    borderRadius: 25,
+    backgroundColor: HOME_COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
-    position: 'relative',
   },
 
   bookingDay: {
-    position: 'absolute',
-    bottom: 2,
     fontSize: 12,
     fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
+    color: HOME_COLORS.text.primary,
+    marginTop: 2,
+  },
+
+  bookingInfo: {
+    flex: 1,
   },
 
   bookingDate: {
     fontSize: 16,
     fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
+    color: HOME_COLORS.text.primary,
     marginBottom: 4,
   },
 
   bookingDetails: {
     fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
+    color: HOME_COLORS.text.secondary,
     marginBottom: 2,
   },
 
   repeatButton: {
-    backgroundColor: DASHBOARD_COLORS.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: HOME_COLORS.card,
     borderRadius: 8,
-    marginLeft: 'auto',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
 
   repeatButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
+    fontWeight: '500',
+    color: HOME_COLORS.text.primary,
+  },
+
+  chargingCard: {
+    backgroundColor: HOME_COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
   },
 
   chargingProgressLabel: {
     fontSize: 16,
-    color: DASHBOARD_COLORS.text.secondary,
-    marginTop: 12,
-    marginBottom: 8,
+    fontWeight: '600',
+    color: HOME_COLORS.text.primary,
+    marginBottom: 12,
   },
 
   progressBarContainer: {
@@ -871,25 +608,28 @@ const styles = StyleSheet.create({
 
   progressBar: {
     height: 8,
-    backgroundColor: DASHBOARD_COLORS.surface,
+    backgroundColor: HOME_COLORS.text.primary,
     borderRadius: 4,
+    overflow: 'hidden',
   },
 
   progressFill: {
     height: '100%',
-    backgroundColor: DASHBOARD_COLORS.text.primary,
+    backgroundColor: HOME_COLORS.success,
     borderRadius: 4,
   },
 
   progressText: {
     fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
+    color: HOME_COLORS.text.primary,
   },
 
   promotionCard: {
+    backgroundColor: HOME_COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
   },
 
   promotionContent: {
@@ -898,31 +638,75 @@ const styles = StyleSheet.create({
 
   promotionNew: {
     fontSize: 12,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.success,
+    color: HOME_COLORS.text.secondary,
     marginBottom: 4,
   },
 
   promotionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
+    color: HOME_COLORS.text.primary,
     marginBottom: 4,
   },
 
   promotionDescription: {
     fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
+    color: HOME_COLORS.text.secondary,
   },
 
-  promotionIconContainer: {
+  promotionImage: {
     width: 60,
     height: 60,
     borderRadius: 8,
-    backgroundColor: DASHBOARD_COLORS.surface,
+    marginLeft: 16,
+  },
+
+  vehicleImagePlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: HOME_COLORS.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 16,
+    marginRight: 16,
+  },
+
+  noVehicleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+
+  noVehicleText: {
+    fontSize: 16,
+    color: HOME_COLORS.text.secondary,
+    marginBottom: 12,
+  },
+
+  addVehicleButton: {
+    backgroundColor: HOME_COLORS.success,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+
+  addVehicleButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#000000',
+  },
+
+  noBookingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+
+  noBookingText: {
+    fontSize: 16,
+    color: HOME_COLORS.text.secondary,
   },
 });
 

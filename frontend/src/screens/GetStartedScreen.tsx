@@ -46,13 +46,11 @@ const ONBOARDING_COLORS = {
 interface GetStartedScreenProps {
   onNavigateToAuth: () => void;
   onNavigateToLogin: () => void;
-  navigation?: any;
 }
 
 const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
   onNavigateToAuth,
   onNavigateToLogin,
-  navigation,
 }) => {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -165,6 +163,7 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
   };
 
   const handleSignIn = () => {
+    console.log('🔐 Sign in button pressed');
     onNavigateToLogin();
   };
 

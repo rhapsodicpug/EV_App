@@ -25,7 +25,10 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react-native';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -45,11 +48,8 @@ const LOGIN_COLORS = {
   },
 };
 
-interface LoginScreenProps {
-  navigation: any;
-}
-
-const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+const LoginScreen: React.FC = () => {
+  const navigation = useNavigation();
   // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,7 +98,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
     try {
       setIsLoading(true);
-      await login(email.trim(), password);
+      await login({ email: email.trim(), password });
       // Navigation will be handled by AuthContext
     } catch (error: any) {
       Alert.alert('Login Failed', error.message || 'Invalid email or password');
@@ -120,11 +120,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   };
 
   const handleSignUp = () => {
-    navigation.navigate('Register');
+    navigation.navigate('SignUp');
   };
 
   const handleBack = () => {
-    navigation.goBack();
+    // Navigate to the BackToGetStarted screen instead of trying to go back
+    navigation.navigate('BackToGetStarted');
   };
 
   return (

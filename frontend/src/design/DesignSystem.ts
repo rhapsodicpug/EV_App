@@ -32,7 +32,7 @@ export const Colors = {
     200: '#BBF7D0',  // Light green
     300: '#86EFAC',  // Medium light green
     400: '#4ADE80',  // Medium green
-    500: '#22C55E',  // Main secondary color - Electric green
+    500: '#8cd279',  // Main secondary color - Lime green
     600: '#16A34A',  // Darker green
     700: '#15803D',  // Dark green
     800: '#166534',  // Very dark green
@@ -71,7 +71,7 @@ export const Colors = {
       200: '#BBF7D0',
       300: '#86EFAC',
       400: '#4ADE80',
-      500: '#22C55E', // Success green
+      500: '#8cd279', // Success green - Lime green
       600: '#16A34A',
       700: '#15803D',
       800: '#166534',
@@ -135,7 +135,7 @@ export const Colors = {
 
   // Semantic Colors - Enhanced for better contrast
   semantic: {
-    success: '#22C55E',    // Electric green
+    success: '#8cd279',    // Lime green
     warning: '#F97316',    // Amber orange
     error: '#EF4444',      // Crimson red
     info: '#3B82F6',       // Sky blue

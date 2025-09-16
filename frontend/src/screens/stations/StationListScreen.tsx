@@ -13,7 +13,11 @@ import {
   Animated,
   RefreshControl,
   TextInput,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import ReanimatedAnimated, { 
   FadeInUp
 } from 'react-native-reanimated';
@@ -28,12 +32,36 @@ import {
   ChevronRight,
   Search,
   Filter,
-  AlertCircle
+  AlertCircle,
+  ArrowLeft,
+  Bell,
+  User
 } from 'lucide-react-native';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation, Badge } from '../../design';
 import StationCard from '../../components/custom/StationCard';
 import { EVStation } from '../../types/api';
 import apiService from '../../services/api';
+
+const { width, height } = Dimensions.get('window');
+
+// Color scheme matching the HomeScreen design
+const STATION_COLORS = {
+  primary: '#8cd279',
+  secondary: '#8B5CF6',
+  success: '#8cd279',
+  background: '#1A1A1A',
+  surface: '#2A2A2A',
+  card: '#3A3A3A',
+  border: '#4A4A4A',
+  text: {
+    primary: '#FFFFFF',
+    secondary: '#B0B0B0',
+    tertiary: '#666666',
+  },
+  accent: '#8cd279',
+  warning: '#F59E0B',
+  error: '#EF4444',
+};
 
 const StationListScreen: React.FC = () => {
   const { colors } = useThemeColors();
@@ -131,7 +159,7 @@ const StationListScreen: React.FC = () => {
   const handleStationPress = (station: EVStation) => {
     console.log('Station pressed:', station.name, station.id);
     try {
-      (navigation as any).navigate('StationDetailsBooking', { station });
+      (navigation as any).navigate('BookSlot', { station });
     } catch (error) {
       console.error('Navigation error:', error);
     }
@@ -152,6 +180,96 @@ const StationListScreen: React.FC = () => {
     // Implement filter functionality
     console.log('Filter pressed');
   };
+
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
+
+  const handleNotificationPress = () => {
+    // Navigate to notifications screen or show notification modal
+    console.log('Notification pressed');
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <LinearGradient
+        colors={[
+          'rgba(0, 0, 0, 0.95)', 
+          'rgba(10, 10, 10, 0.9)', 
+          'rgba(20, 20, 20, 0.85)',
+          'rgba(30, 30, 30, 0.8)',
+          'rgba(26, 26, 26, 0.75)'
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerOverlay} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <ArrowLeft size={24} color={STATION_COLORS.text.primary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Charging Stations</Text>
+            <Text style={styles.headerSubtitle}>
+              {filteredStations.length} of {stations.length} stations found
+            </Text>
+          </View>
+          <View style={styles.headerRight} />
+        </View>
+        
+        {/* Search Input */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInput}>
+            <View style={styles.searchIconContainer}>
+              <Search size={20} color={STATION_COLORS.accent} />
+            </View>
+            <TextInput
+              style={styles.searchTextInput}
+              placeholder="Search stations..."
+              placeholderTextColor={STATION_COLORS.text.secondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.searchChevron}>
+              <ChevronRight size={16} color={STATION_COLORS.text.secondary} />
+            </View>
+          </View>
+        </View>
+
+        {/* Filter Chips */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContent}
+          >
+            {[
+              { id: 'available', label: 'Available Now', icon: 'flash' },
+              { id: 'fast', label: 'Fast Charging', icon: 'zap' },
+              { id: 'nearby', label: 'Within 5km', icon: 'location' },
+              { id: 'cheap', label: 'Budget Friendly', icon: 'wallet' },
+            ].map((filter) => (
+              <TouchableOpacity
+                key={filter.id}
+                style={styles.filterChip}
+                onPress={() => {
+                  console.log('Filter pressed:', filter.label);
+                }}
+              >
+                <Ionicons name={filter.icon as any} size={14} color={STATION_COLORS.text.primary} />
+                <Text style={styles.filterChipText}>
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </LinearGradient>
+    </View>
+  );
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -205,207 +323,110 @@ const StationListScreen: React.FC = () => {
     return `${value}${suffix}`;
   };
 
+  // Glassmorphism Station Card Component
+  const StationCard = ({ station, index }: { station: EVStation; index: number }) => (
+    <ReanimatedAnimated.View
+      entering={FadeInUp.duration(500).delay(index * 50)}
+    >
+      <TouchableOpacity
+        style={styles.stationCard}
+        onPress={() => handleStationPress(station)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.stationCardGradient}>
+          <View style={styles.stationCardOverlay} />
+          
+          <View style={styles.stationHeader}>
+            <View style={styles.stationInfo}>
+              <Text style={styles.stationName}>
+                {formatData(station.name)}
+              </Text>
+              <Text style={styles.stationAddress}>
+                {formatData(station.address)}
+              </Text>
+            </View>
+            <View style={styles.availabilityBadge}>
+              <Text style={styles.availabilityText}>
+                {formatData(station.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length, '--', '')}/{formatData(station.charging_slots?.length, '--', '')} Available
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.stationDetails}>
+            <View style={styles.stationDetail}>
+              <MapPin size={14} color={STATION_COLORS.accent} />
+              <Text style={styles.stationDetailText}>
+                {formatData(station.distance, '--', 'km')}
+              </Text>
+            </View>
+
+            <View style={styles.stationDetail}>
+              <Star size={14} color="#FFD700" />
+              <Text style={styles.stationDetailText}>
+                {formatData(station.rating, '--', '')}
+              </Text>
+            </View>
+
+            <View style={styles.stationDetail}>
+              <Zap size={14} color={STATION_COLORS.success} />
+              <Text style={styles.stationDetailText}>
+                {formatData(station.charging_slots?.[0]?.charger_type, '--', '')}
+              </Text>
+            </View>
+          </View>
+
+          {station.charging_slots?.[0]?.price_per_kwh && (
+            <View style={styles.priceContainer}>
+              <Text style={styles.priceText}>
+                ₹{station.charging_slots[0].price_per_kwh}/kWh
+              </Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    </ReanimatedAnimated.View>
+  );
+
   // Skeleton Card Component
   const SkeletonCard = () => (
-    <View style={dynamicStyles.stationCard}>
-      <View style={dynamicStyles.skeletonHeader}>
-        <View style={dynamicStyles.skeletonLine} />
-        <View style={dynamicStyles.skeletonCircle} />
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonHeader}>
+        <View style={styles.skeletonLine} />
+        <View style={styles.skeletonCircle} />
       </View>
-      <View style={dynamicStyles.skeletonContent}>
-        <View style={dynamicStyles.skeletonLineShort} />
-        <View style={dynamicStyles.skeletonDetails}>
-          <View style={dynamicStyles.skeletonIcon} />
-          <View style={dynamicStyles.skeletonLineVeryShort} />
-          <View style={dynamicStyles.skeletonIcon} />
-          <View style={dynamicStyles.skeletonLineVeryShort} />
+      <View style={styles.skeletonContent}>
+        <View style={styles.skeletonLineShort} />
+        <View style={styles.skeletonDetails}>
+          <View style={styles.skeletonIcon} />
+          <View style={styles.skeletonLineVeryShort} />
+          <View style={styles.skeletonIcon} />
+          <View style={styles.skeletonLineVeryShort} />
         </View>
       </View>
       <Animated.View
         style={[
-          dynamicStyles.shimmerOverlay,
+          styles.shimmerOverlay,
           { transform: [{ translateX: shimmerTranslate }] },
         ]}
       />
     </View>
   );
 
-  const dynamicStyles = {
-    container: {
-      backgroundColor: '#0A0A0A',
-      flex: 1,
-    },
-    content: {
-      padding: Spacing.lg,
-      paddingTop: 120, // Space for dynamic header
-    },
-    stationCard: {
-      marginBottom: Spacing.md,
-      borderRadius: BorderRadius.lg,
-      backgroundColor: '#1A1A1A',
-      padding: Spacing.lg,
-      ...Elevation.level2,
-      overflow: 'hidden' as const,
-    },
-    stationHeader: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-      alignItems: 'flex-start' as const,
-      marginBottom: Spacing.sm,
-    },
-    stationName: {
-      fontSize: 18,
-      fontWeight: '700' as const,
-      color: '#FFFFFF',
-      flex: 1,
-      marginBottom: Spacing.xs,
-    },
-    stationAddress: {
-      fontSize: 14,
-      color: '#A9A9A9',
-      lineHeight: 20,
-    },
-    stationDetails: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      marginTop: Spacing.sm,
-      gap: Spacing.md,
-    },
-    stationDetail: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-    },
-    stationDetailText: {
-      fontSize: 13,
-      color: '#A9A9A9',
-      marginLeft: Spacing.xs,
-      fontWeight: '500' as const,
-    },
-    availabilityBadge: {
-      backgroundColor: '#10B981',
-      paddingHorizontal: Spacing.sm,
-      paddingVertical: 4,
-      borderRadius: 12,
-      marginTop: Spacing.xs,
-    },
-    availabilityText: {
-      fontSize: 12,
-      fontWeight: '600' as const,
-      color: '#FFFFFF',
-    },
-    priceText: {
-      fontSize: 16,
-      fontWeight: '700' as const,
-      color: '#00A8FF',
-    },
-
-    // Skeleton styles
-    skeletonHeader: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-      alignItems: 'center' as const,
-      marginBottom: Spacing.md,
-    },
-    skeletonLine: {
-      height: 20,
-      backgroundColor: '#282828',
-      borderRadius: 4,
-      flex: 1,
-      marginRight: Spacing.md,
-    },
-    skeletonLineShort: {
-      height: 16,
-      backgroundColor: '#282828',
-      borderRadius: 4,
-      width: '70%' as const,
-      marginBottom: Spacing.sm,
-    },
-    skeletonLineVeryShort: {
-      height: 12,
-      backgroundColor: '#282828',
-      borderRadius: 4,
-      width: 40,
-    },
-    skeletonCircle: {
-      width: 40,
-      height: 40,
-      backgroundColor: '#282828',
-      borderRadius: 20,
-    },
-    skeletonIcon: {
-      width: 16,
-      height: 16,
-      backgroundColor: '#282828',
-      borderRadius: 8,
-      marginRight: Spacing.xs,
-    },
-    skeletonContent: {
-      flex: 1,
-    },
-    skeletonDetails: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      marginTop: Spacing.sm,
-      gap: Spacing.md,
-    },
-    shimmerOverlay: {
-      position: 'absolute' as const,
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-      opacity: 0.5,
-    },
-
-    emptyState: {
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      padding: Spacing.xl,
-    },
-    emptyStateText: {
-      fontSize: 16,
-      color: '#A9A9A9',
-      textAlign: 'center' as const,
-      marginTop: Spacing.md,
-    },
-  };
-
   if (loading) {
     return (
-      <View style={dynamicStyles.container}>
-        {/* Header */}
-        <View style={{
-          backgroundColor: '#121212',
-          paddingTop: 50,
-          paddingHorizontal: 20,
-          paddingBottom: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: '#333333',
-        }}>
-          <Text style={{
-            fontSize: 24,
-            fontWeight: '700',
-            color: '#ffffff',
-            marginBottom: 4,
-          }}>
-            Charging Stations
-          </Text>
-          <Text style={{
-            fontSize: 16,
-            color: '#666666',
-          }}>
-            Finding nearby stations...
-          </Text>
-        </View>
-
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={STATION_COLORS.background} />
+        {renderHeader()}
+        
         {/* Skeleton Cards */}
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          <View style={{ padding: 16, paddingTop: 20 }}>
-            {[1, 2, 3, 4].map((_, index) => (
-              <SkeletonCard key={index} />
-            ))}
-          </View>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {[1, 2, 3, 4].map((_, index) => (
+            <SkeletonCard key={index} />
+          ))}
         </ScrollView>
       </View>
     );
@@ -414,252 +435,411 @@ const StationListScreen: React.FC = () => {
 
 
   return (
-    <View style={dynamicStyles.container}>
-      {/* Header matching login screen theme */}
-      <View style={{
-        backgroundColor: '#121212',
-        paddingTop: 50,
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#333333',
-      }}>
-        <Text style={{
-          fontSize: 24,
-          fontWeight: '700',
-          color: '#ffffff',
-          marginBottom: 4,
-        }}>
-          Charging Stations
-        </Text>
-        <Text style={{
-          fontSize: 16,
-          color: '#666666',
-        }}>
-          {filteredStations.length} of {stations.length} stations found
-        </Text>
-
-        {/* Search Input */}
-        <View style={{
-          marginTop: 16,
-          marginBottom: 8,
-        }}>
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: 20,
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 4,
-          }}>
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'rgba(0, 168, 255, 0.1)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 12,
-            }}>
-              <Search size={20} color="#00A8FF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <TextInput
-                style={{
-                  color: '#ffffff',
-                  fontSize: 16,
-                  fontWeight: '500',
-                  paddingVertical: 0,
-                }}
-                placeholder="Search stations..."
-                placeholderTextColor="#A9A9A9"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Text style={{
-                fontSize: 12,
-                color: '#A9A9A9',
-                opacity: 0.7,
-                marginTop: 2,
-              }}>
-                {searchQuery ? `Searching for "${searchQuery}"` : 'Find nearby charging spots'}
-              </Text>
-            </View>
-            <View style={{ marginLeft: 8 }}>
-              <Ionicons name="chevron-forward" size={16} color="#A9A9A9" />
-            </View>
-          </View>
-        </View>
-
-        {/* Filter Chips */}
-        <View style={{
-          marginTop: 16,
-          marginBottom: 8,
-        }}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingHorizontal: 4,
-              gap: 8,
-            }}
-          >
-            {[
-              { id: 'available', label: 'Available Now', icon: 'flash' },
-              { id: 'fast', label: 'Fast Charging', icon: 'zap' },
-              { id: 'nearby', label: 'Within 5km', icon: 'location' },
-              { id: 'cheap', label: 'Budget Friendly', icon: 'wallet' },
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: 'rgba(0, 168, 255, 0.1)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(0, 168, 255, 0.3)',
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 20,
-                  gap: 6,
-                }}
-                onPress={() => {
-                  // TODO: Implement filter logic
-                  console.log('Filter pressed:', filter.label);
-                }}
-              >
-                <Ionicons name={filter.icon as any} size={14} color="#00A8FF" />
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: '#00A8FF',
-                }}>
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-
-
-
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={STATION_COLORS.background} />
+      {renderHeader()}
+      
       {/* Stations List */}
       <ScrollView
-        style={{ flex: 1 }}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[STATION_COLORS.accent]}
+            tintColor={STATION_COLORS.accent}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
-
-
-        <View style={{ padding: 16 }}>
-
-          {error ? (
-            <View style={dynamicStyles.emptyState}>
-              <AlertCircle size={48} color={colors.text.secondary} />
-              <Text style={dynamicStyles.emptyStateText}>{error}</Text>
-            </View>
-          ) : filteredStations.length > 0 ? (
-            <>
-              {filteredStations.map((station, index) => (
-                <ReanimatedAnimated.View
-                  key={station.id || index}
-                  entering={FadeInUp.duration(500).delay(index * 50)}
-                >
-                  <TouchableOpacity
-                    style={dynamicStyles.stationCard}
-                    onPress={() => handleStationPress(station)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={dynamicStyles.stationHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={dynamicStyles.stationName}>
-                          {formatData(station.name)}
-                        </Text>
-                        <Text style={dynamicStyles.stationAddress}>
-                          {formatData(station.address)}
-                        </Text>
-                      </View>
-                      <View style={dynamicStyles.availabilityBadge}>
-                        <Text style={dynamicStyles.availabilityText}>
-                          {formatData(station.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length, '--', '')}/{formatData(station.charging_slots?.length, '--', '')} Available
-                        </Text>
-                      </View>
-                    </View>
-
-                  <View style={dynamicStyles.stationDetails}>
-                    <View style={dynamicStyles.stationDetail}>
-                      <MapPin size={14} color="#00A8FF" />
-                      <Text style={dynamicStyles.stationDetailText}>
-                        {formatData(station.distance, '--', 'km')}
-                      </Text>
-                    </View>
-
-                    <View style={dynamicStyles.stationDetail}>
-                      <Star size={14} color="#FFD700" />
-                      <Text style={dynamicStyles.stationDetailText}>
-                        {formatData(station.rating, '--', '')}
-                      </Text>
-                    </View>
-
-                    <View style={dynamicStyles.stationDetail}>
-                      <Zap size={14} color="#10B981" />
-                      <Text style={dynamicStyles.stationDetailText}>
-                        {formatData(station.charging_slots?.[0]?.charger_type, '--', '')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {station.charging_slots?.[0]?.price_per_kwh && (
-                    <Text style={dynamicStyles.priceText}>
-                      ₹{station.charging_slots[0].price_per_kwh}/kWh
-                    </Text>
-                  )}
-                  </TouchableOpacity>
-                </ReanimatedAnimated.View>
-              ))}
-            </>
-          ) : searchQuery.trim() !== '' ? (
-            <View style={dynamicStyles.emptyState}>
-              <Search size={48} color={colors.text.secondary} />
-              <Text style={dynamicStyles.emptyStateText}>
-                No stations found for "{searchQuery}"
-              </Text>
-              <Text style={[dynamicStyles.emptyStateText, { fontSize: 14, marginTop: 8 }]}>
-                Try a different search term
-              </Text>
-            </View>
-          ) : (
-            <View style={dynamicStyles.emptyState}>
-              <MapPin size={48} color={colors.text.secondary} />
-              <Text style={dynamicStyles.emptyStateText}>
-                No stations found nearby
-              </Text>
-            </View>
-          )}
-        </View>
+        {error ? (
+          <View style={styles.emptyState}>
+            <AlertCircle size={48} color={STATION_COLORS.text.secondary} />
+            <Text style={styles.emptyStateText}>{error}</Text>
+          </View>
+        ) : filteredStations.length > 0 ? (
+          <>
+            {filteredStations.map((station, index) => (
+              <StationCard key={station.id || index} station={station} index={index} />
+            ))}
+          </>
+        ) : searchQuery.trim() !== '' ? (
+          <View style={styles.emptyState}>
+            <Search size={48} color={STATION_COLORS.text.secondary} />
+            <Text style={styles.emptyStateText}>
+              No stations found for "{searchQuery}"
+            </Text>
+            <Text style={[styles.emptyStateText, { fontSize: 14, marginTop: 8 }]}>
+              Try a different search term
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <MapPin size={48} color={STATION_COLORS.text.secondary} />
+            <Text style={styles.emptyStateText}>
+              No stations found nearby
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
   };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-    },
-  });
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: STATION_COLORS.background,
+  },
+
+  // Header Styles
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 10,
+  },
+
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: STATION_COLORS.text.primary,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  headerSubtitle: {
+    fontSize: 14,
+    color: STATION_COLORS.text.secondary,
+    marginTop: 2,
+  },
+
+  headerRight: {
+    width: 40,
+    height: 40,
+  },
+
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  // Search Styles
+  searchContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+
+  searchInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  searchIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 168, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+
+  searchTextInput: {
+    flex: 1,
+    color: STATION_COLORS.text.primary,
+    fontSize: 16,
+    fontWeight: '500',
+    paddingVertical: 0,
+  },
+
+  searchChevron: {
+    marginLeft: 8,
+  },
+
+  // Filter Styles
+  filterContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  },
+
+  filterScrollContent: {
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: STATION_COLORS.text.primary,
+  },
+
+  // Scroll View Styles
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    paddingTop: 300,
+    paddingBottom: 100,
+    paddingHorizontal: 20,
+  },
+
+  // Station Card Styles
+  stationCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+
+  stationCardGradient: {
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: STATION_COLORS.surface,
+  },
+
+  stationCardOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 16,
+  },
+
+  stationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+
+  stationInfo: {
+    flex: 1,
+  },
+
+  stationName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: STATION_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  stationAddress: {
+    fontSize: 14,
+    color: STATION_COLORS.text.secondary,
+    lineHeight: 20,
+  },
+
+  availabilityBadge: {
+    backgroundColor: STATION_COLORS.success,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+
+  availabilityText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#000000',
+  },
+
+  stationDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 16,
+  },
+
+  stationDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  stationDetailText: {
+    fontSize: 13,
+    color: STATION_COLORS.text.secondary,
+    marginLeft: 6,
+    fontWeight: '500',
+  },
+
+  priceContainer: {
+    alignItems: 'flex-end',
+  },
+
+  priceText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: STATION_COLORS.accent,
+  },
+
+  // Skeleton Styles
+  skeletonCard: {
+    marginBottom: 16,
+    borderRadius: 16,
+    backgroundColor: STATION_COLORS.surface,
+    padding: 20,
+    overflow: 'hidden',
+  },
+
+  skeletonHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+
+  skeletonLine: {
+    height: 20,
+    backgroundColor: '#282828',
+    borderRadius: 4,
+    flex: 1,
+    marginRight: 16,
+  },
+
+  skeletonLineShort: {
+    height: 16,
+    backgroundColor: '#282828',
+    borderRadius: 4,
+    width: '70%',
+    marginBottom: 12,
+  },
+
+  skeletonLineVeryShort: {
+    height: 12,
+    backgroundColor: '#282828',
+    borderRadius: 4,
+    width: 40,
+  },
+
+  skeletonCircle: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#282828',
+    borderRadius: 20,
+  },
+
+  skeletonIcon: {
+    width: 16,
+    height: 16,
+    backgroundColor: '#282828',
+    borderRadius: 8,
+    marginRight: 6,
+  },
+
+  skeletonContent: {
+    flex: 1,
+  },
+
+  skeletonDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 16,
+  },
+
+  shimmerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    opacity: 0.5,
+  },
+
+  // Empty State Styles
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+
+  emptyStateText: {
+    fontSize: 16,
+    color: STATION_COLORS.text.secondary,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+});
 
   export default StationListScreen;

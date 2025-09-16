@@ -14,7 +14,6 @@ import MainNavigator from './MainNavigator';
 import SplashScreen from '../screens/SplashScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import GetStartedScreen from '../screens/GetStartedScreen';
-import PaymentTestScreen from '../screens/PaymentTestScreen';
 import { RootStackParamList } from '../types/api';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -59,18 +58,26 @@ const AppNavigator: React.FC = () => {
     }
   };
 
-  const handleNavigateToAuth = () => {
-    markGetStartedAsSeen();
-    // Navigate to auth flow - this will be handled by the navigation state change
+  const handleNavigateToAuth = async () => {
+    try {
+      // Set a flag to indicate we want to start with SignUp
+      await AsyncStorage.setItem('startWithSignUp', 'true');
+      markGetStartedAsSeen();
+    } catch (error) {
+      console.error('Error setting SignUp flag:', error);
+      markGetStartedAsSeen();
+    }
   };
 
   const handleNavigateToLogin = () => {
+    console.log('🔐 handleNavigateToLogin called');
     markGetStartedAsSeen();
     // Navigate to login flow - this will be handled by the navigation state change
   };
 
   // Show splash screen while checking auth status or first time status
   if (isLoading || isFirstTime === null || hasSeenGetStarted === null) {
+    console.log('🔄 Loading state:', { isLoading, isFirstTime, hasSeenGetStarted });
     return (
       <SafeAreaProvider>
         <Stack.Navigator
@@ -84,6 +91,8 @@ const AppNavigator: React.FC = () => {
       </SafeAreaProvider>
     );
   }
+
+  console.log('🎯 Navigation state:', { isFirstTime, hasSeenGetStarted, isAuthenticated });
 
   return (
     <SafeAreaProvider>
@@ -115,7 +124,6 @@ const AppNavigator: React.FC = () => {
               <GetStartedScreen 
                 onNavigateToAuth={handleNavigateToAuth}
                 onNavigateToLogin={handleNavigateToLogin}
-                navigation={navigation}
               />
             )}
           </Stack.Screen>
@@ -126,23 +134,6 @@ const AppNavigator: React.FC = () => {
           // User is not authenticated, show auth flow
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
-        
-        {/* Payment Test Screen - Available from anywhere */}
-        <Stack.Screen 
-          name="PaymentTest" 
-          component={PaymentTestScreen}
-          options={{
-            title: 'Payment Test',
-            headerShown: true,
-            headerStyle: {
-              backgroundColor: '#0F0F0F',
-            },
-            headerTintColor: '#FFFFFF',
-            headerTitleStyle: {
-              fontWeight: '600',
-            },
-          }}
-        />
       </Stack.Navigator>
     </SafeAreaProvider>
   );

@@ -13,7 +13,9 @@ import StationListScreen from '../screens/stations/StationListScreen';
 import StationDetailsScreen from '../screens/stations/StationDetailsScreen';
 import StationBookingScreen from '../screens/stations/StationBookingScreen';
 import StationDetailsBookingScreen from '../screens/stations/StationDetailsBookingScreen';
-import { BookingConfirmationScreen } from '../screens/bookings/BookingConfirmationScreen';
+import BookSlotScreen from '../screens/bookings/BookSlotScreen';
+import PaymentScreen from '../screens/PaymentScreen';
+import BookingConfirmedScreen from '../screens/bookings/BookingConfirmedScreen';
 
 const Stack = createStackNavigator<StationStackParamList>();
 
@@ -60,20 +62,31 @@ const StationNavigator: React.FC = () => {
           headerBackTitle: 'Back',
         }}
       />
-      <Stack.Screen 
-        name="BookingConfirmation" 
-        component={BookingConfirmationScreen}
+      <Stack.Screen
+        name="BookSlot"
+        component={BookSlotScreen}
         options={{
-          title: 'Confirm Booking',
+          title: 'Book a slot',
+          headerBackTitle: 'Back',
           headerShown: false,
         }}
-        getId={({ params }) => {
-          // Create unique key based on booking parameters to force re-render
-          if (params) {
-            const { station, startTime, endTime, cost, selectedSlot, selectedDate, totalPrice } = params;
-            return `${station?.id || 'unknown'}-${startTime || 'unknown'}-${endTime || 'unknown'}-${cost || totalPrice || 'unknown'}`;
-          }
-          return 'default';
+      />
+      <Stack.Screen
+        name="Payment"
+        component={PaymentScreen}
+        options={{
+          title: 'Payment',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BookingConfirmed"
+        component={BookingConfirmedScreen}
+        options={{
+          title: 'Booking Confirmed',
+          headerBackTitle: 'Back',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

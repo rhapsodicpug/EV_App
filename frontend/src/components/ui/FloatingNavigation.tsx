@@ -187,7 +187,7 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
                 <Animated.View style={[styles.iconContainer, iconAnimatedStyles[index]]}>
                   {React.createElement(getIconComponent(item.icon), {
                     size: 24,
-                    color: activeIndex === index ? '#00A8FF' : '#B3B3B3',
+                    color: activeIndex === index ? '#FFFFFF' : '#B3B3B3',
                   })}
                 </Animated.View>
               </TouchableOpacity>
@@ -305,9 +305,9 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#00A8FF',
+    backgroundColor: '#FFFFFF',
     // Enhanced glassmorphism glow effect
-    shadowColor: '#00A8FF',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 1,
     shadowRadius: 8,

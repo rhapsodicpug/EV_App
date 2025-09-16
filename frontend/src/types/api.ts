@@ -329,13 +329,13 @@ export type RootStackParamList = {
   GetStarted: undefined;
   Auth: undefined;
   Main: undefined;
-  PaymentTest: undefined;
 };
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
+  SignUp: undefined;
   ForgotPassword: undefined;
+  BackToGetStarted: undefined;
 };
 
 export type MainTabParamList = {
@@ -354,19 +354,11 @@ export type StationStackParamList = {
   StationDetail: { stationId: string };
   StationBooking: { stationId: string };
   StationDetailsBooking: { station: EVStation };
+  BookSlot: { station: EVStation };
+  Payment: { booking: any; totalAmount: number };
+  BookingConfirmed: { booking: any; totalAmount: number };
   SlotSelection: { station: any };
   BookingForm: { stationId: string; slotNumber?: number };
-  BookingConfirmation: {
-    station: any;
-    startTime?: any;
-    duration?: number;
-    endTime?: string;
-    cost?: number;
-    // Legacy parameters for backward compatibility
-    selectedSlot?: any;
-    selectedDate?: Date;
-    totalPrice?: number;
-  };
 };
 
 export type MapStackParamList = {
@@ -377,15 +369,4 @@ export type MapStackParamList = {
 export type BookingStackParamList = {
   BookingsMain: undefined;
   SlotSelection: { station: any };
-  BookingConfirmation: {
-    station: any;
-    startTime?: any;
-    duration?: number;
-    endTime?: string;
-    cost?: number;
-    // Legacy parameters for backward compatibility
-    selectedSlot?: any;
-    selectedDate?: Date;
-    totalPrice?: number;
-  };
 };
