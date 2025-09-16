@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   },
   
   quickActionButton: {
-    width: (width - 60) / 2,
+    width: '48%',
     height: 80,
     backgroundColor: DASHBOARD_COLORS.success,
     borderRadius: 12,
