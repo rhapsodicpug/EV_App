@@ -115,6 +115,7 @@ const AppNavigator: React.FC = () => {
               <GetStartedScreen 
                 onNavigateToAuth={handleNavigateToAuth}
                 onNavigateToLogin={handleNavigateToLogin}
+                navigation={navigation}
               />
             )}
           </Stack.Screen>

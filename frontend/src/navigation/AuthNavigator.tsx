@@ -16,47 +16,26 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 const Stack = createStackNavigator<AuthStackParamList>();
 
 const AuthNavigator: React.FC = () => {
-  const { colors } = useThemeColors();
-  
   return (
     <Stack.Navigator
       initialRouteName="Login"
       screenOptions={{
-        headerShown: true,
+        headerShown: false,
         gestureEnabled: true,
-        cardStyle: { backgroundColor: colors.background },
-        headerStyle: {
-          backgroundColor: colors.primary,
-          ...Elevation.level2,
-        },
-        headerTintColor: Colors.neutral.white,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 22,
-          letterSpacing: 0.5,
-        },
+        cardStyle: { backgroundColor: '#1A1A1A' },
       }}
     >
       <Stack.Screen 
         name="Login" 
         component={LoginScreen}
-        options={{
-          title: 'Sign In',
-        }}
       />
       <Stack.Screen 
         name="Register" 
         component={RegisterScreen}
-        options={{
-          title: 'Create Account',
-        }}
       />
       <Stack.Screen 
         name="ForgotPassword" 
         component={ForgotPasswordScreen}
-        options={{
-          title: 'Reset Password',
-        }}
       />
     </Stack.Navigator>
   );
