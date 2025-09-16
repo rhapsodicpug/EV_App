@@ -325,6 +325,7 @@ export interface MapState {
 
 export type RootStackParamList = {
   Splash: undefined;
+  Welcome: undefined;
   Auth: undefined;
   Main: undefined;
   PaymentTest: undefined;
