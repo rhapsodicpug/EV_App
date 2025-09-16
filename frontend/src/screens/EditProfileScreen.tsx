@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,25 +8,23 @@ import {
   TextInput,
   StatusBar,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native';
 import {
-  User,
-  Mail,
-  ChevronLeft,
-  Save,
+  ArrowLeft,
   Camera,
 } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp } from '@react-navigation/native';
+import CustomModal from '../components/ui/CustomModal';
 
-// Clean Color Palette
+// Color Palette matching the design
 const COLORS = {
-  background: '#101010',
+  background: '#1A1A1A',
   surface: '#1A1A1A',
-  surfaceLight: '#2A2A2A',
   text: {
     primary: '#FFFFFF',
     secondary: '#B3B3B3',
@@ -35,350 +33,429 @@ const COLORS = {
   border: {
     subtle: '#2A2A2A',
     light: '#404040',
-    focus: '#00A8FF',
   },
-  accent: '#00A8FF',
-  accentLight: '#4DC3FF',
-  success: '#10B981',
-  error: '#FF6B6B',
+  accent: '#8cd279', // Lime green theme
+  inputBackground: '#2A2A2A',
+  profileImageBackground: '#FFB366', // Light peach/orange background
 };
 
 const EditProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // State for form data
-  const [fullName, setFullName] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  });
+  
+  // State for profile image
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  
+  // State for loading
   const [isLoading, setIsLoading] = useState(false);
+  
+  // State for modals
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [showGalleryModal, setShowGalleryModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Validation
-  const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
+
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleProfileImagePress = () => {
+    setShowImagePickerModal(true);
+  };
+
+  const handleTakePhoto = () => {
+    setShowCameraModal(true);
+  };
+
+  const handleChooseFromGallery = () => {
+    setShowGalleryModal(true);
   };
 
   const handleSaveChanges = async () => {
-    // Validation
-    if (!fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name.');
-      return;
-    }
-
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address.');
-      return;
-    }
-
-    if (!isValidEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid email address.');
+    if (!formData.name.trim() || !formData.email.trim()) {
+      setErrorMessage('Please fill in all required fields');
+      setShowErrorModal(true);
       return;
     }
 
     setIsLoading(true);
-
+    
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      Alert.alert(
-        'Success',
-        'Your profile has been updated successfully!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      // TODO: Implement save profile functionality
+      setShowSuccessModal(true);
     } catch (error) {
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      setErrorMessage('Failed to update profile. Please try again.');
+      setShowErrorModal(true);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleChangeAvatar = () => {
-    Alert.alert(
-      'Change Avatar',
-      'Avatar functionality will be available in a future update.',
-      [{ text: 'OK', style: 'default' }]
-    );
+  const getUserName = () => {
+    return user?.name || user?.email?.split('@')[0] || 'User';
+  };
+
+  const getMemberSince = () => {
+    // TODO: Get actual member since date from user data
+    return '2021';
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={COLORS.text.primary} />
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
+      {/* Content with Keyboard Handling */}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Avatar Section */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
-            <User size={48} color={COLORS.accent} />
-          </View>
-          <TouchableOpacity
-            style={styles.changeAvatarButton}
-            onPress={handleChangeAvatar}
-            activeOpacity={0.7}
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+        {/* Profile Photo Section */}
+        <View style={styles.profileSection}>
+          <TouchableOpacity 
+            style={styles.profileImageContainer}
+            onPress={handleProfileImagePress}
+            activeOpacity={0.8}
           >
-            <Camera size={16} color={COLORS.accent} />
-            <Text style={styles.changeAvatarText}>Change Photo</Text>
+            <View style={styles.profileImageBackground}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.profileImagePlaceholder}>
+                  <Camera size={40} color={COLORS.text.primary} />
+                </View>
+              )}
+            </View>
+            <View style={styles.cameraIconContainer}>
+              <Camera size={16} color={COLORS.text.primary} />
+            </View>
           </TouchableOpacity>
+          
+          <Text style={styles.userName}>{getUserName()}</Text>
+          <Text style={styles.memberSince}>Member since {getMemberSince()}</Text>
         </View>
 
         {/* Form Fields */}
         <View style={styles.formSection}>
-          {/* Full Name Field */}
+          {/* Name Field */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Full Name</Text>
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <User size={20} color={COLORS.text.secondary} />
-              </View>
-              <TextInput
-                style={styles.textInput}
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder="Enter your full name"
-                placeholderTextColor={COLORS.text.tertiary}
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
-            </View>
+            <Text style={styles.inputLabel}>Name</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.name}
+              onChangeText={(value) => handleInputChange('name', value)}
+              placeholder="Enter your name"
+              placeholderTextColor={COLORS.text.tertiary}
+              autoCapitalize="words"
+              returnKeyType="next"
+              blurOnSubmit={false}
+            />
           </View>
 
           {/* Email Field */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={styles.inputContainer}>
-              <View style={styles.inputIcon}>
-                <Mail size={20} color={COLORS.text.secondary} />
-              </View>
-              <TextInput
-                style={styles.textInput}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter your email address"
-                placeholderTextColor={COLORS.text.tertiary}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            <Text style={styles.inputLabel}>Email</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.email}
+              onChangeText={(value) => handleInputChange('email', value)}
+              placeholder="Enter your email"
+              placeholderTextColor={COLORS.text.tertiary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              returnKeyType="next"
+              blurOnSubmit={false}
+            />
+          </View>
+
+          {/* Phone Field */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Phone Number</Text>
+            <TextInput
+              style={styles.textInput}
+              value={formData.phone}
+              onChangeText={(value) => handleInputChange('phone', value)}
+              placeholder="Enter your phone number"
+              placeholderTextColor={COLORS.text.tertiary}
+              keyboardType="phone-pad"
+              returnKeyType="done"
+            />
           </View>
         </View>
 
-        {/* Additional Info */}
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>Profile Information</Text>
-          <Text style={styles.infoText}>
-            Keep your profile information up to date to ensure the best experience with our charging network.
-          </Text>
+        {/* Save Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+            onPress={handleSaveChanges}
+            disabled={isLoading}
+          >
+            <Text style={styles.saveButtonText}>
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-      {/* Save Button */}
-      <View style={styles.saveButtonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            isLoading && styles.saveButtonDisabled,
-          ]}
-          onPress={handleSaveChanges}
-          disabled={isLoading}
-          activeOpacity={0.8}
-        >
-          <Save size={20} color={COLORS.text.primary} />
-          <Text style={styles.saveButtonText}>
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+      {/* Custom Modals */}
+      <CustomModal
+        visible={showImagePickerModal}
+        title="Change Profile Photo"
+        message="Choose an option"
+        options={[
+          {
+            text: 'Cancel',
+            onPress: () => {},
+            style: 'cancel',
+          },
+          {
+            text: 'Take Photo',
+            onPress: handleTakePhoto,
+          },
+          {
+            text: 'Choose from Gallery',
+            onPress: handleChooseFromGallery,
+          },
+        ]}
+        onClose={() => setShowImagePickerModal(false)}
+      />
+
+      <CustomModal
+        visible={showCameraModal}
+        title="Camera"
+        message="Camera functionality coming soon!"
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowCameraModal(false)}
+      />
+
+      <CustomModal
+        visible={showGalleryModal}
+        title="Gallery"
+        message="Gallery picker functionality coming soon!"
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowGalleryModal(false)}
+      />
+
+      <CustomModal
+        visible={showSuccessModal}
+        title="Success"
+        message="Profile updated successfully!"
+        options={[{
+          text: 'OK',
+          onPress: () => navigation.goBack(),
+        }]}
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      <CustomModal
+        visible={showErrorModal}
+        title="Error"
+        message={errorMessage}
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowErrorModal(false)}
+      />
+    </View>
   );
 };
 
-// Premium Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
-  // Header
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.subtle,
   },
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     color: COLORS.text.primary,
-    textAlign: 'center',
   },
   headerSpacer: {
     width: 40,
   },
-
-  // Scroll View
   scrollView: {
     flex: 1,
   },
-  contentContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 140, // Increased to ensure content doesn't get hidden behind save button
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 40, // Extra padding for better keyboard handling
   },
-
-  // Avatar Section
-  avatarSection: {
+  
+  // Profile Section
+  profileSection: {
     alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    marginTop: 24,
-    marginBottom: 32,
+    marginBottom: 40,
   },
-  avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.accent + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
+  profileImageContainer: {
+    position: 'relative',
     marginBottom: 16,
   },
-  changeAvatarButton: {
-    flexDirection: 'row',
+  profileImageBackground: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.profileImageBackground,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.accent + '20',
-    borderRadius: 20,
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  changeAvatarText: {
-    fontSize: 14,
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  profileImagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.profileImageBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
+  },
+  userName: {
+    fontSize: 24,
     fontWeight: '600',
-    color: COLORS.accent,
-    marginLeft: 8,
+    color: COLORS.text.primary,
+    marginBottom: 4,
   },
-
+  memberSince: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+  },
+  
   // Form Section
   formSection: {
-    marginBottom: 32,
+    marginBottom: 40,
   },
   inputGroup: {
     marginBottom: 24,
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 12,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: COLORS.border.subtle,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  inputIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: COLORS.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 16,
-    color: COLORS.text.primary,
-    paddingVertical: 0,
-  },
-
-  // Info Section
-  infoSection: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.surfaceLight + '50',
-    borderRadius: 16,
-    marginTop: 16,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: COLORS.text.primary,
     marginBottom: 8,
   },
-  infoText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    lineHeight: 20,
+  textInput: {
+    backgroundColor: COLORS.inputBackground,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: COLORS.text.primary,
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
   },
-
-  // Save Button
-  saveButtonContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    paddingBottom: 100, // Increased to clear bottom navigation bar
-    backgroundColor: COLORS.background,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border.subtle,
+  
+  // Button Section
+  buttonContainer: {
+    paddingBottom: 100, // Extra padding to avoid bottom navigation overlap
   },
   saveButton: {
-    flexDirection: 'row',
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   saveButtonDisabled: {
-    backgroundColor: COLORS.text.tertiary,
+    opacity: 0.6,
   },
   saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginLeft: 12,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
   },
 });
 

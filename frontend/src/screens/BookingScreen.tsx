@@ -9,10 +9,11 @@ import {
   Dimensions,
   RefreshControl,
   StatusBar,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { HeaderBlur, CardBlur } from '../components';
+import { BlurView } from 'expo-blur';
 import { 
   Calendar, 
   AlertCircle, 
@@ -76,6 +77,16 @@ const BookingScreen: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [bookings, setBookings] = useState<BookingWithStationResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
 
   // Animation values for segmented control
   const tabIndicatorPosition = useSharedValue(0);
@@ -282,17 +293,26 @@ const BookingScreen: React.FC = () => {
 
   // Render header with gradient blur effect
   const renderHeader = () => (
-    <HeaderBlur style={styles.headerContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
-        <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
-          <Bell size={24} color={BOOKING_COLORS.text.primary} />
-        </TouchableOpacity>
-      </View>
-    </HeaderBlur>
+    <SafeAreaView style={styles.headerSafeArea}>
+      <BlurView
+        style={styles.headerContainer}
+        intensity={50}
+        tint="dark"
+      >
+        {/* Enhanced visual overlay for depth */}
+        <View style={styles.headerOverlay} />
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Bookings</Text>
+          <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+            <Bell size={24} color={BOOKING_COLORS.text.primary} />
+          </TouchableOpacity>
+        </View>
+      </BlurView>
+    </SafeAreaView>
   );
 
   // Loading state
@@ -388,12 +408,14 @@ const BookingScreen: React.FC = () => {
       >
         {currentBookings.length > 0 ? (
           currentBookings.map((booking) => (
-            <CardBlur
+            <BlurView
               key={booking.id}
               style={StyleSheet.flatten([
                 styles.bookingCard,
                 activeTab === 'Past' ? styles.pastBookingCard : null,
               ])}
+              intensity={25}
+              tint="dark"
             >
               {/* Status Header */}
               <View style={styles.statusHeader}>
@@ -508,7 +530,7 @@ const BookingScreen: React.FC = () => {
                   </>
                 )}
               </View>
-            </CardBlur>
+            </BlurView>
           ))
         ) : (
           /* Premium Empty State */
@@ -548,12 +570,24 @@ const styles = StyleSheet.create({
   },
 
   // Header with gradient blur effect
-  headerContainer: {
+  headerSafeArea: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
+  },
+
+  headerContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
   },
   headerGradient: {
     paddingTop: 60,
@@ -565,22 +599,32 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 15,
     zIndex: 1,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   headerTitle: {
     fontSize: 20,
@@ -591,9 +635,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   // Loading and Error States

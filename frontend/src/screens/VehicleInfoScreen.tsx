@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Dimensions,
@@ -14,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import PremiumModal from '../components/ui/PremiumModal';
+import CustomModal from '../components/ui/CustomModal';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +49,9 @@ interface Vehicle {
 const VehicleInfoScreen: React.FC = () => {
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const [vehicles, setVehicles] = useState<Vehicle[]>([
     {
@@ -307,24 +310,17 @@ const VehicleInfoScreen: React.FC = () => {
     });
     setIsAddingVehicle(false);
 
-    Alert.alert('Success', 'Vehicle added successfully!');
+    setShowSuccessModal(true);
   };
 
   const handleDeleteVehicle = (id: string) => {
-    Alert.alert(
-      'Delete Vehicle',
-      'Are you sure you want to delete this vehicle?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setVehicles(vehicles.filter(v => v.id !== id));
-          },
-        },
-      ]
-    );
+    setErrorMessage('Are you sure you want to delete this vehicle?');
+    setShowErrorModal(true);
+  };
+
+  const confirmDeleteVehicle = (id: string) => {
+    setVehicles(vehicles.filter(v => v.id !== id));
+    setShowErrorModal(false);
   };
 
   const renderVehicleCard = (vehicle: Vehicle) => (
@@ -522,6 +518,29 @@ const VehicleInfoScreen: React.FC = () => {
           buttonText="Got It"
         />
       </ScrollView>
+
+      {/* Custom Modals */}
+      <CustomModal
+        visible={showSuccessModal}
+        title="Success"
+        message="Vehicle added successfully!"
+        options={[{
+          text: 'OK',
+          onPress: () => setShowSuccessModal(false),
+        }]}
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      <CustomModal
+        visible={showErrorModal}
+        title="Delete Vehicle"
+        message={errorMessage}
+        options={[
+          { text: 'Cancel', onPress: () => setShowErrorModal(false), style: 'cancel' },
+          { text: 'Delete', onPress: () => confirmDeleteVehicle('1'), style: 'destructive' },
+        ]}
+        onClose={() => setShowErrorModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 };

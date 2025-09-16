@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,135 +7,130 @@ import {
   ScrollView,
   StatusBar,
   Alert,
+  BackHandler,
 } from 'react-native';
 import {
+  ArrowLeft,
   CreditCard,
-  ChevronLeft,
-  Plus,
-  Trash2,
+  Smartphone,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { usePaymentMethods } from '../contexts/PaymentMethodContext';
+import { BlurView } from 'expo-blur';
+import CustomModal from '../components/ui/CustomModal';
 
-// Clean Color Palette
+// Color Palette matching the design
 const COLORS = {
-  background: '#101010',
+  background: '#1A1A1A',
   surface: '#1A1A1A',
-  surfaceLight: '#2A2A2A',
   text: {
     primary: '#FFFFFF',
     secondary: '#B3B3B3',
     tertiary: '#666666',
   },
   border: {
-    subtle: '#2A2A2A',
+    subtle: 'rgba(255, 255, 255, 0.1)',
     light: '#404040',
   },
-  accent: '#00A8FF',
-  accentLight: '#4DC3FF',
-  success: '#10B981',
+  accent: '#8cd279', // Lime green theme
   error: '#FF6B6B',
 };
 
 interface PaymentMethod {
   id: string;
-  type: 'card' | 'upi' | 'wallet';
+  type: 'card' | 'wallet';
   name: string;
   details: string;
+  icon: string;
   isDefault: boolean;
 }
 
 const PaymentMethodsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { paymentMethods, isLoading, error, deletePaymentMethod } = usePaymentMethods();
+  
+  // State for modals
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Mock payment methods data
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    {
-      id: '1',
-      type: 'card',
-      name: 'HDFC Credit Card',
-      details: '**** **** **** 1234',
-      isDefault: true,
-    },
-    {
-      id: '2',
-      type: 'upi',
-      name: 'Google Pay',
-      details: 'user@okhdfcbank',
-      isDefault: false,
-    },
-  ]);
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
+
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
 
   const handleAddPaymentMethod = () => {
-    Alert.alert(
-      'Add Payment Method',
-      'Choose payment method type:',
-      [
-        { text: 'Credit/Debit Card', onPress: () => addCard() },
-        { text: 'UPI', onPress: () => addUPI() },
-        { text: 'Digital Wallet', onPress: () => addWallet() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    // @ts-ignore
+    navigation.navigate('AddPaymentMethod');
   };
 
-  const addCard = () => {
-    Alert.alert('Add Card', 'Card addition feature coming soon!', [
-      { text: 'OK' }
-    ]);
+  const handlePaymentMethodPress = (paymentMethod: PaymentMethod) => {
+    setSelectedPaymentMethod(paymentMethod);
+    setShowPaymentMethodModal(true);
   };
 
-  const addUPI = () => {
-    Alert.alert('Add UPI', 'UPI addition feature coming soon!', [
-      { text: 'OK' }
-    ]);
+  const handleDeletePaymentMethod = (paymentMethod: PaymentMethod) => {
+    setSelectedPaymentMethod(paymentMethod);
+    setShowDeleteModal(true);
   };
 
-  const addWallet = () => {
-    Alert.alert('Add Wallet', 'Digital wallet feature coming soon!', [
-      { text: 'OK' }
-    ]);
-  };
-
-  const handleDeletePaymentMethod = (method: PaymentMethod) => {
-    Alert.alert(
-      'Remove Payment Method',
-      `Are you sure you want to remove ${method.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            setPaymentMethods(prev => prev.filter(pm => pm.id !== method.id));
-            Alert.alert('Success', 'Payment method removed successfully');
-          }
-        },
-      ]
-    );
-  };
-
-  const handleSetDefault = (method: PaymentMethod) => {
-    setPaymentMethods(prev =>
-      prev.map(pm => ({
-        ...pm,
-        isDefault: pm.id === method.id
-      }))
-    );
-    Alert.alert('Success', `${method.name} set as default payment method`);
-  };
-
-  const getPaymentIcon = (type: string) => {
-    switch (type) {
-      case 'card':
-        return <CreditCard size={24} color={COLORS.accent} />;
-      case 'upi':
-        return <Text style={styles.upiIcon}>₹</Text>;
-      case 'wallet':
-        return <Text style={styles.walletIcon}>💳</Text>;
-      default:
-        return <CreditCard size={24} color={COLORS.accent} />;
+  const confirmDeletePaymentMethod = async () => {
+    if (!selectedPaymentMethod) return;
+    try {
+      await deletePaymentMethod(selectedPaymentMethod.id);
+      setShowSuccessModal(true);
+    } catch (error) {
+      setErrorMessage('Failed to delete payment method. Please try again.');
+      setShowErrorModal(true);
     }
   };
+
+  const renderPaymentMethodItem = (paymentMethod: PaymentMethod) => (
+    <View key={paymentMethod.id} style={styles.paymentMethodItem}>
+      <TouchableOpacity
+        style={styles.paymentMethodContent}
+        onPress={() => handlePaymentMethodPress(paymentMethod)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.paymentMethodIcon}>
+          <CreditCard size={24} color={COLORS.text.primary} />
+        </View>
+        <View style={styles.paymentMethodInfo}>
+          <Text style={styles.paymentMethodName}>{paymentMethod.name}</Text>
+          <Text style={styles.paymentMethodDetails}>{paymentMethod.details}</Text>
+        </View>
+        <ChevronRight size={20} color={COLORS.text.secondary} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => handleDeletePaymentMethod(paymentMethod)}
+      >
+        <Text style={styles.deleteButtonText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <CreditCard size={60} color={COLORS.text.tertiary} />
+      <Text style={styles.emptyStateText}>No payment methods added yet</Text>
+      <Text style={styles.emptyStateSubtext}>Add your first payment method to get started</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -143,12 +138,8 @@ const PaymentMethodsScreen: React.FC = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={COLORS.text.primary} />
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payment Methods</Text>
         <View style={styles.headerSpacer} />
@@ -157,243 +148,246 @@ const PaymentMethodsScreen: React.FC = () => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* Payment Methods List */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Payment Methods</Text>
-
-          {paymentMethods.map((method) => (
-            <View key={method.id} style={styles.paymentMethodCard}>
-              <View style={styles.paymentMethodInfo}>
-                <View style={styles.iconContainer}>
-                  {getPaymentIcon(method.type)}
-                </View>
-                <View style={styles.paymentDetails}>
-                  <Text style={styles.paymentName}>{method.name}</Text>
-                  <Text style={styles.paymentDetailsText}>{method.details}</Text>
-                  {method.isDefault && (
-                    <View style={styles.defaultBadge}>
-                      <Text style={styles.defaultText}>Default</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.paymentActions}>
-                {!method.isDefault && (
-                  <TouchableOpacity
-                    style={styles.setDefaultButton}
-                    onPress={() => handleSetDefault(method)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.setDefaultText}>Set Default</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDeletePaymentMethod(method)}
-                  activeOpacity={0.7}
-                >
-                  <Trash2 size={20} color={COLORS.error} />
-                </TouchableOpacity>
+        {paymentMethods.length > 0 ? (
+          <View style={styles.content}>
+            {/* Credit and Debit Cards Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Credit and Debit Cards</Text>
+              <View style={styles.paymentMethodsList}>
+                {paymentMethods
+                  .filter(method => method.type === 'card')
+                  .map(renderPaymentMethodItem)}
               </View>
             </View>
-          ))}
-        </View>
 
-        {/* Add Payment Method */}
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddPaymentMethod}
-          activeOpacity={0.8}
-        >
-          <Plus size={24} color={COLORS.accent} />
-          <Text style={styles.addButtonText}>Add Payment Method</Text>
-        </TouchableOpacity>
+            {/* Digital Wallets Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Digital Wallets</Text>
+              <View style={styles.paymentMethodsList}>
+                {paymentMethods
+                  .filter(method => method.type === 'wallet')
+                  .map(renderPaymentMethodItem)}
+              </View>
+            </View>
+          </View>
+        ) : (
+          renderEmptyState()
+        )}
 
-        {/* Info Section */}
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>Secure Payments</Text>
-          <Text style={styles.infoText}>
-            Your payment information is encrypted and securely stored. We never store your full card details.
-          </Text>
+        {/* Add Payment Method Button */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleAddPaymentMethod}
+          >
+            <Text style={styles.addButtonText}>Add Payment Method</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Custom Modals */}
+      <CustomModal
+        visible={showPaymentMethodModal}
+        title="Payment Method"
+        message={selectedPaymentMethod ? selectedPaymentMethod.details : ''}
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowPaymentMethodModal(false)}
+      />
+
+      <CustomModal
+        visible={showDeleteModal}
+        title="Delete Payment Method"
+        message={selectedPaymentMethod ? `Are you sure you want to delete ${selectedPaymentMethod.name}? This action cannot be undone.` : ''}
+        options={[
+          {
+            text: 'Cancel',
+            onPress: () => {},
+            style: 'cancel',
+          },
+          {
+            text: 'Delete',
+            onPress: confirmDeletePaymentMethod,
+            style: 'destructive',
+          },
+        ]}
+        onClose={() => setShowDeleteModal(false)}
+      />
+
+      <CustomModal
+        visible={showSuccessModal}
+        title="Success"
+        message="Payment method deleted successfully!"
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      <CustomModal
+        visible={showErrorModal}
+        title="Error"
+        message={errorMessage}
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowErrorModal(false)}
+      />
     </View>
   );
 };
 
-// Premium Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    paddingTop: 50, // Account for status bar
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border.subtle,
   },
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: COLORS.text.primary,
-    textAlign: 'center',
   },
   headerSpacer: {
     width: 40,
   },
-
-  // Scroll View
   scrollView: {
     flex: 1,
   },
-  contentContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 100, // Buffer space to prevent button from being hidden by navigation bar
   },
-
-  // Section
+  content: {
+    flex: 1,
+  },
   section: {
-    marginBottom: 32,
+    marginBottom: 30,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.text.primary,
-    marginBottom: 16,
+    marginBottom: 15,
   },
-
-  // Payment Method Cards
-  paymentMethodCard: {
+  paymentMethodsList: {
+    gap: 12,
+  },
+  paymentMethodItem: {
     backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
     marginBottom: 12,
+  },
+  paymentMethodContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  paymentMethodIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
     borderWidth: 1,
     borderColor: COLORS.border.subtle,
   },
   paymentMethodInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: COLORS.accent + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  upiIcon: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.accent,
-  },
-  walletIcon: {
-    fontSize: 20,
-  },
-  paymentDetails: {
     flex: 1,
   },
-  paymentName: {
+  paymentMethodName: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text.primary,
     marginBottom: 4,
   },
-  paymentDetailsText: {
+  paymentMethodDetails: {
     fontSize: 14,
     color: COLORS.text.secondary,
-  },
-  defaultBadge: {
-    backgroundColor: COLORS.accent + '20',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  defaultText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-
-  // Payment Actions
-  paymentActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  setDefaultButton: {
-    backgroundColor: COLORS.accent + '20',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  setDefaultText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.accent,
   },
   deleteButton: {
-    padding: 8,
+    backgroundColor: COLORS.error,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-
-  // Add Button
-  addButton: {
-    flexDirection: 'row',
+  deleteButtonText: {
+    color: COLORS.text.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginBottom: 32,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: COLORS.accent,
+    paddingVertical: 60,
   },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.accent,
-    marginLeft: 12,
-  },
-
-  // Info Section
-  infoSection: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.surfaceLight + '50',
-    borderRadius: 16,
-  },
-  infoTitle: {
-    fontSize: 16,
+  emptyStateText: {
+    fontSize: 18,
     fontWeight: '600',
     color: COLORS.text.primary,
+    marginTop: 20,
     marginBottom: 8,
   },
-  infoText: {
+  emptyStateSubtext: {
     fontSize: 14,
     color: COLORS.text.secondary,
-    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
+  buttonContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  addButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: COLORS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  addButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
   },
 });
 

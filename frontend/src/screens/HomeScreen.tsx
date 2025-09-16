@@ -18,8 +18,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from '@react-native-community/blur';
-import { HeaderBlur, CardBlur } from '../components';
+import { BlurView } from 'expo-blur';
+import { DynamicWallpaper } from '../components';
 import {
   Bell,
   User,
@@ -32,8 +32,11 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useVehicles } from '../contexts/VehicleContext';
 import { useNavigation } from '@react-navigation/native';
 import { apiService } from '../services/api';
+import CustomModal from '../components/ui/CustomModal';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,13 +59,19 @@ const HOME_COLORS = {
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
+  const { vehicles } = useVehicles();
+  const { theme } = useTheme();
   
   // State for dynamic data
-  const [vehicleInfo, setVehicleInfo] = useState<any>(null);
   const [recentBooking, setRecentBooking] = useState<any>(null);
   const [chargingSession, setChargingSession] = useState<any>(null);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // State for modals
+  const [showStartChargingModal, setShowStartChargingModal] = useState(false);
+  const [showRepeatBookingModal, setShowRepeatBookingModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -93,14 +102,12 @@ const HomeScreen: React.FC = () => {
       setIsLoading(true);
       
       // Load all dashboard data in parallel
-      const [vehicleData, bookingData, chargingData, promotionsData] = await Promise.all([
-        apiService.getMyVehicle().catch(() => null),
+      const [bookingData, chargingData, promotionsData] = await Promise.all([
         apiService.getMyBookings().catch(() => []),
         apiService.getCurrentChargingSession().catch(() => null),
         apiService.getPromotions().catch(() => []),
       ]);
 
-      setVehicleInfo(vehicleData);
       setRecentBooking(bookingData?.[0] || null);
       setChargingSession(chargingData);
       setPromotions(promotionsData);
@@ -120,51 +127,71 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleStartCharging = () => {
-    Alert.alert('Start Charging', 'QR code scanner would open here to start charging');
+    setShowStartChargingModal(true);
   };
 
   const handleBookSlot = () => {
-    navigation.navigate('Bookings' as never);
+    navigation.navigate('Search' as never);
   };
 
   const handleRepeatBooking = () => {
     if (recentBooking) {
-      Alert.alert('Repeat Booking', `Would repeat booking at ${recentBooking.station_name}`);
+      setShowRepeatBookingModal(true);
     }
   };
 
   const handleNotificationPress = () => {
-    // Navigate to notifications screen or show notification modal
-    Alert.alert('Notifications', 'Notification feature coming soon!');
+    setShowNotificationModal(true);
   };
 
   const renderHeader = () => (
-    <HeaderBlur style={styles.headerContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
-          <Bell size={24} color={HOME_COLORS.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Home</Text>
-        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
-          <User size={24} color={HOME_COLORS.text.primary} />
-        </TouchableOpacity>
-      </View>
-    </HeaderBlur>
+    <SafeAreaView style={styles.headerSafeArea}>
+      <BlurView
+        style={styles.headerContainer}
+        intensity={50}
+        tint="dark"
+      >
+        {/* Enhanced visual overlay for depth */}
+        <View style={styles.headerOverlay} />
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+            <Bell size={24} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.colors.text.primary }]}>Home</Text>
+          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+            <User size={24} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+      </BlurView>
+    </SafeAreaView>
   );
 
   const renderVehicleCard = () => {
-    if (!vehicleInfo) {
+    const primaryVehicle = vehicles[0]; // Get the first vehicle as primary
+
+    if (!primaryVehicle) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>My Vehicle</Text>
-          <CardBlur style={styles.vehicleCard}>
-            <View style={styles.noVehicleContainer}>
-              <Text style={styles.noVehicleText}>No vehicle added yet</Text>
-              <TouchableOpacity style={styles.addVehicleButton}>
-                <Text style={styles.addVehicleButtonText}>Add Vehicle</Text>
-              </TouchableOpacity>
-            </View>
-          </CardBlur>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>My Vehicle</Text>
+        <BlurView
+          style={styles.vehicleCard}
+          intensity={25}
+          tint="dark"
+        >
+          <View style={styles.noVehicleContainer}>
+            <Text style={[styles.noVehicleText, { color: theme.colors.text.secondary }]}>No vehicle added yet</Text>
+            <TouchableOpacity 
+              style={[styles.addVehicleButton, { backgroundColor: theme.colors.accent }]}
+              onPress={() => {
+                // @ts-ignore
+                navigation.navigate('Profile', { screen: 'AddVehicle' });
+              }}
+            >
+              <Text style={[styles.addVehicleButtonText, { color: '#000000' }]}>Add Vehicle</Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
         </View>
       );
     }
@@ -172,10 +199,14 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>My Vehicle</Text>
-        <CardBlur style={styles.vehicleCard}>
-          {vehicleInfo.image ? (
+        <BlurView
+          style={styles.vehicleCard}
+          intensity={25}
+          tint="dark"
+        >
+          {primaryVehicle.image ? (
             <Image
-              source={{ uri: vehicleInfo.image }}
+              source={{ uri: primaryVehicle.image }}
               style={styles.vehicleImage}
             />
           ) : (
@@ -184,12 +215,12 @@ const HomeScreen: React.FC = () => {
             </View>
           )}
           <View style={styles.vehicleInfo}>
-            <Text style={styles.vehicleName}>{vehicleInfo.name}</Text>
+            <Text style={styles.vehicleName}>{primaryVehicle.model}</Text>
             <Text style={styles.vehicleDetails}>
-              Battery: {vehicleInfo.battery_percentage}% - Range: {vehicleInfo.estimated_range} mi
+              {primaryVehicle.licensePlate} • {primaryVehicle.year} • {primaryVehicle.batteryCapacity} kWh
             </Text>
           </View>
-        </CardBlur>
+        </BlurView>
       </View>
     );
   };
@@ -199,9 +230,8 @@ const HomeScreen: React.FC = () => {
       <Text style={styles.sectionTitle}>Quick Actions</Text>
       <BlurView
         style={styles.quickActionsContainer}
-        blurType="dark"
-        blurAmount={20}
-        reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        intensity={15}
+        tint="dark"
       >
         <TouchableOpacity style={styles.quickActionButton} onPress={handleFindCharger}>
           <MapPin size={24} color={HOME_COLORS.text.primary} />
@@ -228,9 +258,8 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Recent Booking</Text>
           <BlurView
             style={styles.bookingCard}
-            blurType="dark"
-            blurAmount={20}
-            reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+            intensity={25}
+            tint="dark"
           >
             <View style={styles.noBookingContainer}>
               <Text style={styles.noBookingText}>No recent bookings</Text>
@@ -245,9 +274,8 @@ const HomeScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Recent Booking</Text>
         <BlurView
           style={styles.bookingCard}
-          blurType="dark"
-          blurAmount={20}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={25}
+          tint="dark"
         >
           <View style={styles.bookingIcon}>
             <Calendar size={20} color={HOME_COLORS.text.primary} />
@@ -284,9 +312,8 @@ const HomeScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Charging Status</Text>
         <BlurView
           style={styles.chargingCard}
-          blurType="dark"
-          blurAmount={20}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={25}
+          tint="dark"
         >
           <Text style={styles.chargingProgressLabel}>Charging Progress</Text>
           <View style={styles.progressBarContainer}>
@@ -317,9 +344,8 @@ const HomeScreen: React.FC = () => {
         <Text style={styles.sectionTitle}>Promotions & Updates</Text>
         <BlurView
           style={styles.promotionCard}
-          blurType="dark"
-          blurAmount={20}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={25}
+          tint="dark"
         >
           <View style={styles.promotionContent}>
             <Text style={styles.promotionNew}>New</Text>
@@ -352,48 +378,100 @@ const HomeScreen: React.FC = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={HOME_COLORS.background} />
-      {renderHeader()}
-      
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
+    <DynamicWallpaper theme="dark" variant="gradient">
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <StatusBar 
+          barStyle="light-content" 
+          backgroundColor={theme.colors.background} 
+          translucent 
+        />
+        {renderHeader()}
+        
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
         >
-          {renderVehicleCard()}
-          {renderQuickActions()}
-          {renderRecentBooking()}
-          {renderChargingStatus()}
-          {renderPromotions()}
-        </Animated.View>
-      </ScrollView>
-    </View>
+          <Animated.View
+            style={[
+              styles.content,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            {renderVehicleCard()}
+            {renderQuickActions()}
+            {renderRecentBooking()}
+            {renderChargingStatus()}
+            {renderPromotions()}
+          </Animated.View>
+        </ScrollView>
+      </View>
+
+      {/* Custom Modals */}
+      <CustomModal
+        visible={showStartChargingModal}
+        title="Start Charging"
+        message="QR code scanner would open here to start charging"
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowStartChargingModal(false)}
+      />
+
+      <CustomModal
+        visible={showRepeatBookingModal}
+        title="Repeat Booking"
+        message={recentBooking ? `Would repeat booking at ${recentBooking.station_name}` : ''}
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowRepeatBookingModal(false)}
+      />
+
+      <CustomModal
+        visible={showNotificationModal}
+        title="Notifications"
+        message="Notification feature coming soon!"
+        options={[{
+          text: 'OK',
+          onPress: () => {},
+        }]}
+        onClose={() => setShowNotificationModal(false)}
+      />
+    </DynamicWallpaper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: HOME_COLORS.background,
+    backgroundColor: 'transparent',
   },
 
-  headerContainer: {
+  headerSafeArea: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
     elevation: 10,
+  },
+
+  headerContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
   },
 
   headerBlur: {
@@ -407,7 +485,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
 
   headerGradient: {
@@ -427,6 +507,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 15,
   },
 
   notificationButton: {
@@ -435,9 +516,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   headerTitle: {
@@ -453,11 +539,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   scrollView: {

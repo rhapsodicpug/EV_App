@@ -6,9 +6,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useThemeColors } from './ThemeContext';
-import { Colors, Typography, Spacing, BorderRadius, Elevation } from './DesignSystem';
-import { HeadlineLarge, BodyMedium } from './ComponentLibrary';
+import { useThemeColors, THEME_COLORS } from '../contexts/ThemeContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -21,7 +19,15 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   onAnimationComplete,
   duration = 2000,
 }) => {
-  const { colors } = useThemeColors();
+  // Use fallback theme if ThemeProvider is not available
+  let colors;
+  try {
+    const themeContext = useThemeColors();
+    colors = themeContext.colors;
+  } catch (error) {
+    // Fallback to dark theme if ThemeProvider is not available
+    colors = THEME_COLORS.dark;
+  }
   
   // Animation values
   const logoScale = useRef(new Animated.Value(0)).current;
@@ -81,7 +87,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       style={[
         styles.container,
         {
-          backgroundColor: colors.background,
+                 backgroundColor: colors.background,
           opacity: backgroundOpacity,
         },
       ]}
@@ -97,11 +103,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             },
           ]}
         >
-          <View style={[styles.logo, { backgroundColor: colors.primary }]}>
+          <View style={[styles.logo, { backgroundColor: colors.accent }]}>
             <Ionicons
               name="flash"
               size={48}
-              color={Colors.neutral.white}
+              color={colors.text.primary}
             />
           </View>
         </Animated.View>
@@ -114,23 +120,23 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           { opacity: textOpacity },
         ]}
       >
-        <HeadlineLarge
-          style={[styles.title, { color: colors.primary }]}
+        <Animated.Text
+          style={[styles.title, { color: colors.accent }]}
         >
           EV Charging
-        </HeadlineLarge>
-        <BodyMedium
+        </Animated.Text>
+        <Animated.Text
           style={[styles.subtitle, { color: colors.text.secondary }]}
         >
           Power your journey
-        </BodyMedium>
+        </Animated.Text>
       </Animated.View>
 
       {/* Loading Indicator */}
       <View style={styles.loadingContainer}>
-        <View style={[styles.loadingDot, { backgroundColor: colors.primary }]} />
-        <View style={[styles.loadingDot, { backgroundColor: colors.primary }]} />
-        <View style={[styles.loadingDot, { backgroundColor: colors.primary }]} />
+        <View style={[styles.loadingDot, { backgroundColor: colors.accent }]} />
+        <View style={[styles.loadingDot, { backgroundColor: colors.accent }]} />
+        <View style={[styles.loadingDot, { backgroundColor: colors.accent }]} />
       </View>
     </Animated.View>
   );
@@ -141,11 +147,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Spacing.xl,
+    padding: 32,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: Spacing.xxl,
+    marginBottom: 48,
   },
   logoWrapper: {
     alignItems: 'center',
@@ -154,20 +160,30 @@ const styles = StyleSheet.create({
   logo: {
     width: 80,
     height: 80,
-    borderRadius: BorderRadius.xl,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Elevation.level3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: Spacing.xxl,
+    marginBottom: 48,
   },
   title: {
-    marginBottom: Spacing.sm,
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 16,
     textAlign: 'center',
   },
   subtitle: {
+    fontSize: 16,
     textAlign: 'center',
   },
   loadingContainer: {

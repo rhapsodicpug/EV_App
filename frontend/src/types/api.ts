@@ -42,6 +42,17 @@ export interface VehicleInfo {
   connector_type?: ConnectorType;
 }
 
+export interface Vehicle {
+  id: string;
+  model: string;
+  year: string;
+  licensePlate: string;
+  batteryCapacity: string;
+  image?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface UserRegistration {
   name: string;
   email: string;
@@ -346,7 +357,6 @@ export type MainTabParamList = {
   Profile: undefined;
   EditProfile: undefined;
   VehicleInfo: undefined;
-  Settings: undefined;
 };
 
 export type StationStackParamList = {
@@ -369,4 +379,17 @@ export type MapStackParamList = {
 export type BookingStackParamList = {
   BookingsMain: undefined;
   SlotSelection: { station: any };
+};
+
+export type ProfileStackParamList = {
+  ProfileMain: undefined;
+  EditProfile: undefined;
+  MyVehicle: undefined;
+  AddVehicle: undefined;
+  PaymentMethods: undefined;
+  AddPaymentMethod: undefined;
+  AppPreferences: undefined;
+  HelpSupport: undefined;
+  Feedback: undefined;
+  About: undefined;
 };

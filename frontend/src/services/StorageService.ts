@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Vehicle } from '../types/api';
+import { PaymentMethod } from '../contexts/PaymentMethodContext';
 
 // ==================== TYPES ====================
 export interface StorageServiceInterface {
@@ -9,6 +11,12 @@ export interface StorageServiceInterface {
   setUserData(key: string, value: any): Promise<void>;
   getUserData(key: string): Promise<any | null>;
   removeUserData(key: string): Promise<void>;
+  saveVehicles(vehicles: Vehicle[]): Promise<void>;
+  getVehicles(): Promise<Vehicle[]>;
+  savePaymentMethods(paymentMethods: PaymentMethod[]): Promise<void>;
+  getPaymentMethods(): Promise<PaymentMethod[]>;
+  saveThemeMode(themeMode: string): Promise<void>; // Disabled - always dark mode
+  getThemeMode(): Promise<string | null>; // Disabled - always dark mode
   isSecureStorageAvailable(): boolean;
   getStorageMethod(): string;
 }
@@ -173,6 +181,65 @@ class StorageService implements StorageServiceInterface {
     if (this.isWeb) return 'AsyncStorage (Web)';
     if (this.secureStoreAvailable) return 'SecureStore (Mobile)';
     return 'AsyncStorage (Fallback)';
+  }
+
+  // Vehicle storage methods
+  async saveVehicles(vehicles: Vehicle[]): Promise<void> {
+    try {
+      const vehiclesJson = JSON.stringify(vehicles);
+      await this.setItem('vehicles', vehiclesJson);
+    } catch (error) {
+      console.error('Failed to save vehicles:', error);
+      throw error;
+    }
+  }
+
+  async getVehicles(): Promise<Vehicle[]> {
+    try {
+      const vehiclesJson = await this.getItem('vehicles');
+      if (!vehiclesJson) {
+        return [];
+      }
+      return JSON.parse(vehiclesJson);
+    } catch (error) {
+      console.error('Failed to get vehicles:', error);
+      return [];
+    }
+  }
+
+  // Payment method storage methods
+  async savePaymentMethods(paymentMethods: PaymentMethod[]): Promise<void> {
+    try {
+      const paymentMethodsJson = JSON.stringify(paymentMethods);
+      await this.setItem('paymentMethods', paymentMethodsJson);
+    } catch (error) {
+      console.error('Failed to save payment methods:', error);
+      throw error;
+    }
+  }
+
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    try {
+      const paymentMethodsJson = await this.getItem('paymentMethods');
+      if (!paymentMethodsJson) {
+        return [];
+      }
+      return JSON.parse(paymentMethodsJson);
+    } catch (error) {
+      console.error('Failed to get payment methods:', error);
+      return [];
+    }
+  }
+
+  // Theme storage methods (disabled - always using dark mode)
+  async saveThemeMode(themeMode: string): Promise<void> {
+    // No-op since we're always using dark mode
+    console.log('Theme switching disabled - always using dark mode');
+  }
+
+  async getThemeMode(): Promise<string | null> {
+    // Always return dark mode
+    return 'dark';
   }
 }
 

@@ -7,7 +7,17 @@ export { default as OptimizedImage } from './ui/OptimizedImage';
 export { default as Skeleton, StationCardSkeleton, ListSkeleton, MapSkeleton } from './ui/Skeleton';
 export { ErrorMessage, ErrorModal, ErrorToast } from './ui/ErrorMessage';
 export { default as GradientBlurBackground } from './ui/GradientBlurBackground';
-export { default as BlurComponent, MultiLayerBlur, HeaderBlur, CardBlur, ButtonBlur } from './ui/BlurComponent';
+export { default as DynamicWallpaper } from './ui/DynamicWallpaper';
+export { 
+  default as BlurComponent, 
+  MultiLayerBlur, 
+  HeaderBlur, 
+  CardBlur, 
+  ButtonBlur,
+  PrimaryBlur,
+  SecondaryBlur,
+  WallpaperBlur
+} from './ui/BlurComponent';
 
 // Custom Components
 export { default as StationCard } from './custom/StationCard';

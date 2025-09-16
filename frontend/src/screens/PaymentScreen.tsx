@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 
@@ -44,6 +45,16 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const [cvc, setCvc] = useState('');
   const [nameOnCard, setNameOnCard] = useState('');
   const [billingAddress, setBillingAddress] = useState('');
+
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
 
   const handleBackPress = () => {
     navigation.goBack();

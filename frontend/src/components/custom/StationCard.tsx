@@ -12,7 +12,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import { 
   MapPin, 
   Zap, 
@@ -233,9 +233,8 @@ const StationCard: React.FC<StationCardProps> = ({
       >
         <BlurView
           style={dynamicStyles.container}
-          blurType="dark"
-          blurAmount={20}
-          reducedTransparencyFallbackColor="rgba(26, 26, 26, 0.8)"
+          intensity={25}
+          tint="dark"
         >
         {/* Header Section */}
         <View style={dynamicStyles.header}>

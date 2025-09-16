@@ -16,8 +16,11 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
+  SafeAreaView,
 } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
+import { DynamicWallpaper } from '../../components';
 import {
   ArrowLeft,
   User,
@@ -28,7 +31,7 @@ import {
   Phone,
 } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -49,7 +52,7 @@ const SIGNUP_COLORS = {
 };
 
 const SignUpScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   
   // Form state
   const [fullName, setFullName] = useState('');
@@ -60,6 +63,16 @@ const SignUpScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -140,40 +153,51 @@ const SignUpScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar barStyle="light-content" backgroundColor={SIGNUP_COLORS.background} />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <ArrowLeft size={24} color={SIGNUP_COLORS.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sign Up</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* Main Content */}
-      <Animated.View
-        style={[
-          styles.contentContainer,
-          {
-            opacity: fadeAnim,
-            transform: [
-              { translateY: slideAnim },
-              { scale: scaleAnim },
-            ],
-          },
-        ]}
+    <DynamicWallpaper theme="dark" variant="abstract">
+      <KeyboardAvoidingView 
+        style={styles.container} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        
+        {/* Header */}
+        <SafeAreaView style={styles.headerSafeArea}>
+          <BlurView
+            style={styles.headerContainer}
+            intensity={50}
+            tint="dark"
+          >
+            {/* Enhanced visual overlay for depth */}
+            <View style={styles.headerOverlay} />
+            
+            <View style={styles.header}>
+              <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+                <ArrowLeft size={24} color={SIGNUP_COLORS.text.primary} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Sign Up</Text>
+              <View style={styles.headerSpacer} />
+            </View>
+          </BlurView>
+        </SafeAreaView>
+
+        {/* Main Content */}
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
         {/* Full Name Input */}
         <BlurView
           style={styles.inputContainer}
-          blurType="dark"
-          blurAmount={15}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={15}
+          tint="dark"
         >
           <TextInput
             style={styles.input}
@@ -191,9 +215,8 @@ const SignUpScreen: React.FC = () => {
         {/* Email Input */}
         <BlurView
           style={styles.inputContainer}
-          blurType="dark"
-          blurAmount={15}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={15}
+          tint="dark"
         >
           <TextInput
             style={styles.input}
@@ -212,9 +235,8 @@ const SignUpScreen: React.FC = () => {
         {/* Phone Input */}
         <BlurView
           style={styles.inputContainer}
-          blurType="dark"
-          blurAmount={15}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={15}
+          tint="dark"
         >
           <TextInput
             style={styles.input}
@@ -232,9 +254,8 @@ const SignUpScreen: React.FC = () => {
         {/* Password Input */}
         <BlurView
           style={styles.inputContainer}
-          blurType="dark"
-          blurAmount={15}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={15}
+          tint="dark"
         >
           <TextInput
             style={styles.input}
@@ -263,9 +284,8 @@ const SignUpScreen: React.FC = () => {
         {/* Confirm Password Input */}
         <BlurView
           style={styles.inputContainer}
-          blurType="dark"
-          blurAmount={15}
-          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          intensity={15}
+          tint="dark"
         >
           <TextInput
             style={styles.input}
@@ -293,10 +313,9 @@ const SignUpScreen: React.FC = () => {
 
         {/* Sign Up Button */}
         <BlurView
-          style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
-          blurType="dark"
-          blurAmount={15}
-          reducedTransparencyFallbackColor="rgba(140, 210, 121, 0.8)"
+          style={StyleSheet.flatten([styles.signUpButton, isLoading && styles.signUpButtonDisabled])}
+          intensity={15}
+          tint="dark"
         >
           <TouchableOpacity
             style={styles.signUpButtonTouchable}
@@ -317,9 +336,8 @@ const SignUpScreen: React.FC = () => {
         <View style={styles.socialButtonsContainer}>
           <BlurView
             style={styles.socialButton}
-            blurType="dark"
-            blurAmount={15}
-            reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+            intensity={15}
+            tint="dark"
           >
             <TouchableOpacity
               style={styles.socialButtonTouchable}
@@ -333,9 +351,8 @@ const SignUpScreen: React.FC = () => {
 
           <BlurView
             style={styles.socialButton}
-            blurType="dark"
-            blurAmount={15}
-            reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+            intensity={15}
+            tint="dark"
           >
             <TouchableOpacity
               style={styles.socialButtonTouchable}
@@ -347,15 +364,43 @@ const SignUpScreen: React.FC = () => {
             </TouchableOpacity>
           </BlurView>
         </View>
-      </Animated.View>
-    </KeyboardAvoidingView>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </DynamicWallpaper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
+  },
+
+  headerSafeArea: {
     backgroundColor: SIGNUP_COLORS.background,
+  },
+
+  headerContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
 
   header: {
@@ -363,18 +408,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: SIGNUP_COLORS.background,
+    paddingVertical: 15,
   },
 
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: SIGNUP_COLORS.surface,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   headerTitle: {

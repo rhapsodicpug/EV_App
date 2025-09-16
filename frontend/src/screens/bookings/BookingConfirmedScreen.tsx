@@ -7,6 +7,7 @@ import {
   StatusBar,
   Dimensions,
   ScrollView,
+  BackHandler,
 } from 'react-native';
 import { CheckCircle, Calendar, MapPin, Clock, Zap, ArrowLeft } from 'lucide-react-native';
 import Animated, {
@@ -61,6 +62,16 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
   const tickRotation = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(50);
+  
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
   
   // Celebration effects
   const pulseScale = useSharedValue(1);

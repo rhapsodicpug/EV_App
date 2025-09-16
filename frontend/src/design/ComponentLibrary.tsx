@@ -15,7 +15,7 @@ import {
   TextProps,
 } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius, Elevation, ComponentTokens } from './DesignSystem';
-import { useThemeColors } from './ThemeContext';
+import { useThemeColors } from '../contexts/ThemeContext';
 
 // ==================== TYPOGRAPHY COMPONENTS ====================
 
@@ -42,7 +42,7 @@ export const TypographyText: React.FC<TypographyProps> = ({
   const textStyle: TextStyle = {
     fontSize: Typography.fontSize[variant][size],
     fontWeight: Typography.fontWeight[weight] as any,
-    color: color || colors.text.primary,
+    color: color || theme.colors.text.primary,
     textAlign: align,
     lineHeight: Typography.fontSize[variant][size] * Typography.lineHeight.normal,
   };
@@ -153,15 +153,15 @@ export const Button: React.FC<ButtonProps> = ({
   // Variant styles
   const variantStyles: Record<string, ViewStyle> = {
     primary: {
-      backgroundColor: colors.primary,
+      backgroundColor: theme.colors.primary,
     },
     secondary: {
-      backgroundColor: colors.secondary,
+      backgroundColor: theme.colors.secondary,
     },
     outline: {
       backgroundColor: 'transparent',
       borderWidth: 1,
-      borderColor: colors.primary,
+      borderColor: theme.colors.primary,
     },
     ghost: {
       backgroundColor: 'transparent',
@@ -172,7 +172,7 @@ export const Button: React.FC<ButtonProps> = ({
   };
 
   const textColor = variant === 'outline' || variant === 'ghost' 
-    ? colors.primary 
+    ? theme.colors.primary 
     : Colors.neutral.white;
 
   return (
@@ -213,7 +213,7 @@ export const Card: React.FC<CardProps> = ({
   const { colors } = useThemeColors();
   
   const cardStyle: ViewStyle = {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: ComponentTokens.card.borderRadius,
     padding: Spacing.component.padding[padding === 'small' ? 'sm' : padding === 'medium' ? 'md' : padding === 'large' ? 'lg' : 'md'],
     ...Elevation[elevation],
@@ -261,7 +261,7 @@ export const Divider: React.FC<DividerProps> = ({
   
   const dividerStyle: ViewStyle = {
     height: thickness,
-    backgroundColor: color || colors.border,
+    backgroundColor: color || theme.colors.border,
     marginVertical: Spacing[margin] as number,
   };
 
@@ -284,8 +284,8 @@ export const Badge: React.FC<BadgeProps> = ({
   const { colors } = useThemeColors();
   
   const badgeColors = {
-    primary: colors.primary,
-    secondary: colors.secondary,
+    primary: theme.colors.primary,
+    secondary: theme.colors.secondary,
     success: Colors.semantic.success,
     warning: Colors.semantic.warning,
     error: Colors.semantic.error,

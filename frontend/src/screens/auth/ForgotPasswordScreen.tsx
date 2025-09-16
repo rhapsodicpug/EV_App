@@ -16,9 +16,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { ArrowLeft, Mail } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,11 +40,21 @@ const FORGOT_COLORS = {
 };
 
 const ForgotPasswordScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   
   // Form state
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Handle back gesture
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { HeaderBlur, CardBlur } from '../../components';
+import { BlurView } from 'expo-blur';
 import ReanimatedAnimated, { 
   FadeInUp
 } from 'react-native-reanimated';
@@ -38,7 +38,7 @@ import {
   Bell,
   User
 } from 'lucide-react-native';
-import { useThemeColors, Colors, Spacing, BorderRadius, Elevation, Badge } from '../../design';
+import { useTheme } from '../../contexts/ThemeContext';
 import StationCard from '../../components/custom/StationCard';
 import { EVStation } from '../../types/api';
 import apiService from '../../services/api';
@@ -65,7 +65,7 @@ const STATION_COLORS = {
 };
 
 const StationListScreen: React.FC = () => {
-  const { colors } = useThemeColors();
+  const { theme } = useTheme();
   const navigation = useNavigation<NavigationProp<any>>();
   const route = useRoute();
   const [stations, setStations] = useState<EVStation[]>([]);
@@ -192,19 +192,27 @@ const StationListScreen: React.FC = () => {
   };
 
   const renderHeader = () => (
-    <HeaderBlur style={styles.headerContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <ArrowLeft size={24} color={STATION_COLORS.text.primary} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Charging Stations</Text>
-          <Text style={styles.headerSubtitle}>
-            {filteredStations.length} of {stations.length} stations found
-          </Text>
+    <SafeAreaView style={styles.headerSafeArea}>
+      <BlurView
+        style={styles.headerContainer}
+        intensity={50}
+        tint="dark"
+      >
+        {/* Enhanced visual overlay for depth */}
+        <View style={styles.headerOverlay} />
+        
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <ArrowLeft size={24} color={STATION_COLORS.text.primary} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Charging Stations</Text>
+            <Text style={styles.headerSubtitle}>
+              {filteredStations.length} of {stations.length} stations found
+            </Text>
+          </View>
+          <View style={styles.headerRight} />
         </View>
-        <View style={styles.headerRight} />
-      </View>
         
         {/* Search Input */}
         <View style={styles.searchContainer}>
@@ -255,7 +263,8 @@ const StationListScreen: React.FC = () => {
             ))}
           </ScrollView>
         </View>
-    </HeaderBlur>
+      </BlurView>
+    </SafeAreaView>
   );
 
   const getStatusVariant = (status: string) => {
@@ -481,7 +490,7 @@ const styles = StyleSheet.create({
   },
 
   // Header Styles
-  headerContainer: {
+  headerSafeArea: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -490,13 +499,27 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
+  headerContainer: {
+    width: '100%',
+    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+
   headerOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
 
   headerGradient: {
@@ -516,6 +539,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingVertical: 15,
     marginBottom: 16,
   },
 
@@ -525,9 +549,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   headerContent: {

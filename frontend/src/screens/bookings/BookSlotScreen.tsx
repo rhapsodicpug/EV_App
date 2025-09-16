@@ -15,6 +15,7 @@ import {
   ScrollView,
   Animated,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';

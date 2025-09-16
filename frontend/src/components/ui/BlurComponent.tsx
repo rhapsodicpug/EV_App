@@ -1,17 +1,21 @@
 /**
  * BlurComponent
- * High-end, multi-layered frosted glass blur effects
+ * Best-in-class iOS-inspired multi-layered blur effects with adaptive materials
  */
 
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 
-export type BlurIntensity = 'light' | 'medium' | 'strong' | 'ultra' | 'extreme';
+export type BlurIntensity = 'subtle' | 'light' | 'medium' | 'strong' | 'ultra' | 'extreme';
+export type BlurMaterial = 'xlight' | 'light' | 'regular' | 'dark' | 'prominent' | 'ultraThin' | 'extraDark';
+export type ThemeMode = 'light' | 'dark' | 'auto';
 
 interface BlurComponentProps {
   children?: React.ReactNode;
   intensity?: BlurIntensity;
+  material?: BlurMaterial;
+  theme?: ThemeMode;
   style?: ViewStyle;
   overlay?: boolean;
   overlayColor?: string;
@@ -24,65 +28,129 @@ interface BlurComponentProps {
   shadowOpacity?: number;
   shadowRadius?: number;
   shadowOffset?: { width: number; height: number };
+  adaptive?: boolean; // Enable adaptive materials based on theme
 }
 
 const BlurComponent: React.FC<BlurComponentProps> = ({
   children,
   intensity = 'medium',
+  material,
+  theme = 'dark',
   style,
   overlay = true,
-  overlayColor = 'rgba(0, 0, 0, 0.3)',
+  overlayColor,
   overlayOpacity = 0.3,
   borderRadius = 16,
   borderWidth = 1,
-  borderColor = 'rgba(255, 255, 255, 0.1)',
+  borderColor,
   shadow = true,
   shadowColor = '#000000',
   shadowOpacity = 0.25,
   shadowRadius = 12,
   shadowOffset = { width: 0, height: 4 },
+  adaptive = true,
 }) => {
+  // iOS-inspired blur intensity hierarchy
   const getBlurAmount = (intensity: BlurIntensity): number => {
     switch (intensity) {
+      case 'subtle':
+        return 5;   // Background wallpaper
       case 'light':
-        return 5;
+        return 10;  // Secondary elements
       case 'medium':
-        return 15;
+        return 15;  // Primary UI surfaces
       case 'strong':
-        return 25;
+        return 25;  // Cards and widgets
       case 'ultra':
-        return 40;
+        return 40;  // Modals and popups
       case 'extreme':
-        return 60;
+        return 60;  // Overlay modals
       default:
         return 15;
     }
   };
 
-  const getBlurType = (intensity: BlurIntensity): 'light' | 'regular' | 'prominent' | 'ultraThin' | 'thin' | 'extraDark' => {
-    switch (intensity) {
+  // Adaptive material system based on theme
+  const getAdaptiveMaterial = (theme: ThemeMode, material?: BlurMaterial): 'light' | 'regular' | 'prominent' | 'ultraThin' | 'dark' | 'extraDark' => {
+    if (material) {
+      // Map our custom types to the actual BlurView types
+      switch (material) {
+        case 'xlight':
+          return 'light';
+        case 'light':
+          return 'light';
+        case 'regular':
+          return 'regular';
+        case 'dark':
+          return 'dark';
+        case 'prominent':
+          return 'prominent';
+        case 'ultraThin':
+          return 'ultraThin';
+        case 'extraDark':
+          return 'extraDark';
+        default:
+          return 'regular';
+      }
+    }
+    
+    if (adaptive) {
+      switch (theme) {
+        case 'light':
+          return 'light';
+        case 'dark':
+          return 'dark';
+        case 'auto':
+          return 'regular';
+        default:
+          return 'dark';
+      }
+    }
+    
+    return 'regular';
+  };
+
+  // Get adaptive overlay color
+  const getAdaptiveOverlayColor = (theme: ThemeMode): string => {
+    if (overlayColor) return overlayColor;
+    
+    switch (theme) {
       case 'light':
-        return 'light';
-      case 'medium':
-        return 'regular';
-      case 'strong':
-        return 'prominent';
-      case 'ultra':
-        return 'ultraThin';
-      case 'extreme':
-        return 'extraDark';
+        return 'rgba(255, 255, 255, 0.1)';
+      case 'dark':
+        return 'rgba(0, 0, 0, 0.3)';
+      case 'auto':
+        return 'rgba(0, 0, 0, 0.2)';
       default:
-        return 'regular';
+        return 'rgba(0, 0, 0, 0.3)';
+    }
+  };
+
+  // Get adaptive border color
+  const getAdaptiveBorderColor = (theme: ThemeMode): string => {
+    if (borderColor) return borderColor;
+    
+    switch (theme) {
+      case 'light':
+        return 'rgba(0, 0, 0, 0.1)';
+      case 'dark':
+        return 'rgba(255, 255, 255, 0.1)';
+      case 'auto':
+        return 'rgba(255, 255, 255, 0.05)';
+      default:
+        return 'rgba(255, 255, 255, 0.1)';
     }
   };
 
   const blurAmount = getBlurAmount(intensity);
-  const blurType = getBlurType(intensity);
+  const adaptiveMaterial = getAdaptiveMaterial(theme, material);
+  const adaptiveOverlayColor = getAdaptiveOverlayColor(theme);
+  const adaptiveBorderColor = getAdaptiveBorderColor(theme);
 
   const containerStyle: ViewStyle = {
     borderRadius,
     borderWidth,
-    borderColor,
+    borderColor: adaptiveBorderColor,
     overflow: 'hidden',
     ...(shadow && {
       shadowColor,
@@ -98,16 +166,15 @@ const BlurComponent: React.FC<BlurComponentProps> = ({
     <View style={containerStyle}>
       <BlurView
         style={styles.blurView}
-        blurType={blurType}
-        blurAmount={blurAmount}
-        reducedTransparencyFallbackColor="rgba(0, 0, 0, 0.8)"
+        intensity={blurAmount}
+        tint={theme === 'light' ? 'light' : 'dark'}
       >
         {overlay && (
           <View
             style={[
               styles.overlay,
               {
-                backgroundColor: overlayColor,
+                backgroundColor: adaptiveOverlayColor,
                 opacity: overlayOpacity,
               },
             ]}
@@ -160,22 +227,29 @@ export const MultiLayerBlur: React.FC<BlurComponentProps> = ({
   );
 };
 
-// Header blur component specifically for headers
-export const HeaderBlur: React.FC<BlurComponentProps> = ({
+// iOS-inspired specialized blur components
+
+// Primary UI Surfaces (Cards & Navigation) - Moderate blur
+export const PrimaryBlur: React.FC<BlurComponentProps> = ({
   children,
   style,
+  theme = 'dark',
   ...props
 }) => {
   return (
     <BlurComponent
-      intensity="ultra"
+      intensity="medium"
+      theme={theme}
+      adaptive={true}
       overlay={true}
-      overlayColor="rgba(0, 0, 0, 0.4)"
-      overlayOpacity={0.4}
-      borderRadius={0}
-      borderWidth={0}
-      shadow={false}
-      style={[styles.headerBlur, style]}
+      borderRadius={16}
+      borderWidth={1}
+      shadow={true}
+      shadowColor={theme === 'light' ? '#000000' : '#FFFFFF'}
+      shadowOpacity={0.15}
+      shadowRadius={12}
+      shadowOffset={{ width: 0, height: 6 }}
+      style={StyleSheet.flatten([styles.primaryBlur, style])}
       {...props}
     >
       {children}
@@ -183,27 +257,79 @@ export const HeaderBlur: React.FC<BlurComponentProps> = ({
   );
 };
 
-// Card blur component for cards and modals
-export const CardBlur: React.FC<BlurComponentProps> = ({
+// Secondary Surfaces (Pop-ups & Modals) - Strong blur
+export const SecondaryBlur: React.FC<BlurComponentProps> = ({
   children,
   style,
+  theme = 'dark',
+  ...props
+}) => {
+  return (
+    <BlurComponent
+      intensity="ultra"
+      theme={theme}
+      adaptive={true}
+      overlay={true}
+      borderRadius={20}
+      borderWidth={1}
+      shadow={true}
+      shadowColor={theme === 'light' ? '#000000' : '#FFFFFF'}
+      shadowOpacity={0.25}
+      shadowRadius={20}
+      shadowOffset={{ width: 0, height: 10 }}
+      style={StyleSheet.flatten([styles.secondaryBlur, style])}
+      {...props}
+    >
+      {children}
+    </BlurComponent>
+  );
+};
+
+// Header blur component specifically for headers
+export const HeaderBlur: React.FC<BlurComponentProps> = ({
+  children,
+  style,
+  theme = 'dark',
   ...props
 }) => {
   return (
     <BlurComponent
       intensity="strong"
+      theme={theme}
+      adaptive={true}
       overlay={true}
-      overlayColor="rgba(255, 255, 255, 0.05)"
-      overlayOpacity={0.05}
+      borderRadius={0}
+      borderWidth={0}
+      shadow={false}
+      style={StyleSheet.flatten([styles.headerBlur, style])}
+      {...props}
+    >
+      {children}
+    </BlurComponent>
+  );
+};
+
+// Card blur component for cards and widgets
+export const CardBlur: React.FC<BlurComponentProps> = ({
+  children,
+  style,
+  theme = 'dark',
+  ...props
+}) => {
+  return (
+    <BlurComponent
+      intensity="strong"
+      theme={theme}
+      adaptive={true}
+      overlay={true}
       borderRadius={16}
       borderWidth={1}
-      borderColor="rgba(255, 255, 255, 0.15)"
       shadow={true}
-      shadowColor="#000000"
-      shadowOpacity={0.3}
+      shadowColor={theme === 'light' ? '#000000' : '#FFFFFF'}
+      shadowOpacity={0.2}
       shadowRadius={16}
       shadowOffset={{ width: 0, height: 8 }}
-      style={[styles.cardBlur, style]}
+      style={StyleSheet.flatten([styles.cardBlur, style])}
       {...props}
     >
       {children}
@@ -215,23 +341,47 @@ export const CardBlur: React.FC<BlurComponentProps> = ({
 export const ButtonBlur: React.FC<BlurComponentProps> = ({
   children,
   style,
+  theme = 'dark',
   ...props
 }) => {
   return (
     <BlurComponent
       intensity="medium"
+      theme={theme}
+      adaptive={true}
       overlay={true}
-      overlayColor="rgba(255, 255, 255, 0.1)"
-      overlayOpacity={0.1}
       borderRadius={12}
       borderWidth={1}
-      borderColor="rgba(255, 255, 255, 0.2)"
       shadow={true}
-      shadowColor="#000000"
-      shadowOpacity={0.2}
+      shadowColor={theme === 'light' ? '#000000' : '#FFFFFF'}
+      shadowOpacity={0.15}
       shadowRadius={8}
       shadowOffset={{ width: 0, height: 4 }}
-      style={[styles.buttonBlur, style]}
+      style={StyleSheet.flatten([styles.buttonBlur, style])}
+      {...props}
+    >
+      {children}
+    </BlurComponent>
+  );
+};
+
+// Background wallpaper blur component
+export const WallpaperBlur: React.FC<BlurComponentProps> = ({
+  children,
+  style,
+  theme = 'dark',
+  ...props
+}) => {
+  return (
+    <BlurComponent
+      intensity="subtle"
+      theme={theme}
+      adaptive={true}
+      overlay={false}
+      borderRadius={0}
+      borderWidth={0}
+      shadow={false}
+      style={StyleSheet.flatten([styles.wallpaperBlur, style])}
       {...props}
     >
       {children}
@@ -278,6 +428,13 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 1,
   },
+  // iOS-inspired specialized blur styles
+  primaryBlur: {
+    marginBottom: 16,
+  },
+  secondaryBlur: {
+    marginBottom: 20,
+  },
   headerBlur: {
     position: 'absolute',
     top: 0,
@@ -290,6 +447,14 @@ const styles = StyleSheet.create({
   },
   buttonBlur: {
     // Additional button-specific styles can be added here
+  },
+  wallpaperBlur: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1,
   },
 });
 

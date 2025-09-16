@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Home, Zap, MapPin, Calendar, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from '@react-native-community/blur';
+import { BlurView } from 'expo-blur';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -25,7 +25,7 @@ const { width } = Dimensions.get('window');
 interface NavigationItem {
   id: string;
   label: string;
-  icon: string;
+  icon: 'home-outline' | 'flash-outline' | 'map-outline' | 'calendar-outline' | 'person-outline';
   screen: string;
 }
 
@@ -162,12 +162,11 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.floatingPill}>
-        {/* Strong BlurView for frosted glass effect */}
+        {/* iOS-inspired Primary Blur for navigation */}
         <BlurView
           style={styles.blurBackground}
-          blurType="dark"
-          blurAmount={20}
-          reducedTransparencyFallbackColor="rgba(44, 44, 46, 0.8)"
+          intensity={15}
+          tint="dark"
         />
         
         {/* Additional glassmorphism overlay for enhanced effect */}

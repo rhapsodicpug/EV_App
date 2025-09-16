@@ -13,7 +13,7 @@ export * from './DesignUtilities';
 export * from './ColorScheme';
 
 // Theme System
-export * from './ThemeContext';
+export * from '../contexts/ThemeContext';
 export * from './ThemeToggle';
 
 // Component Library
@@ -56,7 +56,7 @@ export {
   useTheme,
   useThemeColors,
   useIsDark,
-} from './ThemeContext';
+} from '../contexts/ThemeContext';
 
 export {
   // Theme Toggle
