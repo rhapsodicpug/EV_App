@@ -19,7 +19,7 @@ import {
   Alert,
 } from 'react-native';
 import {
-  Menu,
+  Bell,
   User,
   MapPin,
   Zap,
@@ -274,6 +274,10 @@ const HomeScreen: React.FC = () => {
     navigation.navigate('Profile', { screen: 'EditProfile' });
   };
 
+  const handleNotifications = () => {
+    // Navigate to notifications screen
+    Alert.alert('Notifications', 'Notifications screen would open here');
+  };
 
   const handleProfile = () => {
     navigation.navigate('Profile');
@@ -300,8 +304,8 @@ const HomeScreen: React.FC = () => {
   // Render header
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.headerButton} onPress={() => Alert.alert('Menu', 'Hamburger menu would open here')}>
-        <Menu size={24} color={DASHBOARD_COLORS.text.primary} />
+      <TouchableOpacity style={styles.headerButton} onPress={handleNotifications}>
+        <Bell size={24} color={DASHBOARD_COLORS.text.primary} />
       </TouchableOpacity>
       
       <Text style={styles.headerTitle}>Home</Text>
@@ -676,6 +680,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    marginTop: 12,
   },
   
   quickActionButton: {
