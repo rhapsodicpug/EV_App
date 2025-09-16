@@ -3,7 +3,7 @@
  * First screen users see when opening the app
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +23,24 @@ const { width, height } = Dimensions.get('window');
 
 const WelcomeScreen: React.FC = () => {
   const navigation = useNavigation();
+  const slideUpAnim = useRef(new Animated.Value(height)).current;
+  const fadeInAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Animate the card sliding up from bottom
+    Animated.parallel([
+      Animated.timing(slideUpAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeInAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleGetStarted = async () => {
     try {
@@ -56,10 +75,18 @@ const WelcomeScreen: React.FC = () => {
         />
         
         {/* Content overlay card */}
-        <View style={styles.overlayCard}>
+        <Animated.View 
+          style={[
+            styles.overlayCard,
+            {
+              transform: [{ translateY: slideUpAnim }],
+              opacity: fadeInAnim,
+            }
+          ]}
+        >
           <SafeAreaView style={styles.cardContent}>
             {/* Text content */}
-            <View style={styles.textContainer}>
+            <Animated.View style={[styles.textContainer, { opacity: fadeInAnim }]}>
               <Text style={styles.headline}>
                 Charge Smarter, Drive Greener
               </Text>
@@ -67,20 +94,22 @@ const WelcomeScreen: React.FC = () => {
               <Text style={styles.subheading}>
                 Find, reserve, and pay for EV charging effortlessly. Join the electric revolution today.
               </Text>
-            </View>
+            </Animated.View>
             
             {/* Call-to-action button */}
-            <TouchableOpacity
-              style={styles.ctaButton}
-              onPress={handleGetStarted}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.ctaButtonText}>
-                Get Started
-              </Text>
-            </TouchableOpacity>
+            <Animated.View style={{ opacity: fadeInAnim }}>
+              <TouchableOpacity
+                style={styles.ctaButton}
+                onPress={handleGetStarted}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.ctaButtonText}>
+                  Get Started
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           </SafeAreaView>
-        </View>
+        </Animated.View>
       </ImageBackground>
     </View>
   );
