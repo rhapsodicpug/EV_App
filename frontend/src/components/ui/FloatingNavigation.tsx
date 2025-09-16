@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Home, Zap, MapPin, Calendar, User } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from '@react-native-community/blur';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -161,12 +162,12 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.floatingPill}>
-        {/* Enhanced Glassmorphism Background Gradient */}
-        <LinearGradient
-          colors={['rgba(44, 44, 46, 0.7)', 'rgba(30, 30, 32, 0.6)']}
-          style={styles.backgroundGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        {/* Strong BlurView for frosted glass effect */}
+        <BlurView
+          style={styles.blurBackground}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(44, 44, 46, 0.8)"
         />
         
         {/* Additional glassmorphism overlay for enhanced effect */}
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 16,
   },
-  backgroundGradient: {
+  blurBackground: {
     position: 'absolute',
     top: 0,
     left: 0,

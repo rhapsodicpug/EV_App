@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from '@react-native-community/blur';
 import { HeaderBlur, CardBlur } from '../components';
 import {
   Bell,
@@ -196,7 +197,12 @@ const HomeScreen: React.FC = () => {
   const renderQuickActions = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Quick Actions</Text>
-      <View style={styles.quickActionsContainer}>
+      <BlurView
+        style={styles.quickActionsContainer}
+        blurType="dark"
+        blurAmount={20}
+        reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+      >
         <TouchableOpacity style={styles.quickActionButton} onPress={handleFindCharger}>
           <MapPin size={24} color={HOME_COLORS.text.primary} />
           <Text style={styles.quickActionText}>Find Charger</Text>
@@ -211,7 +217,7 @@ const HomeScreen: React.FC = () => {
           <Calendar size={24} color={HOME_COLORS.text.primary} />
           <Text style={styles.quickActionText}>Book Slot</Text>
         </TouchableOpacity>
-      </View>
+      </BlurView>
     </View>
   );
 
@@ -220,11 +226,16 @@ const HomeScreen: React.FC = () => {
       return (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Booking</Text>
-          <View style={styles.bookingCard}>
+          <BlurView
+            style={styles.bookingCard}
+            blurType="dark"
+            blurAmount={20}
+            reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+          >
             <View style={styles.noBookingContainer}>
               <Text style={styles.noBookingText}>No recent bookings</Text>
             </View>
-          </View>
+          </BlurView>
         </View>
       );
     }
@@ -232,7 +243,12 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Booking</Text>
-        <View style={styles.bookingCard}>
+        <BlurView
+          style={styles.bookingCard}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <View style={styles.bookingIcon}>
             <Calendar size={20} color={HOME_COLORS.text.primary} />
             <Text style={styles.bookingDay}>{new Date(recentBooking.start_time).getDate()}</Text>
@@ -255,7 +271,7 @@ const HomeScreen: React.FC = () => {
           <TouchableOpacity style={styles.repeatButton} onPress={handleRepeatBooking}>
             <Text style={styles.repeatButtonText}>Repeat Booking</Text>
           </TouchableOpacity>
-        </View>
+        </BlurView>
       </View>
     );
   };
@@ -266,7 +282,12 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Charging Status</Text>
-        <View style={styles.chargingCard}>
+        <BlurView
+          style={styles.chargingCard}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <Text style={styles.chargingProgressLabel}>Charging Progress</Text>
           <View style={styles.progressBarContainer}>
             <View style={styles.progressBar}>
@@ -281,7 +302,7 @@ const HomeScreen: React.FC = () => {
           <Text style={styles.progressText}>
             {chargingSession.current_percentage}% - {chargingSession.time_remaining} left
           </Text>
-        </View>
+        </BlurView>
       </View>
     );
   };
@@ -294,7 +315,12 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Promotions & Updates</Text>
-        <View style={styles.promotionCard}>
+        <BlurView
+          style={styles.promotionCard}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <View style={styles.promotionContent}>
             <Text style={styles.promotionNew}>New</Text>
             <Text style={styles.promotionTitle}>{promotion.title}</Text>
@@ -308,7 +334,7 @@ const HomeScreen: React.FC = () => {
               style={styles.promotionImage}
             />
           )}
-        </View>
+        </BlurView>
       </View>
     );
   };

@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
 import { 
   MapPin, 
   Zap, 
@@ -224,12 +225,18 @@ const StationCard: React.FC<StationCardProps> = ({
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
-        style={dynamicStyles.container}
         onPress={() => onPress(station)}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={0.9}
+        style={styles.touchableContainer}
       >
+        <BlurView
+          style={dynamicStyles.container}
+          blurType="dark"
+          blurAmount={20}
+          reducedTransparencyFallbackColor="rgba(26, 26, 26, 0.8)"
+        >
         {/* Header Section */}
         <View style={dynamicStyles.header}>
           <View style={dynamicStyles.titleSection}>
@@ -330,6 +337,7 @@ const StationCard: React.FC<StationCardProps> = ({
         }}>
           <ChevronRight size={20} color={colors.text.secondary} />
         </View>
+        </BlurView>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -338,6 +346,11 @@ const StationCard: React.FC<StationCardProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  touchableContainer: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 16,
   },
 });
 

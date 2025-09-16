@@ -17,6 +17,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { BlurView } from '@react-native-community/blur';
 import {
   ArrowLeft,
   User,
@@ -168,7 +169,12 @@ const SignUpScreen: React.FC = () => {
         ]}
       >
         {/* Full Name Input */}
-        <View style={styles.inputContainer}>
+        <BlurView
+          style={styles.inputContainer}
+          blurType="dark"
+          blurAmount={15}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <TextInput
             style={styles.input}
             placeholder="Full Name"
@@ -180,10 +186,15 @@ const SignUpScreen: React.FC = () => {
             editable={!isLoading}
           />
           <User size={20} color={SIGNUP_COLORS.text.tertiary} style={styles.inputIcon} />
-        </View>
+        </BlurView>
 
         {/* Email Input */}
-        <View style={styles.inputContainer}>
+        <BlurView
+          style={styles.inputContainer}
+          blurType="dark"
+          blurAmount={15}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <TextInput
             style={styles.input}
             placeholder="Email"
@@ -196,10 +207,15 @@ const SignUpScreen: React.FC = () => {
             editable={!isLoading}
           />
           <Mail size={20} color={SIGNUP_COLORS.text.tertiary} style={styles.inputIcon} />
-        </View>
+        </BlurView>
 
         {/* Phone Input */}
-        <View style={styles.inputContainer}>
+        <BlurView
+          style={styles.inputContainer}
+          blurType="dark"
+          blurAmount={15}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <TextInput
             style={styles.input}
             placeholder="Phone Number"
@@ -211,10 +227,15 @@ const SignUpScreen: React.FC = () => {
             editable={!isLoading}
           />
           <Phone size={20} color={SIGNUP_COLORS.text.tertiary} style={styles.inputIcon} />
-        </View>
+        </BlurView>
 
         {/* Password Input */}
-        <View style={styles.inputContainer}>
+        <BlurView
+          style={styles.inputContainer}
+          blurType="dark"
+          blurAmount={15}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <TextInput
             style={styles.input}
             placeholder="Password"
@@ -237,10 +258,15 @@ const SignUpScreen: React.FC = () => {
               <Eye size={20} color={SIGNUP_COLORS.text.tertiary} />
             )}
           </TouchableOpacity>
-        </View>
+        </BlurView>
 
         {/* Confirm Password Input */}
-        <View style={styles.inputContainer}>
+        <BlurView
+          style={styles.inputContainer}
+          blurType="dark"
+          blurAmount={15}
+          reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
+        >
           <TextInput
             style={styles.input}
             placeholder="Confirm Password"
@@ -263,42 +289,63 @@ const SignUpScreen: React.FC = () => {
               <Eye size={20} color={SIGNUP_COLORS.text.tertiary} />
             )}
           </TouchableOpacity>
-        </View>
+        </BlurView>
 
         {/* Sign Up Button */}
-        <TouchableOpacity
+        <BlurView
           style={[styles.signUpButton, isLoading && styles.signUpButtonDisabled]}
-          onPress={handleSignUp}
-          disabled={isLoading}
-          activeOpacity={0.8}
+          blurType="dark"
+          blurAmount={15}
+          reducedTransparencyFallbackColor="rgba(140, 210, 121, 0.8)"
         >
-          <Text style={styles.signUpButtonText}>
-            {isLoading ? 'Creating Account...' : 'Sign Up'}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.signUpButtonTouchable}
+            onPress={handleSignUp}
+            disabled={isLoading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.signUpButtonText}>
+              {isLoading ? 'Creating Account...' : 'Sign Up'}
+            </Text>
+          </TouchableOpacity>
+        </BlurView>
 
         {/* Or sign up with */}
         <Text style={styles.orText}>Or sign up with</Text>
 
         {/* Social Sign Up Buttons */}
         <View style={styles.socialButtonsContainer}>
-          <TouchableOpacity
+          <BlurView
             style={styles.socialButton}
-            onPress={handleGoogleSignUp}
-            disabled={isLoading}
-            activeOpacity={0.8}
+            blurType="dark"
+            blurAmount={15}
+            reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
           >
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialButtonTouchable}
+              onPress={handleGoogleSignUp}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.socialButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
+          </BlurView>
 
-          <TouchableOpacity
+          <BlurView
             style={styles.socialButton}
-            onPress={handleAppleSignUp}
-            disabled={isLoading}
-            activeOpacity={0.8}
+            blurType="dark"
+            blurAmount={15}
+            reducedTransparencyFallbackColor="rgba(42, 42, 42, 0.8)"
           >
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.socialButtonTouchable}
+              onPress={handleAppleSignUp}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.socialButtonText}>Continue with Apple</Text>
+            </TouchableOpacity>
+          </BlurView>
         </View>
       </Animated.View>
     </KeyboardAvoidingView>
@@ -432,6 +479,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: SIGNUP_COLORS.text.primary,
     textAlign: 'center',
+  },
+  signUpButtonTouchable: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  socialButtonTouchable: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
 });
 
