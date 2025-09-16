@@ -269,7 +269,7 @@ const BookingScreen: React.FC = () => {
         translateX: interpolate(
           tabIndicatorPosition.value,
           [0, 1],
-          [0, width / 2 - 20],
+          [0, (width - 48) / 2 - 4], // Match the width calculation
           Extrapolate.CLAMP
         ),
       },
@@ -672,12 +672,13 @@ const styles = StyleSheet.create({
     padding: 4,
     flexDirection: 'row',
     position: 'relative',
+    marginHorizontal: 0,
   },
   segmentedIndicator: {
     position: 'absolute',
     top: 4,
     left: 4,
-    width: width / 2 - 20,
+    width: (width - 48) / 2 - 4, // Account for container padding (24px each side) and internal padding
     height: 40,
     backgroundColor: BOOKING_COLORS.primary,
     borderRadius: 12,
