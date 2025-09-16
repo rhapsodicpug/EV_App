@@ -6,6 +6,9 @@
 // Design System Core
 export * from './DesignSystem';
 
+// Enhanced Design System - Project Elevate
+export * from './EnhancedDesignSystem';
+
 // Enhanced Design Utilities
 export * from './DesignUtilities';
 

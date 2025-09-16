@@ -8,7 +8,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../design';
 
 // Import screens
-import ProfileScreen from '../screens/ProfileScreen';
+import EnhancedProfileScreen from '../screens/EnhancedProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import MyVehicleScreen from '../screens/MyVehicleScreen';
 import SettingsScreen from '../screens/SettingsScreen';
@@ -42,7 +42,7 @@ const ProfileNavigator: React.FC = () => {
     >
       <Stack.Screen 
         name="ProfileMain" 
-        component={ProfileScreen}
+        component={EnhancedProfileScreen}
         options={{
           title: 'Profile',
           headerShown: false,

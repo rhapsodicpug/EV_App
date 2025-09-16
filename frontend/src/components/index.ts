@@ -8,6 +8,15 @@ export { default as Skeleton, StationCardSkeleton, ListSkeleton, MapSkeleton } f
 export { ErrorMessage, ErrorModal, ErrorToast } from './ui/ErrorMessage';
 export { default as GradientBlurBackground } from './ui/GradientBlurBackground';
 
+// Enhanced UI Components - Project Elevate
+export { default as GlassmorphicCard } from './ui/GlassmorphicCard';
+export { default as AnimatedProgressBar } from './ui/AnimatedProgressBar';
+export { default as EnhancedAvatar } from './ui/EnhancedAvatar';
+export { default as BentoGrid } from './ui/BentoGrid';
+export { default as AnimatedToggle } from './ui/AnimatedToggle';
+export { default as GradientText } from './ui/GradientText';
+export { default as EnhancedFloatingNavigation } from './ui/EnhancedFloatingNavigation';
+
 // Custom Components
 export { default as StationCard } from './custom/StationCard';
 export { default as QuickActions } from './custom/QuickActions';

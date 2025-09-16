@@ -7,7 +7,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from '../types/api';
-import FloatingNavigation from '../components/ui/FloatingNavigation';
+import EnhancedFloatingNavigation from '../components/ui/EnhancedFloatingNavigation';
 
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
@@ -18,13 +18,21 @@ import MapNavigator from './MapNavigator';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-// Navigation item data with Ionicons
+import {
+  Home,
+  Zap,
+  Map,
+  Calendar,
+  User,
+} from 'lucide-react-native';
+
+// Navigation item data with Lucide icons
 const navigationItems = [
-  { id: 'Home', label: 'Home', icon: 'home-outline' as const, screen: 'Home' },
-  { id: 'Stations', label: 'Stations', icon: 'flash-outline' as const, screen: 'Search' },
-  { id: 'Map', label: 'Map', icon: 'map-outline' as const, screen: 'Map' },
-  { id: 'Bookings', label: 'Bookings', icon: 'calendar-outline' as const, screen: 'Bookings' },
-  { id: 'Profile', label: 'You', icon: 'person-outline' as const, screen: 'Profile' },
+  { id: 'Home', label: 'Home', icon: Home, screen: 'Home' },
+  { id: 'Stations', label: 'Stations', icon: Zap, screen: 'Search' },
+  { id: 'Map', label: 'Map', icon: Map, screen: 'Map' },
+  { id: 'Bookings', label: 'Bookings', icon: Calendar, screen: 'Bookings' },
+  { id: 'Profile', label: 'You', icon: User, screen: 'Profile' },
 ];
 
 // Custom Tab Bar Component - Floating Navigation
@@ -47,7 +55,7 @@ const CustomTabBar = ({ state, descriptors, navigation }: any) => {
   };
 
   return (
-    <FloatingNavigation
+    <EnhancedFloatingNavigation
       items={navigationItems}
       activeIndex={state.index}
       onItemPress={handleItemPress}
