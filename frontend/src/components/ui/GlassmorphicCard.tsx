@@ -23,7 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
-import { EnhancedColors, Gradients, Shadows, BorderRadius, Spacing, Typography } from './EnhancedDesignSystem';
+import { EnhancedColors, Gradients, Shadows, BorderRadius, Spacing, Typography } from '../../design/EnhancedDesignSystem';
 
 interface GlassmorphicCardProps {
   children: React.ReactNode;

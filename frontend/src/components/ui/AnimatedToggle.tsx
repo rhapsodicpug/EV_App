@@ -19,7 +19,7 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 
-import { EnhancedColors, Gradients, BorderRadius, Spacing } from '../design/EnhancedDesignSystem';
+import { EnhancedColors, Gradients, BorderRadius, Spacing } from '../../design/EnhancedDesignSystem';
 
 interface AnimatedToggleProps {
   value: boolean;

@@ -27,7 +27,7 @@ import {
   User,
 } from 'lucide-react-native';
 
-import { EnhancedColors, Gradients, BorderRadius, Shadows, Spacing } from '../design/EnhancedDesignSystem';
+import { EnhancedColors, Gradients, BorderRadius, Shadows, Spacing } from '../../design/EnhancedDesignSystem';
 
 const { width } = Dimensions.get('window');
 

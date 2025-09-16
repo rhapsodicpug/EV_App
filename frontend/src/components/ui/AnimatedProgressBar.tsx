@@ -19,7 +19,7 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 
-import { EnhancedColors, Gradients, BorderRadius, Spacing, Typography } from '../design/EnhancedDesignSystem';
+import { EnhancedColors, Gradients, BorderRadius, Spacing, Typography } from '../../design/EnhancedDesignSystem';
 
 interface AnimatedProgressBarProps {
   progress: number; // 0 to 100

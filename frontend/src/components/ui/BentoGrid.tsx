@@ -17,7 +17,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 
-import { Spacing, Layout } from '../design/EnhancedDesignSystem';
+import { Spacing, Layout } from '../../design/EnhancedDesignSystem';
 
 interface BentoGridProps {
   children: React.ReactNode[];

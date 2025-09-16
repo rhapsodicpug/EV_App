@@ -20,7 +20,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 
-import { EnhancedColors, Gradients, BorderRadius, Shadows, Typography } from '../design/EnhancedDesignSystem';
+import { EnhancedColors, Gradients, BorderRadius, Shadows, Typography } from '../../design/EnhancedDesignSystem';
 
 interface EnhancedAvatarProps {
   size?: number;

@@ -73,12 +73,12 @@ export const EnhancedColors = {
 
 export const Gradients = {
   // Primary accent gradient
-  primary: ['#7C3AED', '#4F46E5'],
+  primary: ['#7C3AED', '#4F46E5'] as const,
   
   // Background gradients
   background: {
-    radial: ['rgba(124, 58, 237, 0.1)', 'rgba(79, 70, 229, 0.05)', 'transparent'],
-    subtle: ['rgba(17, 17, 17, 0.8)', 'rgba(26, 26, 26, 0.6)'],
+    radial: ['rgba(124, 58, 237, 0.1)', 'rgba(79, 70, 229, 0.05)', 'transparent'] as const,
+    subtle: ['rgba(17, 17, 17, 0.8)', 'rgba(26, 26, 26, 0.6)'] as const,
   },
 
   // Glassmorphism gradients
@@ -112,12 +112,12 @@ export const Typography = {
   },
 
   fontWeight: {
-    light: '300',
-    regular: '400',
-    medium: '500',
-    semibold: '600',
-    bold: '700',
-    extrabold: '800',
+    light: '300' as const,
+    regular: '400' as const,
+    medium: '500' as const,
+    semibold: '600' as const,
+    bold: '700' as const,
+    extrabold: '800' as const,
   },
 
   lineHeight: {

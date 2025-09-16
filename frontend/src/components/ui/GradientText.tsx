@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaskedView } from '@react-native-masked-view/masked-view';
 
-import { Gradients, Typography } from '../design/EnhancedDesignSystem';
+import { Gradients, Typography } from '../../design/EnhancedDesignSystem';
 
 interface GradientTextProps {
   children: React.ReactNode;
