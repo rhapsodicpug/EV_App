@@ -31,7 +31,7 @@ export const STORAGE_KEYS = {
 export const API_CONFIG = {
   // Base URLs
   BASE_URL: __DEV__ 
-    ? 'http://192.168.0.234:8000'  // Development - Use network IP for device access
+    ? 'http://localhost:8000'  // Development - Using localhost since backend runs on localhost
     : 'https://your-production-api.com',  // Production
   
   // Timeouts
