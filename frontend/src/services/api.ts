@@ -27,6 +27,7 @@ import {
 } from '../types/api';
 import { storageService } from './StorageService';
 import { STORAGE_KEYS } from '../constants/config';
+import { isTokenExpired } from '../utils/tokenUtils';
 
 // ==================== CONFIGURATION ====================
 
@@ -56,16 +57,23 @@ class ApiService {
   // ==================== INTERCEPTORS ====================
 
   private setupInterceptors() {
-    // Request interceptor - Add auth token
+    // Request interceptor - Add auth token and validate expiry
     this.api.interceptors.request.use(
       async (config) => {
         try {
           const token = await storageService.getItem(STORAGE_KEYS.AUTH_TOKEN);
-          if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`;
+          if (token) {
+            // Check if token is expired before using it
+            if (isTokenExpired(token)) {
+              console.log('🔑 Token expired, removing from storage');
+              await this.handleAuthError();
+              // Don't add expired token to headers
+            } else if (config.headers) {
+              config.headers.Authorization = `Bearer ${token}`;
+            }
           }
         } catch (error) {
-          console.error('Error getting auth token:', error);
+          console.error('Error processing auth token:', error);
         }
         
         console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`);
@@ -86,10 +94,27 @@ class ApiService {
       async (error) => {
         console.error('❌ API Error:', error.response?.status, error.response?.data);
         
-        // Handle 401 Unauthorized - Token expired
+        // Handle 401 Unauthorized - Token expired or invalid
         if (error.response?.status === 401) {
-          await this.handleAuthError();
-          throw new AuthenticationError('Session expired', true);
+          const errorMessage = error.response?.data?.detail || 'Authentication failed';
+          console.log('🔐 401 Unauthorized:', errorMessage);
+          
+          // For login endpoint, don't clear storage - let the calling code handle it
+          const isLoginEndpoint = error.config?.url?.includes('/auth/token');
+          
+          if (!isLoginEndpoint) {
+            // Only clear auth data for non-login endpoints (like profile fetch)
+            const isAuthEndpoint = error.config?.url?.includes('/users/me');
+            if (isAuthEndpoint) {
+              await this.handleAuthError();
+            }
+            throw new AuthenticationError(errorMessage, true);
+          } else {
+            // For login endpoint, just throw a simple error
+            const simpleError = new Error(errorMessage);
+            simpleError.name = 'LoginError';
+            throw simpleError;
+          }
         }
 
         // Handle network errors
@@ -100,6 +125,11 @@ class ApiService {
         // Handle connection refused (server not running)
         if (error.code === 'ECONNREFUSED' || error.message?.includes('ECONNREFUSED')) {
           throw new Error('Backend server is not running. Please start the server.');
+        }
+
+        // Handle timeout errors
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          throw new Error('Request timeout. Please check your connection and try again.');
         }
 
         // Handle other HTTP errors
@@ -123,6 +153,7 @@ class ApiService {
       console.error('Error clearing auth data:', error);
     }
   }
+
 
   // ==================== HELPER METHODS ====================
 
@@ -157,6 +188,17 @@ class ApiService {
     return this.request<User>({
       method: 'GET',
       url: '/users/me',
+    });
+  }
+
+  // Special method for login flow - pass token directly
+  async getProfileWithToken(token: string): Promise<User> {
+    return this.request<User>({
+      method: 'GET',
+      url: '/users/me',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
   }
 

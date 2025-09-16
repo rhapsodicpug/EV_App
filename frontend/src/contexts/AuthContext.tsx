@@ -3,6 +3,7 @@ import { User, AuthToken, UserLogin, UserRegistration } from '../types/api';
 import { apiService } from '../services/api';
 import { storageService } from '../services/StorageService';
 import { STORAGE_KEYS } from '../constants/config';
+import { isTokenExpired } from '../utils/tokenUtils';
 
 // ==================== TYPES ====================
 
@@ -146,13 +147,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       dispatch({ type: 'AUTH_START' });
       
-      // Call backend API
+      console.log('🔑 Attempting login for:', credentials.email);
+      
+      // Call backend API to get token
       const authResponse = await apiService.login(credentials);
-      const user = await apiService.getProfile();
+      console.log('✅ Login API call successful, got token');
+      
+      // Get user profile with the token directly (avoid timing issues)
+      const user = await apiService.getProfileWithToken(authResponse.access_token);
+      console.log('✅ Profile fetch successful for:', user.email);
       
       // Store token and user data
       await storeToken(authResponse.access_token);
-      await storageService.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+      console.log('✅ Token stored successfully');
+      
+      // Store user data
+      await storeUserData(user);
+      console.log('✅ User data stored successfully');
       
       // Update context
       dispatch({
@@ -162,11 +173,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       return { success: true, user };
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       let errorMessage = 'Login failed';
       
-      // Enhanced error handling
-      if (error.response?.status === 401) {
+      // Enhanced error handling with more details
+      console.error('❌ Full error object:', {
+        name: error.name,
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack
+      });
+      
+      if (error.name === 'AuthenticationError' || error.name === 'LoginError') {
+        errorMessage = error.message || 'Invalid email or password';
+      } else if (error.response?.status === 401) {
         errorMessage = 'Invalid email or password';
       } else if (error.response?.status === 422) {
         errorMessage = 'Invalid credentials format';
@@ -182,6 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorMessage = error.message;
       }
       
+      console.log('🚨 Login failed with message:', errorMessage);
       dispatch({ type: 'AUTH_FAILURE', payload: errorMessage });
       return { success: false, user: {} as User };
     }
@@ -276,48 +299,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      console.log('🔐 Token found, verifying with backend...');
+      // Check if token is expired (basic JWT validation)
+      if (isTokenExpired(token)) {
+        console.log('🔑 Token expired based on JWT expiry, clearing storage');
+        await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+        dispatch({ type: 'LOGOUT' });
+        return;
+      }
 
-      // Verify token by getting user profile
-      const user = await apiService.getProfile();
-      console.log('✅ Token valid, user authenticated:', user.email);
+      console.log('🔐 Token found and not expired, verifying with backend...');
 
-      dispatch({
-        type: 'AUTH_SUCCESS',
-        payload: { user, token },
-      });
+      // Try to get cached user data first
+      let cachedUser = await getStoredUserData();
+      
+      // If we have cached user data, use it temporarily while verifying
+      if (cachedUser) {
+        dispatch({
+          type: 'AUTH_SUCCESS',
+          payload: { user: cachedUser, token },
+        });
+      }
+
+      // Verify token by getting user profile (but don't block the UI)
+      try {
+        const user = await apiService.getProfile();
+        console.log('✅ Token valid, user authenticated:', user.email);
+
+        // Update with fresh user data
+        dispatch({
+          type: 'AUTH_SUCCESS',
+          payload: { user, token },
+        });
+        
+        // Update cached user data
+        await storeUserData(user);
+      } catch (verifyError: any) {
+        // If verification fails but we had cached data, handle gracefully
+        if (!cachedUser) {
+          throw verifyError; // Re-throw if we don't have cached data
+        }
+        console.warn('⚠️ Token verification failed but using cached data temporarily');
+      }
     } catch (error: any) {
       console.error('❌ Auth check failed:', error);
 
       // Enhanced error handling
       if (error.name === 'AuthenticationError' && error.expired) {
         console.log('🔑 Token expired - user needs to log in again');
-        // Set a user-friendly error message
-        dispatch({
-          type: 'AUTH_FAILURE',
-          payload: 'Your session has expired. Please log in again.'
-        });
+        await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+        dispatch({ type: 'LOGOUT' });
       } else if (error.response?.status === 401) {
         console.log('🔑 Token invalid, logging out');
-        dispatch({
-          type: 'AUTH_FAILURE',
-          payload: 'Session expired. Please log in again.'
-        });
-      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network') || error.message?.includes('ECONNREFUSED') || error.message?.includes('timeout')) {
-        console.log('🌐 Network/server error during auth check, showing login screen');
-        // Show login screen when backend is not available
+        await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        await storageService.removeItem(STORAGE_KEYS.USER_DATA);
         dispatch({ type: 'LOGOUT' });
+      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network') || error.message?.includes('ECONNREFUSED') || error.message?.includes('timeout')) {
+        console.log('🌐 Network/server error during auth check, staying logged in if we have cached data');
+        
+        // Try to get cached user data to continue offline
+        const cachedUser = await getStoredUserData();
+        const token = await getStoredToken();
+        
+        if (cachedUser && token && !isTokenExpired(token)) {
+          console.log('📱 Using cached user data due to network error');
+          dispatch({
+            type: 'AUTH_SUCCESS',
+            payload: { user: cachedUser, token },
+          });
+        } else {
+          console.log('🚪 No valid cached data, showing login screen');
+          dispatch({ type: 'LOGOUT' });
+        }
         return;
       } else {
-        console.log('⚠️ Other error during auth check');
-        dispatch({
-          type: 'AUTH_FAILURE',
-          payload: 'Unable to verify session. Please try logging in again.'
-        });
-      }
-
-      // Clear invalid data for auth errors
-      if (error.name === 'AuthenticationError' || error.response?.status === 401) {
+        console.log('⚠️ Other error during auth check, logging out');
         await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
         await storageService.removeItem(STORAGE_KEYS.USER_DATA);
         dispatch({ type: 'LOGOUT' });
@@ -325,17 +382,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+
   // ==================== EFFECTS ====================
 
   useEffect(() => {
-    // Add timeout to prevent hanging
-    const timeoutId = setTimeout(() => {
-      console.log('⏰ Auth check timeout, forcing logout');
-      dispatch({ type: 'LOGOUT' });
-    }, 2000); // 2 second timeout
-
-    checkAuthStatus().finally(() => {
-      clearTimeout(timeoutId);
+    // Check auth status on app initialization
+    checkAuthStatus().catch((error) => {
+      console.error('Failed to check auth status on app start:', error);
+      // Don't force logout here, let checkAuthStatus handle it
     });
   }, []);
 
