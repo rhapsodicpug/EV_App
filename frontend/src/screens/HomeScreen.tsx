@@ -19,7 +19,7 @@ import {
   Alert,
 } from 'react-native';
 import {
-  Bell,
+  Menu,
   User,
   MapPin,
   Zap,
@@ -33,6 +33,7 @@ import {
   QrCode,
   BookOpen,
   TrendingUp,
+  Repeat,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
@@ -273,10 +274,6 @@ const HomeScreen: React.FC = () => {
     navigation.navigate('Profile', { screen: 'EditProfile' });
   };
 
-  const handleNotifications = () => {
-    // Navigate to notifications screen
-    Alert.alert('Notifications', 'Notifications screen would open here');
-  };
 
   const handleProfile = () => {
     navigation.navigate('Profile');
@@ -303,16 +300,11 @@ const HomeScreen: React.FC = () => {
   // Render header
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.headerButton} onPress={handleNotifications}>
-        <Bell size={24} color={DASHBOARD_COLORS.text.primary} />
+      <TouchableOpacity style={styles.headerButton} onPress={() => Alert.alert('Menu', 'Hamburger menu would open here')}>
+        <Menu size={24} color={DASHBOARD_COLORS.text.primary} />
       </TouchableOpacity>
       
-      <View style={styles.headerCenter}>
-        <Text style={styles.greeting}>
-          Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}
-        </Text>
-        <Text style={styles.userName}>{user?.name?.split(' ')[0] || 'User'}</Text>
-      </View>
+      <Text style={styles.headerTitle}>Home</Text>
       
       <TouchableOpacity style={styles.headerButton} onPress={handleProfile}>
         <User size={24} color={DASHBOARD_COLORS.text.primary} />
@@ -354,32 +346,17 @@ const HomeScreen: React.FC = () => {
 
     return (
       <View style={styles.card}>
-        <View style={styles.vehicleHeader}>
-          <View style={styles.vehicleImageContainer}>
-            {vehicleInfo.image ? (
-              <Image source={{ uri: vehicleInfo.image }} style={styles.vehicleImage} />
-            ) : (
-              <Car size={32} color={DASHBOARD_COLORS.primary} />
-            )}
+        <Text style={styles.cardTitle}>My Vehicle</Text>
+        <View style={styles.vehicleCard}>
+          <View style={styles.vehicleIconContainer}>
+            <Car size={40} color={DASHBOARD_COLORS.text.secondary} />
           </View>
           <View style={styles.vehicleInfo}>
             <Text style={styles.vehicleName}>{vehicleInfo.name}</Text>
             <Text style={styles.vehicleSubtitle}>
-              {vehicleInfo.batteryPercentage}% • {vehicleInfo.estimatedRange}km range
+              Battery: {vehicleInfo.batteryPercentage}% - Range: {vehicleInfo.estimatedRange} mi
             </Text>
           </View>
-        </View>
-        
-        <View style={styles.batteryContainer}>
-          <View style={styles.batteryBar}>
-            <View 
-              style={[
-                styles.batteryFill, 
-                { width: `${vehicleInfo.batteryPercentage}%` }
-              ]} 
-            />
-          </View>
-          <Text style={styles.batteryText}>{vehicleInfo.batteryPercentage}%</Text>
         </View>
       </View>
     );
@@ -430,23 +407,20 @@ const HomeScreen: React.FC = () => {
 
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Recent Booking</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Bookings')}>
-            <ChevronRight size={20} color={DASHBOARD_COLORS.text.tertiary} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.bookingContent}>
-          <View style={styles.bookingIcon}>
-            <Calendar size={20} color={DASHBOARD_COLORS.primary} />
+        <Text style={styles.cardTitle}>Recent Booking</Text>
+        <View style={styles.bookingCard}>
+          <View style={styles.bookingIconContainer}>
+            <Calendar size={24} color={DASHBOARD_COLORS.text.primary} />
+            <Text style={styles.bookingDay}>12</Text>
           </View>
           <View style={styles.bookingInfo}>
-            <Text style={styles.bookingStation}>{(recentBooking as any).station_name || 'Charging Station'}</Text>
-            <Text style={styles.bookingDetails}>
-              {new Date(recentBooking.start_time).toLocaleDateString()} • {(recentBooking as any).duration_minutes || 60}min
-            </Text>
+            <Text style={styles.bookingDate}>July 15, 2024</Text>
+            <Text style={styles.bookingDetails}>Duration: 2 hours</Text>
+            <Text style={styles.bookingDetails}>Station: Green Energy Hub</Text>
           </View>
+          <TouchableOpacity style={styles.repeatButton}>
+            <Text style={styles.repeatButtonText}>Repeat Booking</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -469,43 +443,21 @@ const HomeScreen: React.FC = () => {
 
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Charging in Progress</Text>
-          <View style={styles.chargingBadge}>
-            <Zap size={16} color={DASHBOARD_COLORS.success} />
-            <Text style={styles.chargingBadgeText}>Active</Text>
+        <Text style={styles.cardTitle}>Charging Status</Text>
+        <Text style={styles.chargingProgressLabel}>Charging Progress</Text>
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { width: `${chargingSession.currentPercentage}%` }
+              ]} 
+            />
           </View>
         </View>
-        
-        <View style={styles.chargingContent}>
-          <View style={styles.chargingStation}>
-            <Text style={styles.chargingStationName}>{chargingSession.stationName}</Text>
-            <Text style={styles.chargingStationAddress}>{chargingSession.stationAddress}</Text>
-          </View>
-          
-          <View style={styles.chargingProgress}>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { width: `${chargingSession.currentPercentage}%` }
-                ]} 
-              />
-            </View>
-            <Text style={styles.progressText}>{chargingSession.currentPercentage}%</Text>
-          </View>
-          
-          <View style={styles.chargingStats}>
-            <View style={styles.statItem}>
-              <Clock size={16} color={DASHBOARD_COLORS.text.secondary} />
-              <Text style={styles.statText}>{chargingSession.timeRemaining}min left</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Zap size={16} color={DASHBOARD_COLORS.text.secondary} />
-              <Text style={styles.statText}>{chargingSession.powerKw}kW</Text>
-            </View>
-          </View>
-        </View>
+        <Text style={styles.progressText}>
+          {chargingSession.currentPercentage}% - 1 hour 30 minutes left
+        </Text>
       </View>
     );
   };
@@ -529,27 +481,17 @@ const HomeScreen: React.FC = () => {
 
     return (
       <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>Promotions & Updates</Text>
-          <TouchableOpacity>
-            <ChevronRight size={20} color={DASHBOARD_COLORS.text.tertiary} />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.promotionContent}>
-          <View style={styles.promotionImageContainer}>
-            {promotion.image ? (
-              <Image source={{ uri: promotion.image }} style={styles.promotionImage} />
-            ) : (
-              <TrendingUp size={32} color={DASHBOARD_COLORS.primary} />
-            )}
+        <Text style={styles.cardTitle}>Promotions & Updates</Text>
+        <View style={styles.promotionCard}>
+          <View style={styles.promotionContent}>
+            <Text style={styles.promotionNew}>New</Text>
+            <Text style={styles.promotionTitle}>Summer Charging Discounts</Text>
+            <Text style={styles.promotionDescription}>
+              Enjoy 20% off on all charging sessions this month.
+            </Text>
           </View>
-          <View style={styles.promotionInfo}>
-            <Text style={styles.promotionTitle}>{promotion.title}</Text>
-            <Text style={styles.promotionDescription}>{promotion.description}</Text>
-            {promotion.discount && (
-              <Text style={styles.promotionDiscount}>{promotion.discount}% OFF</Text>
-            )}
+          <View style={styles.promotionIconContainer}>
+            <Zap size={32} color={DASHBOARD_COLORS.text.secondary} />
           </View>
         </View>
       </View>
@@ -626,21 +568,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   
-  headerCenter: {
-    alignItems: 'center',
-  },
-  
-  greeting: {
-    fontSize: 16,
-    color: DASHBOARD_COLORS.text.secondary,
-    fontWeight: '500',
-  },
-  
-  userName: {
-    fontSize: 24,
+  headerTitle: {
+    fontSize: 20,
     color: DASHBOARD_COLORS.text.primary,
     fontWeight: '700',
-    marginTop: 4,
   },
   
   // Scroll View
@@ -740,47 +671,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   
-  vehicleInfo: {
-    flex: 1,
-  },
-  
-  vehicleName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  
-  vehicleSubtitle: {
-    fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
-  },
-  
-  batteryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  batteryBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: DASHBOARD_COLORS.surface,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  
-  batteryFill: {
-    height: '100%',
-    backgroundColor: DASHBOARD_COLORS.success,
-    borderRadius: 4,
-  },
-  
-  batteryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-  },
-  
   // Quick Actions
   quickActionsGrid: {
     flexDirection: 'row',
@@ -832,134 +722,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   
-  bookingDetails: {
-    fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
-  },
-  
-  // Charging Status
-  chargingBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${DASHBOARD_COLORS.success}20`,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  
-  chargingBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.success,
-    marginLeft: 4,
-  },
-  
-  chargingContent: {
-    gap: 16,
-  },
-  
-  chargingStation: {
-    marginBottom: 8,
-  },
-  
-  chargingStationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  
-  chargingStationAddress: {
-    fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
-  },
-  
-  chargingProgress: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  progressBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: DASHBOARD_COLORS.surface,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  
-  progressFill: {
-    height: '100%',
-    backgroundColor: DASHBOARD_COLORS.success,
-    borderRadius: 4,
-  },
-  
-  progressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-  },
-  
-  chargingStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  statText: {
-    fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
-    marginLeft: 6,
-  },
-  
-  // Promotions
-  promotionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  
-  promotionImageContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${DASHBOARD_COLORS.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  
-  promotionImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-  },
-  
-  promotionInfo: {
-    flex: 1,
-  },
-  
-  promotionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: DASHBOARD_COLORS.text.primary,
-    marginBottom: 4,
-  },
-  
-  promotionDescription: {
-    fontSize: 14,
-    color: DASHBOARD_COLORS.text.secondary,
-    marginBottom: 4,
-  },
-  
-  promotionDiscount: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: DASHBOARD_COLORS.success,
-  },
-  
   // Shimmer Loading
   shimmerContainer: {
     gap: 16,
@@ -1004,6 +766,158 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: DASHBOARD_COLORS.text.primary,
+  },
+
+  // New styles for updated design
+  vehicleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+
+  vehicleIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: DASHBOARD_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+
+  vehicleInfo: {
+    flex: 1,
+  },
+
+  vehicleName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: DASHBOARD_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  vehicleSubtitle: {
+    fontSize: 14,
+    color: DASHBOARD_COLORS.text.secondary,
+  },
+
+  bookingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+
+  bookingIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: DASHBOARD_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    position: 'relative',
+  },
+
+  bookingDay: {
+    position: 'absolute',
+    bottom: 2,
+    fontSize: 12,
+    fontWeight: '600',
+    color: DASHBOARD_COLORS.text.primary,
+  },
+
+  bookingDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: DASHBOARD_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  bookingDetails: {
+    fontSize: 14,
+    color: DASHBOARD_COLORS.text.secondary,
+    marginBottom: 2,
+  },
+
+  repeatButton: {
+    backgroundColor: DASHBOARD_COLORS.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 'auto',
+  },
+
+  repeatButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: DASHBOARD_COLORS.text.primary,
+  },
+
+  chargingProgressLabel: {
+    fontSize: 16,
+    color: DASHBOARD_COLORS.text.secondary,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+
+  progressBarContainer: {
+    marginBottom: 8,
+  },
+
+  progressBar: {
+    height: 8,
+    backgroundColor: DASHBOARD_COLORS.surface,
+    borderRadius: 4,
+  },
+
+  progressFill: {
+    height: '100%',
+    backgroundColor: DASHBOARD_COLORS.text.primary,
+    borderRadius: 4,
+  },
+
+  progressText: {
+    fontSize: 14,
+    color: DASHBOARD_COLORS.text.secondary,
+  },
+
+  promotionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+
+  promotionContent: {
+    flex: 1,
+  },
+
+  promotionNew: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: DASHBOARD_COLORS.success,
+    marginBottom: 4,
+  },
+
+  promotionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: DASHBOARD_COLORS.text.primary,
+    marginBottom: 4,
+  },
+
+  promotionDescription: {
+    fontSize: 14,
+    color: DASHBOARD_COLORS.text.secondary,
+  },
+
+  promotionIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: DASHBOARD_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 16,
   },
 });
 
