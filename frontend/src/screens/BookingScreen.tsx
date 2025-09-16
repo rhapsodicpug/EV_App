@@ -8,7 +8,10 @@ import {
   Alert,
   Dimensions,
   RefreshControl,
+  StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { 
   Calendar, 
   AlertCircle, 
@@ -22,7 +25,10 @@ import {
   X,
   RotateCcw,
   Star,
-  Search
+  Search,
+  ArrowLeft,
+  Bell,
+  User
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -39,21 +45,24 @@ import { BookingWithStationResponse, BookingStatus } from '../types/api';
 
 const { width } = Dimensions.get('window');
 
-// Premium colors for Bookings screen
+// Color scheme matching the HomeScreen and StationListScreen design
 const BOOKING_COLORS = {
-  primary: '#00A8FF',
-  secondary: '#6366F1',
-  success: '#10B981',
+  primary: '#8cd279',
+  secondary: '#8B5CF6',
+  success: '#8cd279',
   error: '#EF4444',
   warning: '#F59E0B',
-  background: '#0F0F0F',
-  surface: '#1A1A1A',
-  card: '#2A2A2A',
+  background: '#1A1A1A',
+  surface: '#2A2A2A',
+  card: '#3A3A3A',
+  border: '#4A4A4A',
   text: {
     primary: '#FFFFFF',
-    secondary: '#B3B3B3',
+    secondary: '#B0B0B0',
+    tertiary: '#808080',
     muted: '#666666',
   },
+  accent: '#8cd279',
 };
 
 const BookingScreen: React.FC = () => {
@@ -161,6 +170,18 @@ const BookingScreen: React.FC = () => {
     navigation.navigate('Home' as never);
   };
 
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
+
+  const handleNotificationPress = () => {
+    Alert.alert('Notifications', 'Notification center would open here');
+  };
+
+  const handleProfilePress = () => {
+    navigation.navigate('Profile' as never);
+  };
+
   // Format date and time helpers
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -258,27 +279,54 @@ const BookingScreen: React.FC = () => {
   // Get current bookings based on active tab
   const currentBookings = activeTab === 'Upcoming' ? upcomingBookings : pastBookings;
 
+  // Render header with gradient blur effect
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <LinearGradient
+        colors={[
+          'rgba(0, 0, 0, 0.95)',
+          'rgba(10, 10, 10, 0.9)',
+          'rgba(20, 20, 20, 0.85)',
+          'rgba(30, 30, 30, 0.8)',
+          'rgba(26, 26, 26, 0.75)'
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.headerGradient}
+      >
+        <View style={styles.headerOverlay} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+            <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Bookings</Text>
+          <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+            <Bell size={24} color={BOOKING_COLORS.text.primary} />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+
   // Loading state
   if (isLoading && bookings.length === 0) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Bookings</Text>
-        </View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={BOOKING_COLORS.background} />
+        {renderHeader()}
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading your bookings...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Error state
   if (error && bookings.length === 0) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>My Bookings</Text>
-        </View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={BOOKING_COLORS.background} />
+        {renderHeader()}
         <View style={styles.errorContainer}>
           <AlertCircle size={48} color={BOOKING_COLORS.error} />
           <Text style={styles.errorTitle}>Failed to Load Bookings</Text>
@@ -287,16 +335,14 @@ const BookingScreen: React.FC = () => {
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Bookings</Text>
-      </View>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={BOOKING_COLORS.background} />
+      {renderHeader()}
 
       {/* Segmented Control */}
       <View style={styles.segmentedContainer}>
@@ -355,8 +401,15 @@ const BookingScreen: React.FC = () => {
       >
         {currentBookings.length > 0 ? (
           currentBookings.map((booking) => (
-            <View
+            <LinearGradient
               key={booking.id}
+              colors={[
+                'rgba(58, 58, 58, 0.8)',
+                'rgba(42, 42, 42, 0.6)',
+                'rgba(26, 26, 26, 0.4)'
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={[
                 styles.bookingCard,
                 activeTab === 'Past' && styles.pastBookingCard,
@@ -475,7 +528,7 @@ const BookingScreen: React.FC = () => {
                   </>
                 )}
               </View>
-            </View>
+            </LinearGradient>
           ))
         ) : (
           /* Premium Empty State */
@@ -503,7 +556,7 @@ const BookingScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -514,18 +567,53 @@ const styles = StyleSheet.create({
     backgroundColor: BOOKING_COLORS.background,
   },
 
-  // Header
-  header: {
+  // Header with gradient blur effect
+  headerContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  headerGradient: {
     paddingTop: 60,
-    paddingHorizontal: 24,
     paddingBottom: 20,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    zIndex: 1,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '700',
     color: BOOKING_COLORS.text.primary,
-    letterSpacing: 0.5,
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Loading and Error States
@@ -569,12 +657,13 @@ const styles = StyleSheet.create({
   retryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: BOOKING_COLORS.text.primary,
+    color: '#000000',
   },
 
   // Segmented Control
   segmentedContainer: {
     paddingHorizontal: 24,
+    paddingTop: 120, // Account for header
     paddingBottom: 20,
   },
   segmentedControl: {
@@ -620,18 +709,17 @@ const styles = StyleSheet.create({
 
   // Booking Cards
   bookingCard: {
-    backgroundColor: BOOKING_COLORS.card,
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
     // Frosted glass effect
     shadowColor: BOOKING_COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: BOOKING_COLORS.surface,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   pastBookingCard: {
     opacity: 0.7, // De-emphasized for past bookings
@@ -760,7 +848,7 @@ const styles = StyleSheet.create({
   findChargerText: {
     fontSize: 16,
     fontWeight: '600',
-    color: BOOKING_COLORS.text.primary,
+    color: '#000000',
   },
 });
 
