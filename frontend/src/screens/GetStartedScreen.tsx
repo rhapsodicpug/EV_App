@@ -166,14 +166,6 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
     onNavigateToLogin();
   };
 
-  const handleSocialMedia = () => {
-    Alert.alert(
-      'Social Media Login',
-      'Social media login functionality would be implemented here',
-      [{ text: 'OK' }]
-    );
-  };
-
   const handleHelp = () => {
     Alert.alert(
       'Help & Support',
@@ -182,35 +174,93 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
     );
   };
 
-  const renderFloatingElements = () => (
-    <View style={styles.floatingContainer}>
-      {/* Floating circles */}
-      {[...Array(6)].map((_, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            styles.floatingCircle,
-            {
-              left: `${10 + i * 15}%`,
-              top: `${20 + i * 10}%`,
-              transform: [
-                {
-                  translateY: floatingAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -20 + i * 5],
-                  }),
-                },
-                {
-                  scale: floatingAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0.8, 1.2, 0.8],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-      ))}
+  const renderAuroraBackground = () => (
+    <View style={styles.auroraContainer}>
+      {/* Aurora blur effects */}
+      <Animated.View
+        style={[
+          styles.auroraBlur,
+          styles.auroraBlur1,
+          {
+            transform: [
+              {
+                translateX: floatingAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 50],
+                }),
+              },
+              {
+                translateY: floatingAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -30],
+                }),
+              },
+              {
+                scale: floatingAnim.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [1, 1.2, 1],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.auroraBlur,
+          styles.auroraBlur2,
+          {
+            transform: [
+              {
+                translateX: floatingAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -40],
+                }),
+              },
+              {
+                translateY: floatingAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 20],
+                }),
+              },
+              {
+                scale: floatingAnim.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [1.1, 0.9, 1.1],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.auroraBlur,
+          styles.auroraBlur3,
+          {
+            transform: [
+              {
+                translateX: floatingAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 30],
+                }),
+              },
+              {
+                translateY: floatingAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -40],
+                }),
+              },
+              {
+                scale: floatingAnim.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.8, 1.3, 0.8],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
     </View>
   );
 
@@ -267,8 +317,8 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        {/* Floating background elements */}
-        {renderFloatingElements()}
+        {/* Aurora background effects */}
+        {renderAuroraBackground()}
         
         {/* Header */}
         <View style={styles.header}>
@@ -346,18 +396,18 @@ const GetStartedScreen: React.FC<GetStartedScreenProps> = ({
           {/* Social Media Buttons */}
           <TouchableOpacity
             style={styles.socialButton}
-            onPress={handleSocialMedia}
+            onPress={() => Alert.alert('Google Login', 'Google login functionality would be implemented here')}
             activeOpacity={0.8}
           >
-            <Text style={styles.socialButtonText}>Continue with social media</Text>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.socialButton}
-            onPress={handleSocialMedia}
+            onPress={() => Alert.alert('Apple Login', 'Apple login functionality would be implemented here')}
             activeOpacity={0.8}
           >
-            <Text style={styles.socialButtonText}>Continue with social media</Text>
+            <Text style={styles.socialButtonText}>Continue with Apple</Text>
           </TouchableOpacity>
         </Animated.View>
       </LinearGradient>
@@ -375,7 +425,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  floatingContainer: {
+  auroraContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -383,14 +433,46 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
 
-  floatingCircle: {
+  auroraBlur: {
     position: 'absolute',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: `${ONBOARDING_COLORS.primary}10`,
-    borderWidth: 1,
-    borderColor: `${ONBOARDING_COLORS.primary}20`,
+    borderRadius: 200,
+    opacity: 0.3,
+  },
+
+  auroraBlur1: {
+    width: 300,
+    height: 300,
+    backgroundColor: ONBOARDING_COLORS.primary,
+    top: -100,
+    left: -50,
+    shadowColor: ONBOARDING_COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 50,
+  },
+
+  auroraBlur2: {
+    width: 250,
+    height: 250,
+    backgroundColor: ONBOARDING_COLORS.secondary,
+    top: height * 0.3,
+    right: -80,
+    shadowColor: ONBOARDING_COLORS.secondary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 40,
+  },
+
+  auroraBlur3: {
+    width: 200,
+    height: 200,
+    backgroundColor: ONBOARDING_COLORS.success,
+    bottom: -50,
+    left: width * 0.2,
+    shadowColor: ONBOARDING_COLORS.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 30,
   },
 
   header: {
