@@ -41,6 +41,33 @@ if OCM_API_KEY:
 else:
     print("❌ OCM_API_KEY not found in environment variables!")
 
+# Dashboard Models
+class VehicleInfo(BaseModel):
+    id: str
+    name: str
+    image: Optional[str] = None
+    battery_percentage: int
+    estimated_range: int
+    make: Optional[str] = None
+    model: Optional[str] = None
+
+class ChargingSession(BaseModel):
+    id: str
+    station_name: str
+    station_address: str
+    current_percentage: int
+    time_remaining: int
+    power_kw: float
+    cost_so_far: float
+
+class Promotion(BaseModel):
+    id: str
+    title: str
+    description: str
+    image: Optional[str] = None
+    valid_until: str
+    discount: Optional[int] = None
+
 # Payment Models
 class PaymentOrderRequest(BaseModel):
     amount: float = Field(..., description="Amount in INR")
@@ -2051,6 +2078,111 @@ async def payment_webhook(request: Request):
         import traceback
         print(f"📋 Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Webhook processing failed: {str(e)}")
+
+# ==================== DASHBOARD ENDPOINTS ====================
+
+@app.get("/api/vehicle/my-vehicle", response_model=VehicleInfo)
+async def get_my_vehicle(current_user: dict = Depends(get_current_active_user)):
+    """Get user's vehicle information"""
+    try:
+        # Get user from database
+        user = users_collection.find_one({"_id": ObjectId(current_user["id"])})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check if user has vehicle info
+        if not user.get("vehicle_info"):
+            raise HTTPException(status_code=404, detail="No vehicle information found")
+        
+        vehicle_info = user["vehicle_info"]
+        
+        # Create vehicle response
+        vehicle_response = VehicleInfo(
+            id=str(user["_id"]),
+            name=f"{vehicle_info.get('make', 'EV')} {vehicle_info.get('model', 'Vehicle')}",
+            battery_percentage=85,  # Mock data - would come from vehicle API
+            estimated_range=int(vehicle_info.get('battery_capacity', 50) * 0.85),
+            make=vehicle_info.get('make'),
+            model=vehicle_info.get('model'),
+        )
+        
+        return vehicle_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error getting vehicle info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get vehicle information: {str(e)}")
+
+@app.get("/api/charging-session/current", response_model=ChargingSession)
+async def get_current_charging_session(current_user: dict = Depends(get_current_active_user)):
+    """Get current active charging session"""
+    try:
+        # Check for active bookings
+        active_booking = bookings_collection.find_one({
+            "user_id": ObjectId(current_user["id"]),
+            "status": "ACTIVE"
+        })
+        
+        if not active_booking:
+            raise HTTPException(status_code=404, detail="No active charging session")
+        
+        # Get station information
+        station = stations_collection.find_one({"_id": ObjectId(active_booking["station_id"])})
+        if not station:
+            raise HTTPException(status_code=404, detail="Station not found")
+        
+        # Mock charging session data (would come from actual charging hardware)
+        charging_session = ChargingSession(
+            id=str(active_booking["_id"]),
+            station_name=station["name"],
+            station_address=station["address"],
+            current_percentage=75,  # Mock data
+            time_remaining=45,  # Mock data
+            power_kw=50.0,  # Mock data
+            cost_so_far=25.50,  # Mock data
+        )
+        
+        return charging_session
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error getting charging session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get charging session: {str(e)}")
+
+@app.get("/api/promotions", response_model=List[Promotion])
+async def get_promotions(current_user: dict = Depends(get_current_active_user)):
+    """Get available promotions and updates"""
+    try:
+        # Mock promotions data (would come from promotions database)
+        promotions = [
+            Promotion(
+                id="1",
+                title="Weekend Special",
+                description="Get 20% off on all charging sessions this weekend",
+                valid_until="2024-01-20",
+                discount=20,
+            ),
+            Promotion(
+                id="2",
+                title="New Station Launch",
+                description="Visit our new ultra-fast charging station in downtown",
+                valid_until="2024-02-01",
+            ),
+            Promotion(
+                id="3",
+                title="Loyalty Rewards",
+                description="Earn points for every charging session and redeem for free charges",
+                valid_until="2024-12-31",
+            ),
+        ]
+        
+        return promotions
+        
+    except Exception as e:
+        print(f"❌ Error getting promotions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get promotions: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

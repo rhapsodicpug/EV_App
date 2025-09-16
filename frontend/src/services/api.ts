@@ -364,6 +364,23 @@ class ApiService {
   clearAuthToken(): void {
     delete this.client.defaults.headers.common.Authorization;
   }
+
+  // ==================== DASHBOARD METHODS ====================
+
+  async getMyVehicle(): Promise<any> {
+    const response = await this.client.get('/api/vehicle/my-vehicle');
+    return response.data;
+  }
+
+  async getCurrentChargingSession(): Promise<any> {
+    const response = await this.client.get('/api/charging-session/current');
+    return response.data;
+  }
+
+  async getPromotions(): Promise<any[]> {
+    const response = await this.client.get('/api/promotions');
+    return response.data;
+  }
 }
 
 // Export singleton instance
