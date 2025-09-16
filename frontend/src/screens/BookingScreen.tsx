@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { HeaderBlur, CardBlur } from '../components';
 import { 
   Calendar, 
   AlertCircle, 
@@ -281,31 +282,17 @@ const BookingScreen: React.FC = () => {
 
   // Render header with gradient blur effect
   const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.95)',
-          'rgba(10, 10, 10, 0.9)',
-          'rgba(20, 20, 20, 0.85)',
-          'rgba(30, 30, 30, 0.8)',
-          'rgba(26, 26, 26, 0.75)'
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerOverlay} />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Bookings</Text>
-          <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
-            <Bell size={24} color={BOOKING_COLORS.text.primary} />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    </View>
+    <HeaderBlur style={styles.headerContainer}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Bookings</Text>
+        <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+          <Bell size={24} color={BOOKING_COLORS.text.primary} />
+        </TouchableOpacity>
+      </View>
+    </HeaderBlur>
   );
 
   // Loading state
@@ -401,19 +388,12 @@ const BookingScreen: React.FC = () => {
       >
         {currentBookings.length > 0 ? (
           currentBookings.map((booking) => (
-            <LinearGradient
+            <CardBlur
               key={booking.id}
-              colors={[
-                'rgba(58, 58, 58, 0.8)',
-                'rgba(42, 42, 42, 0.6)',
-                'rgba(26, 26, 26, 0.4)'
-              ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[
+              style={StyleSheet.flatten([
                 styles.bookingCard,
-                activeTab === 'Past' && styles.pastBookingCard,
-              ]}
+                activeTab === 'Past' ? styles.pastBookingCard : null,
+              ])}
             >
               {/* Status Header */}
               <View style={styles.statusHeader}>
@@ -528,7 +508,7 @@ const BookingScreen: React.FC = () => {
                   </>
                 )}
               </View>
-            </LinearGradient>
+            </CardBlur>
           ))
         ) : (
           /* Premium Empty State */

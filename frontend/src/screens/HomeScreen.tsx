@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { HeaderBlur, CardBlur } from '../components';
 import {
   Bell,
   User,
@@ -137,31 +138,17 @@ const HomeScreen: React.FC = () => {
   };
 
   const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.95)', 
-          'rgba(10, 10, 10, 0.9)', 
-          'rgba(20, 20, 20, 0.85)',
-          'rgba(30, 30, 30, 0.8)',
-          'rgba(26, 26, 26, 0.75)'
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerOverlay} />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
-            <Bell size={24} color={HOME_COLORS.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Home</Text>
-          <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
-            <User size={24} color={HOME_COLORS.text.primary} />
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-    </View>
+    <HeaderBlur style={styles.headerContainer}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.notificationButton} onPress={handleNotificationPress}>
+          <Bell size={24} color={HOME_COLORS.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Home</Text>
+        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+          <User size={24} color={HOME_COLORS.text.primary} />
+        </TouchableOpacity>
+      </View>
+    </HeaderBlur>
   );
 
   const renderVehicleCard = () => {
@@ -169,14 +156,14 @@ const HomeScreen: React.FC = () => {
       return (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
-          <View style={styles.vehicleCard}>
+          <CardBlur style={styles.vehicleCard}>
             <View style={styles.noVehicleContainer}>
               <Text style={styles.noVehicleText}>No vehicle added yet</Text>
               <TouchableOpacity style={styles.addVehicleButton}>
                 <Text style={styles.addVehicleButtonText}>Add Vehicle</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </CardBlur>
         </View>
       );
     }
@@ -184,7 +171,7 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>My Vehicle</Text>
-        <View style={styles.vehicleCard}>
+        <CardBlur style={styles.vehicleCard}>
           {vehicleInfo.image ? (
             <Image
               source={{ uri: vehicleInfo.image }}
@@ -201,7 +188,7 @@ const HomeScreen: React.FC = () => {
               Battery: {vehicleInfo.battery_percentage}% - Range: {vehicleInfo.estimated_range} mi
             </Text>
           </View>
-        </View>
+        </CardBlur>
       </View>
     );
   };

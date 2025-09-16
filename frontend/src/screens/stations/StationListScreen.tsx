@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { HeaderBlur, CardBlur } from '../../components';
 import ReanimatedAnimated, { 
   FadeInUp
 } from 'react-native-reanimated';
@@ -191,32 +192,19 @@ const StationListScreen: React.FC = () => {
   };
 
   const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <LinearGradient
-        colors={[
-          'rgba(0, 0, 0, 0.95)', 
-          'rgba(10, 10, 10, 0.9)', 
-          'rgba(20, 20, 20, 0.85)',
-          'rgba(30, 30, 30, 0.8)',
-          'rgba(26, 26, 26, 0.75)'
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.headerGradient}
-      >
-        <View style={styles.headerOverlay} />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <ArrowLeft size={24} color={STATION_COLORS.text.primary} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Charging Stations</Text>
-            <Text style={styles.headerSubtitle}>
-              {filteredStations.length} of {stations.length} stations found
-            </Text>
-          </View>
-          <View style={styles.headerRight} />
+    <HeaderBlur style={styles.headerContainer}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={STATION_COLORS.text.primary} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Charging Stations</Text>
+          <Text style={styles.headerSubtitle}>
+            {filteredStations.length} of {stations.length} stations found
+          </Text>
         </View>
+        <View style={styles.headerRight} />
+      </View>
         
         {/* Search Input */}
         <View style={styles.searchContainer}>
@@ -267,8 +255,7 @@ const StationListScreen: React.FC = () => {
             ))}
           </ScrollView>
         </View>
-      </LinearGradient>
-    </View>
+    </HeaderBlur>
   );
 
   const getStatusVariant = (status: string) => {
