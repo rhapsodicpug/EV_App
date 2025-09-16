@@ -33,9 +33,9 @@ const { width, height } = Dimensions.get('window');
 
 // Color palette for the sign up screen
 const SIGNUP_COLORS = {
-  primary: '#00A8FF',
+  primary: '#8cd279',
   secondary: '#8B5CF6',
-  success: '#10B981',
+  success: '#8cd279',
   background: '#1A1A1A',
   surface: '#2A2A2A',
   card: '#3A3A3A',
@@ -126,12 +126,12 @@ const SignUpScreen: React.FC = () => {
     }
   };
 
-  const handleFacebookSignUp = () => {
-    Alert.alert('Facebook Sign Up', 'Facebook sign up functionality would be implemented here');
+  const handleGoogleSignUp = () => {
+    Alert.alert('Google Sign Up', 'Google sign up functionality would be implemented here');
   };
 
-  const handleXSignUp = () => {
-    Alert.alert('X Sign Up', 'X (Twitter) sign up functionality would be implemented here');
+  const handleAppleSignUp = () => {
+    Alert.alert('Apple Sign Up', 'Apple sign up functionality would be implemented here');
   };
 
   const handleBack = () => {
@@ -284,20 +284,20 @@ const SignUpScreen: React.FC = () => {
         <View style={styles.socialButtonsContainer}>
           <TouchableOpacity
             style={styles.socialButton}
-            onPress={handleFacebookSignUp}
+            onPress={handleGoogleSignUp}
             disabled={isLoading}
             activeOpacity={0.8}
           >
-            <Text style={styles.socialButtonText}>Continue with Facebook</Text>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.socialButton}
-            onPress={handleXSignUp}
+            onPress={handleAppleSignUp}
             disabled={isLoading}
             activeOpacity={0.8}
           >
-            <Text style={styles.socialButtonText}>Continue with X</Text>
+            <Text style={styles.socialButtonText}>Continue with Apple</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   signUpButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: SIGNUP_COLORS.text.primary,
+    color: '#000000',
   },
 
   orText: {
