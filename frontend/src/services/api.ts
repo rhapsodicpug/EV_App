@@ -32,7 +32,7 @@ import { isTokenExpired } from '../utils/tokenUtils';
 // ==================== CONFIGURATION ====================
 
 const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.0.234:8000'  // Development - Use network IP for device access
+  ? 'http://localhost:8000'  // Development - Use localhost for local testing
   : 'https://your-production-api.com';  // Production
 
 const API_TIMEOUT = 30000; // 30 seconds

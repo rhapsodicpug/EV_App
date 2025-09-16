@@ -33,11 +33,13 @@ const RegisterScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
+  const [phoneFocused, setPhoneFocused] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
@@ -68,7 +70,7 @@ const RegisterScreen: React.FC = () => {
 
   const passwordReqs = getPasswordRequirements(password);
   const isPasswordValid = passwordReqs.minLength && passwordReqs.hasNumber && passwordReqs.hasSpecial;
-  const isFormValid = name.trim() && email.trim() && email.includes('@') && isPasswordValid && agreeToTerms;
+  const isFormValid = name.trim() && email.trim() && email.includes('@') && phone.trim() && isPasswordValid && agreeToTerms;
 
   const handleRegister = async () => {
     if (!isFormValid) {
@@ -80,6 +82,7 @@ const RegisterScreen: React.FC = () => {
       const userData = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
+        phone: phone.trim(),
         password,
       };
 
@@ -159,6 +162,27 @@ const RegisterScreen: React.FC = () => {
                   />
                 </View>
                 <View style={[styles.inputUnderline, emailFocused && styles.inputUnderlineFocused]} />
+              </View>
+
+              {/* Phone Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Phone Number</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your phone number"
+                    placeholderTextColor="#666666"
+                    value={phone}
+                    onChangeText={setPhone}
+                    onFocus={() => setPhoneFocused(true)}
+                    onBlur={() => setPhoneFocused(false)}
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="tel"
+                  />
+                </View>
+                <View style={[styles.inputUnderline, phoneFocused && styles.inputUnderlineFocused]} />
               </View>
 
               {/* Password Input */}
