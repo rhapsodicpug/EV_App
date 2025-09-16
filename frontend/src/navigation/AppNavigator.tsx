@@ -13,6 +13,7 @@ import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
 import SplashScreen from '../screens/SplashScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
+import GetStartedScreen from '../screens/GetStartedScreen';
 import PaymentTestScreen from '../screens/PaymentTestScreen';
 import { RootStackParamList } from '../types/api';
 
@@ -21,6 +22,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 const AppNavigator: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
+  const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
 
   useEffect(() => {
     checkFirstTimeUser();
@@ -29,10 +31,13 @@ const AppNavigator: React.FC = () => {
   const checkFirstTimeUser = async () => {
     try {
       const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
+      const hasSeenGetStartedFlag = await AsyncStorage.getItem('hasSeenGetStarted');
       setIsFirstTime(hasSeenWelcome === null);
+      setHasSeenGetStarted(hasSeenGetStartedFlag === null);
     } catch (error) {
       console.error('Error checking first time user:', error);
-      setIsFirstTime(true); // Default to showing welcome screen
+      setIsFirstTime(true);
+      setHasSeenGetStarted(true);
     }
   };
 
@@ -45,8 +50,27 @@ const AppNavigator: React.FC = () => {
     }
   };
 
+  const markGetStartedAsSeen = async () => {
+    try {
+      await AsyncStorage.setItem('hasSeenGetStarted', 'true');
+      setHasSeenGetStarted(false);
+    } catch (error) {
+      console.error('Error marking get started as seen:', error);
+    }
+  };
+
+  const handleNavigateToAuth = () => {
+    markGetStartedAsSeen();
+    // Navigate to auth flow - this will be handled by the navigation state change
+  };
+
+  const handleNavigateToLogin = () => {
+    markGetStartedAsSeen();
+    // Navigate to login flow - this will be handled by the navigation state change
+  };
+
   // Show splash screen while checking auth status or first time status
-  if (isLoading || isFirstTime === null) {
+  if (isLoading || isFirstTime === null || hasSeenGetStarted === null) {
     return (
       <SafeAreaProvider>
         <Stack.Navigator
@@ -78,6 +102,21 @@ const AppNavigator: React.FC = () => {
             }}
           >
             {() => <WelcomeScreen onComplete={markWelcomeAsSeen} />}
+          </Stack.Screen>
+        ) : hasSeenGetStarted ? (
+          // Show get started screen after welcome
+          <Stack.Screen 
+            name="GetStarted" 
+            options={{
+              gestureEnabled: false,
+            }}
+          >
+            {() => (
+              <GetStartedScreen 
+                onNavigateToAuth={handleNavigateToAuth}
+                onNavigateToLogin={handleNavigateToLogin}
+              />
+            )}
           </Stack.Screen>
         ) : isAuthenticated ? (
           // User is authenticated, show main app
