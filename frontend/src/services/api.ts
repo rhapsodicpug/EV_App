@@ -84,7 +84,20 @@ class ApiService {
 
         // Handle 401 - Unauthorized (token expired)
         if (error.response?.status === 401) {
-          // Clear expired token data
+          // Don't treat login endpoint 401 errors as token expiration
+          const isLoginEndpoint = error.config?.url?.includes('/token') || 
+                                 error.config?.url?.includes('/login') ||
+                                 error.config?.url?.includes('/register');
+          
+          if (isLoginEndpoint) {
+            // This is a login/register error, not a token expiration
+            if (__DEV__) {
+              console.log('🔐 Login/Register failed - invalid credentials');
+            }
+            return Promise.reject(error);
+          }
+
+          // This is a token expiration error for authenticated endpoints
           await AsyncStorage.multiRemove([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.USER_DATA]);
 
           // Create a more informative error

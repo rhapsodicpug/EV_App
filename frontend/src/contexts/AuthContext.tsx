@@ -28,6 +28,7 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   clearError: () => void;
   updateUser: (user: User) => void;
+  clearAuthData: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
 }
 
@@ -236,16 +237,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const clearAuthData = async (): Promise<void> => {
+    try {
+      await removeStoredToken();
+      await removeStoredUserData();
+      console.log('✅ Authentication data cleared');
+    } catch (error) {
+      console.error('❌ Error clearing auth data:', error);
+    }
+  };
+
   const logout = async (): Promise<void> => {
     try {
       // Clear stored data
-      await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-      await storageService.removeItem(STORAGE_KEYS.USER_DATA);
+      await clearAuthData();
       
       // Update context
       dispatch({ type: 'LOGOUT' });
+      
+      console.log('✅ User logged out successfully');
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error('❌ Logout error:', error);
       // Still update context even if storage clearing fails
       dispatch({ type: 'LOGOUT' });
     }
@@ -265,7 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('🔍 Checking authentication status...');
       const token = await getStoredToken();
-
+      
       if (!token) {
         console.log('🚪 No stored token found, user not authenticated');
         dispatch({ type: 'LOGOUT' });
@@ -285,38 +297,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       console.error('❌ Auth check failed:', error);
 
-      // Enhanced error handling
-      if (error.name === 'AuthenticationError' && error.expired) {
-        console.log('🔑 Token expired - user needs to log in again');
-        // Set a user-friendly error message
-        dispatch({
-          type: 'AUTH_FAILURE',
-          payload: 'Your session has expired. Please log in again.'
-        });
-      } else if (error.response?.status === 401) {
-        console.log('🔑 Token invalid, logging out');
-        dispatch({
-          type: 'AUTH_FAILURE',
-          payload: 'Session expired. Please log in again.'
-        });
-      } else if (error.code === 'NETWORK_ERROR' || error.message?.includes('Network')) {
-        console.log('🌐 Network error during auth check, keeping current state');
-        // Don't logout on network errors, just keep current state
-        return;
-      } else {
-        console.log('⚠️ Other error during auth check');
-        dispatch({
-          type: 'AUTH_FAILURE',
-          payload: 'Unable to verify session. Please try logging in again.'
-        });
-      }
+      // Clear all stored authentication data immediately
+      await clearAuthData();
 
-      // Clear invalid data for auth errors
-      if (error.name === 'AuthenticationError' || error.response?.status === 401) {
-        await storageService.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-        await storageService.removeItem(STORAGE_KEYS.USER_DATA);
-        dispatch({ type: 'LOGOUT' });
-      }
+      // Enhanced error handling - always logout on any error during auth check
+      console.log('🔑 Authentication failed, logging out user');
+      dispatch({ type: 'LOGOUT' });
     }
   };
 
@@ -343,6 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logout,
     clearError,
     updateUser,
+    clearAuthData,
     checkAuthStatus,
   };
 
