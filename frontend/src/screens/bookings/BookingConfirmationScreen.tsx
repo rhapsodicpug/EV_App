@@ -93,6 +93,11 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
 
+  // Animation refs for success screen
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
   // Reset confirmation state when route parameters change (new booking)
   useEffect(() => {
     console.log('🔄 Resetting confirmation state due to route params change');
@@ -100,6 +105,30 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
     setIsConfirmed(false);
     setIsProcessing(false);
   }, [route.params]);
+
+  // Success screen animations
+  useEffect(() => {
+    if (isConfirmed) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isConfirmed]);
 
   // Create booking after successful payment
   const createBookingAfterPayment = async (paymentData: any) => {
@@ -317,36 +346,140 @@ export const BookingConfirmationScreen: React.FC<BookingConfirmationScreenProps>
     navigation.navigate('Bookings' as never);
   };
 
-  if (isConfirmed) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
+  // Enhanced Success Screen Component
+  const SuccessScreen = () => (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={LIQUID_COLORS.background} />
 
-        {/* Confirmation Success Screen */}
-        <View style={styles.successContainer}>
-          <View style={styles.successIconContainer}>
-            <CheckCircle size={80} color={LIQUID_COLORS.success} />
+      {/* Animated Success Content */}
+      <Animated.View
+        style={[
+          styles.successContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        {/* Success Animation */}
+        <Animated.View
+          style={[
+            styles.successIconContainer,
+            {
+              transform: [{ rotate: rotateAnim }],
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={[LIQUID_COLORS.success, LIQUID_COLORS.tertiary]}
+            style={styles.successIconGradient}
+          >
+            <CheckCircle size={80} color={LIQUID_COLORS.text.primary} />
+          </LinearGradient>
+        </Animated.View>
+        
+        <Text style={styles.successTitle}>Booking Confirmed!</Text>
+        <Text style={styles.successSubtitle}>
+          Your charging slot has been reserved successfully
+        </Text>
+
+        {/* Booking Details Card */}
+        <View style={styles.bookingDetailsCard}>
+          <View style={styles.bookingDetailsHeader}>
+            <Text style={styles.bookingDetailsTitle}>Booking Details</Text>
           </View>
           
-          <Text style={styles.successTitle}>Booking Confirmed!</Text>
-          <Text style={styles.successSubtitle}>
-            Your charging slot has been reserved successfully
-          </Text>
-          
+          <View style={styles.bookingDetailsContent}>
+            <View style={styles.bookingDetailRow}>
+              <View style={styles.bookingDetailLeft}>
+                <Ionicons name="location-outline" size={16} color={LIQUID_COLORS.text.secondary} />
+                <Text style={styles.bookingDetailLabel}>Station</Text>
+              </View>
+              <Text style={styles.bookingDetailValue}>{station?.name || 'EV Station'}</Text>
+            </View>
+            
+            <View style={styles.bookingDetailRow}>
+              <View style={styles.bookingDetailLeft}>
+                <Ionicons name="calendar-outline" size={16} color={LIQUID_COLORS.text.secondary} />
+                <Text style={styles.bookingDetailLabel}>Date & Time</Text>
+              </View>
+              <Text style={styles.bookingDetailValue}>
+                {startTime?.displayTime || 'Today'}
+              </Text>
+            </View>
+            
+            <View style={styles.bookingDetailRow}>
+              <View style={styles.bookingDetailLeft}>
+                <Ionicons name="battery-charging-outline" size={16} color={LIQUID_COLORS.text.secondary} />
+                <Text style={styles.bookingDetailLabel}>Duration</Text>
+              </View>
+              <Text style={styles.bookingDetailValue}>{duration || 60} minutes</Text>
+            </View>
+            
+            <View style={styles.bookingDetailRow}>
+              <View style={styles.bookingDetailLeft}>
+                <Ionicons name="cash-outline" size={16} color={LIQUID_COLORS.text.secondary} />
+                <Text style={styles.bookingDetailLabel}>Amount Paid</Text>
+              </View>
+              <Text style={styles.bookingDetailValue}>
+                ₹{cost || totalPrice || 5}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
           <TouchableOpacity 
-            style={styles.successButton}
+            style={styles.primaryButton}
             onPress={handleViewBooking}
           >
             <LinearGradient
               colors={[LIQUID_COLORS.success, LIQUID_COLORS.tertiary]}
-              style={styles.successButtonGradient}
+              style={styles.primaryButtonGradient}
             >
-              <Text style={styles.successButtonText}>View My Bookings</Text>
+              <Ionicons name="list-outline" size={20} color={LIQUID_COLORS.text.primary} />
+              <Text style={styles.primaryButtonText}>View My Bookings</Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.secondaryButton}
+            onPress={() => navigation.navigate('Home' as never)}
+          >
+            <Ionicons name="home-outline" size={20} color={LIQUID_COLORS.primary} />
+            <Text style={styles.secondaryButtonText}>Back to Home</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    );
+
+        {/* Additional Info */}
+        <View style={styles.additionalInfoCard}>
+          <View style={styles.additionalInfoHeader}>
+            <Ionicons name="information-circle-outline" size={20} color={LIQUID_COLORS.primary} />
+            <Text style={styles.additionalInfoTitle}>What's Next?</Text>
+          </View>
+          
+          <View style={styles.additionalInfoContent}>
+            <Text style={styles.additionalInfoText}>
+              • You'll receive a confirmation email shortly
+            </Text>
+            <Text style={styles.additionalInfoText}>
+              • Arrive 15 minutes before your scheduled time
+            </Text>
+            <Text style={styles.additionalInfoText}>
+              • Use the QR code at the station to start charging
+            </Text>
+            <Text style={styles.additionalInfoText}>
+              • Contact support if you need assistance
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
+    </View>
+  );
+
+  if (isConfirmed) {
+    return <SuccessScreen />;
   }
 
   return (
@@ -687,5 +820,141 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: LIQUID_COLORS.text.primary,
+  },
+
+  // Enhanced Success Screen Styles
+  successIconGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: LIQUID_COLORS.success,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+
+  // Booking Details Card
+  bookingDetailsCard: {
+    backgroundColor: LIQUID_COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    marginVertical: 20,
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  bookingDetailsHeader: {
+    marginBottom: 16,
+  },
+  bookingDetailsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+  },
+  bookingDetailsContent: {
+    gap: 12,
+  },
+  bookingDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bookingDetailLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bookingDetailLabel: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+  },
+  bookingDetailValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: LIQUID_COLORS.text.primary,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 20,
+  },
+
+  // Action Buttons
+  actionButtonsContainer: {
+    gap: 12,
+    marginVertical: 20,
+  },
+  primaryButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: LIQUID_COLORS.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  primaryButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+  },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    backgroundColor: LIQUID_COLORS.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: LIQUID_COLORS.primary,
+    gap: 8,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.primary,
+  },
+
+  // Additional Info Card
+  additionalInfoCard: {
+    backgroundColor: LIQUID_COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: LIQUID_COLORS.primary,
+  },
+  additionalInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  additionalInfoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LIQUID_COLORS.text.primary,
+    marginLeft: 8,
+  },
+  additionalInfoContent: {
+    gap: 8,
+  },
+  additionalInfoText: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    lineHeight: 20,
   },
 });

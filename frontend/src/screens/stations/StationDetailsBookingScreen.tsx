@@ -320,6 +320,93 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
     </View>
   );
 
+  // Enhanced Station Info Component
+  const EnhancedStationInfo = () => (
+    <LinearGradient
+      colors={[THEME.card, THEME.surface]}
+      style={styles.stationInfoCard}
+    >
+      <View style={styles.stationInfoContent}>
+        <View style={styles.availabilityBadge}>
+          <Text style={styles.availabilityText}>
+            {availableSlots.length} of {totalSlots} Available
+          </Text>
+        </View>
+
+        <View style={styles.stationDetails}>
+          <View style={styles.detailRow}>
+            <MapPin size={16} color={THEME.primary} />
+            <Text style={styles.detailText}>
+              {formatData(currentStation.distance, '--', 'km away')}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Zap size={16} color={THEME.primary} />
+            <Text style={styles.detailText}>
+              {formatData(currentStation.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Star size={16} color="#FFD700" />
+            <Text style={styles.detailText}>
+              {formatData(currentStation.rating, '--', '/5')}
+            </Text>
+          </View>
+        </View>
+
+        {/* Enhanced Features */}
+        <View style={styles.featuresContainer}>
+          <View style={styles.featureItem}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="wifi" size={16} color={THEME.success} />
+            </View>
+            <Text style={styles.featureText}>Free WiFi</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="cafe" size={16} color={THEME.success} />
+            </View>
+            <Text style={styles.featureText}>Café Nearby</Text>
+          </View>
+          <View style={styles.featureItem}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="car" size={16} color={THEME.success} />
+            </View>
+            <Text style={styles.featureText}>Parking</Text>
+          </View>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+
+  // Real-time Status Component
+  const RealTimeStatus = () => (
+    <View style={styles.realTimeStatusContainer}>
+      <View style={styles.statusHeader}>
+        <Text style={styles.statusTitle}>Live Status</Text>
+        <View style={styles.statusIndicator}>
+          <View style={styles.statusDot} />
+          <Text style={styles.statusText}>Live</Text>
+        </View>
+      </View>
+      
+      <View style={styles.statusGrid}>
+        {currentStation.charging_slots?.slice(0, 4).map((slot, index) => (
+          <View key={index} style={styles.statusSlot}>
+            <View style={[
+              styles.slotIndicator,
+              { backgroundColor: slot.status === 'AVAILABLE' ? THEME.success : THEME.error }
+            ]} />
+            <Text style={styles.slotNumber}>Slot {index + 1}</Text>
+            <Text style={styles.slotType}>{slot.charger_type || 'AC'}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
   // Duration slider component
   const DurationSlider = () => {
     const minDuration = 5;
@@ -603,48 +690,17 @@ const StationDetailsBookingScreen: React.FC<StationDetailsBookingScreenProps> = 
         </View>
       </View>
 
-      {/* Station Info Card */}
-      <LinearGradient
-        colors={[THEME.card, THEME.surface]}
-        style={styles.stationInfoCard}
-      >
-        <View style={styles.stationInfoContent}>
-          <View style={styles.availabilityBadge}>
-            <Text style={styles.availabilityText}>
-              {availableSlots.length} of {totalSlots} Available
-            </Text>
-          </View>
-
-          <View style={styles.stationDetails}>
-            <View style={styles.detailRow}>
-              <MapPin size={16} color={THEME.primary} />
-              <Text style={styles.detailText}>
-                {formatData(currentStation.distance, '--', 'km away')}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Zap size={16} color={THEME.primary} />
-              <Text style={styles.detailText}>
-                {formatData(currentStation.charging_slots?.map(slot => slot.charger_type).join(', '), '--', '')}
-              </Text>
-            </View>
-
-            <View style={styles.detailRow}>
-              <Star size={16} color="#FFD700" />
-              <Text style={styles.detailText}>
-                {formatData(currentStation.rating, '--', '/5')}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
+      {/* Enhanced Station Info Card */}
+      <EnhancedStationInfo />
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Real-time Status */}
+        <RealTimeStatus />
+
         {/* Date Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select Date</Text>
@@ -1249,6 +1305,115 @@ const styles = StyleSheet.create({
   // Availability Badge Full Style
   availabilityBadgeFull: {
     backgroundColor: THEME.error,
+  },
+
+  // Enhanced Features Styles
+  featuresContainer: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  featureIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureText: {
+    fontSize: 12,
+    color: THEME.success,
+    fontWeight: '500',
+  },
+
+  // Real-time Status Styles
+  realTimeStatusContainer: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statusTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: THEME.text.primary,
+  },
+  statusIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: THEME.success,
+    shadowColor: THEME.success,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statusText: {
+    fontSize: 12,
+    color: THEME.success,
+    fontWeight: '600',
+  },
+  statusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statusSlot: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: THEME.surface,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  slotIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  slotNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.text.primary,
+    marginBottom: 4,
+  },
+  slotType: {
+    fontSize: 12,
+    color: THEME.text.secondary,
+    fontWeight: '500',
   },
 });
 

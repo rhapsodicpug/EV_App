@@ -539,6 +539,83 @@ const HomeScreen: React.FC = () => {
 
     const currentStations = getCurrentStations();
 
+    // Quick Stats Component
+    const QuickStats = () => (
+      <View style={styles.quickStatsContainer}>
+        <View style={styles.quickStatsCard}>
+          <View style={styles.quickStatItem}>
+            <View style={styles.quickStatIcon}>
+              <Zap size={20} color={LIQUID_COLORS.primary} />
+            </View>
+            <View style={styles.quickStatContent}>
+              <Text style={styles.quickStatNumber}>{stations.length}</Text>
+              <Text style={styles.quickStatLabel}>Stations</Text>
+            </View>
+          </View>
+          
+          <View style={styles.quickStatDivider} />
+          
+          <View style={styles.quickStatItem}>
+            <View style={styles.quickStatIcon}>
+              <Navigation size={20} color={LIQUID_COLORS.success} />
+            </View>
+            <View style={styles.quickStatContent}>
+              <Text style={styles.quickStatNumber}>
+                {stations.reduce((acc, station) => acc + (station.availableSlots || 0), 0)}
+              </Text>
+              <Text style={styles.quickStatLabel}>Available</Text>
+            </View>
+          </View>
+          
+          <View style={styles.quickStatDivider} />
+          
+          <View style={styles.quickStatItem}>
+            <View style={styles.quickStatIcon}>
+              <Clock size={20} color={LIQUID_COLORS.accent} />
+            </View>
+            <View style={styles.quickStatContent}>
+              <Text style={styles.quickStatNumber}>
+                {upcomingBooking ? '1' : '0'}
+              </Text>
+              <Text style={styles.quickStatLabel}>Bookings</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+
+    // Weather Widget Component
+    const WeatherWidget = () => (
+      <View style={styles.weatherWidgetContainer}>
+        <LinearGradient
+          colors={[LIQUID_COLORS.card, LIQUID_COLORS.surface]}
+          style={styles.weatherWidget}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.weatherContent}>
+            <View style={styles.weatherIcon}>
+              <Sun size={24} color="#FFD700" />
+            </View>
+            <View style={styles.weatherInfo}>
+              <Text style={styles.weatherTemp}>28°C</Text>
+              <Text style={styles.weatherDesc}>Perfect for charging</Text>
+            </View>
+            <View style={styles.weatherDetails}>
+              <View style={styles.weatherDetail}>
+                <Wind size={14} color={LIQUID_COLORS.text.secondary} />
+                <Text style={styles.weatherDetailText}>12 km/h</Text>
+              </View>
+              <View style={styles.weatherDetail}>
+                <Thermometer size={14} color={LIQUID_COLORS.text.secondary} />
+                <Text style={styles.weatherDetailText}>65%</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+
     return (
       <Animated.ScrollView
         style={styles.risingSheet}
@@ -552,6 +629,12 @@ const HomeScreen: React.FC = () => {
       >
         {/* Inner Shadow */}
         <View style={styles.innerShadow} />
+
+        {/* Quick Stats */}
+        <QuickStats />
+
+        {/* Weather Widget */}
+        <WeatherWidget />
 
         {/* Upcoming Booking */}
         {upcomingBooking && (
@@ -1445,6 +1528,115 @@ const styles = StyleSheet.create({
     color: LIQUID_COLORS.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // Quick Stats Styles
+  quickStatsContainer: {
+    marginHorizontal: 24,
+    marginBottom: 20,
+  },
+  quickStatsCard: {
+    flexDirection: 'row',
+    backgroundColor: LIQUID_COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: LIQUID_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  quickStatIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 168, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  quickStatContent: {
+    flex: 1,
+  },
+  quickStatNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 2,
+  },
+  quickStatLabel: {
+    fontSize: 12,
+    color: LIQUID_COLORS.text.secondary,
+    fontWeight: '500',
+  },
+  quickStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: LIQUID_COLORS.border,
+    marginHorizontal: 16,
+  },
+
+  // Weather Widget Styles
+  weatherWidgetContainer: {
+    marginHorizontal: 24,
+    marginBottom: 20,
+  },
+  weatherWidget: {
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  weatherContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weatherIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  weatherInfo: {
+    flex: 1,
+  },
+  weatherTemp: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: LIQUID_COLORS.text.primary,
+    marginBottom: 4,
+  },
+  weatherDesc: {
+    fontSize: 14,
+    color: LIQUID_COLORS.text.secondary,
+    fontWeight: '500',
+  },
+  weatherDetails: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  weatherDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  weatherDetailText: {
+    fontSize: 12,
+    color: LIQUID_COLORS.text.secondary,
+    fontWeight: '500',
   },
 });
 

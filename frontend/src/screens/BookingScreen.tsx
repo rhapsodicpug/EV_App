@@ -245,6 +245,85 @@ const BookingScreen: React.FC = () => {
   // Get current bookings based on active tab
   const currentBookings = activeTab === 'Upcoming' ? upcomingBookings : pastBookings;
 
+  // Enhanced Booking Stats Component
+  const BookingStats = () => (
+    <View style={styles.statsContainer}>
+      <View style={styles.statsCard}>
+        <View style={styles.statItem}>
+          <View style={styles.statIcon}>
+            <Ionicons name="calendar-outline" size={20} color={BOOKING_COLORS.primary} />
+          </View>
+          <View style={styles.statContent}>
+            <Text style={styles.statNumber}>{upcomingBookings.length}</Text>
+            <Text style={styles.statLabel}>Upcoming</Text>
+          </View>
+        </View>
+        
+        <View style={styles.statDivider} />
+        
+        <View style={styles.statItem}>
+          <View style={styles.statIcon}>
+            <Ionicons name="checkmark-circle-outline" size={20} color={BOOKING_COLORS.success} />
+          </View>
+          <View style={styles.statContent}>
+            <Text style={styles.statNumber}>{pastBookings.length}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+        </View>
+        
+        <View style={styles.statDivider} />
+        
+        <View style={styles.statItem}>
+          <View style={styles.statIcon}>
+            <Ionicons name="battery-charging-outline" size={20} color={BOOKING_COLORS.accent} />
+          </View>
+          <View style={styles.statContent}>
+            <Text style={styles.statNumber}>
+              {bookings.reduce((acc, booking) => acc + (booking.total_cost || 0), 0)}
+            </Text>
+            <Text style={styles.statLabel}>Total Spent</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  // Quick Actions Component
+  const QuickActions = () => (
+    <View style={styles.quickActionsContainer}>
+      <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+      <View style={styles.quickActionsGrid}>
+        <TouchableOpacity style={styles.quickActionButton} onPress={handleFindCharger}>
+          <View style={styles.quickActionIcon}>
+            <Ionicons name="search-outline" size={24} color={BOOKING_COLORS.primary} />
+          </View>
+          <Text style={styles.quickActionText}>Find Charger</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.quickActionButton}>
+          <View style={styles.quickActionIcon}>
+            <Ionicons name="location-outline" size={24} color={BOOKING_COLORS.success} />
+          </View>
+          <Text style={styles.quickActionText}>Nearby</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.quickActionButton}>
+          <View style={styles.quickActionIcon}>
+            <Ionicons name="star-outline" size={24} color={BOOKING_COLORS.accent} />
+          </View>
+          <Text style={styles.quickActionText}>Favorites</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.quickActionButton}>
+          <View style={styles.quickActionIcon}>
+            <Ionicons name="time-outline" size={24} color={BOOKING_COLORS.secondary} />
+          </View>
+          <Text style={styles.quickActionText}>History</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   // Loading state
   if (isLoading && bookings.length === 0) {
     return (
@@ -284,6 +363,9 @@ const BookingScreen: React.FC = () => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Bookings</Text>
       </View>
+
+      {/* Booking Stats */}
+      <BookingStats />
 
       {/* Segmented Control */}
       <View style={styles.segmentedContainer}>
@@ -325,6 +407,9 @@ const BookingScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Quick Actions */}
+      <QuickActions />
 
       {/* Bookings List */}
       <ScrollView
@@ -757,6 +842,106 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: BOOKING_COLORS.text.primary,
+  },
+
+  // Booking Stats Styles
+  statsContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  statsCard: {
+    flexDirection: 'row',
+    backgroundColor: BOOKING_COLORS.card,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: BOOKING_COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 168, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: BOOKING_COLORS.text.primary,
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: BOOKING_COLORS.text.secondary,
+    fontWeight: '500',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: BOOKING_COLORS.surface,
+    marginHorizontal: 16,
+  },
+
+  // Quick Actions Styles
+  quickActionsContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  quickActionsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: BOOKING_COLORS.text.primary,
+    marginBottom: 16,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: BOOKING_COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: BOOKING_COLORS.surface,
+    shadowColor: BOOKING_COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 168, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BOOKING_COLORS.text.primary,
+    textAlign: 'center',
   },
 });
 
