@@ -71,7 +71,14 @@ const AppNavigator: React.FC = () => {
       >
         {isFirstTime ? (
           // Show welcome screen for first-time users
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen 
+            name="Welcome" 
+            options={{
+              gestureEnabled: false,
+            }}
+          >
+            {() => <WelcomeScreen onComplete={markWelcomeAsSeen} />}
+          </Stack.Screen>
         ) : isAuthenticated ? (
           // User is authenticated, show main app
           <Stack.Screen name="Main" component={MainNavigator} />

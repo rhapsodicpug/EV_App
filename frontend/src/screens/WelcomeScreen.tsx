@@ -16,13 +16,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 
-const WelcomeScreen: React.FC = () => {
-  const navigation = useNavigation();
+interface WelcomeScreenProps {
+  onComplete: () => void;
+}
+
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
   const slideUpAnim = useRef(new Animated.Value(height)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
 
@@ -47,12 +49,12 @@ const WelcomeScreen: React.FC = () => {
       // Mark welcome as seen
       await AsyncStorage.setItem('hasSeenWelcome', 'true');
       
-      // Navigate to Auth flow (Login screen)
-      navigation.navigate('Auth' as never);
+      // Call the completion handler
+      onComplete();
     } catch (error) {
       console.error('Error marking welcome as seen:', error);
-      // Still navigate even if storage fails
-      navigation.navigate('Auth' as never);
+      // Still call completion even if storage fails
+      onComplete();
     }
   };
 
