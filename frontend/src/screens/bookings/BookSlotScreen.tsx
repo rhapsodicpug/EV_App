@@ -333,10 +333,27 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
 
   // Duration chips
   const durationChips: DurationChip[] = [
+    { id: '5min', label: '5 min', minutes: 5 },
+    { id: '10min', label: '10 min', minutes: 10 },
+    { id: '15min', label: '15 min', minutes: 15 },
+    { id: '20min', label: '20 min', minutes: 20 },
+    { id: '25min', label: '25 min', minutes: 25 },
     { id: '30min', label: '30 min', minutes: 30 },
+    { id: '35min', label: '35 min', minutes: 35 },
+    { id: '40min', label: '40 min', minutes: 40 },
+    { id: '45min', label: '45 min', minutes: 45 },
+    { id: '50min', label: '50 min', minutes: 50 },
+    { id: '55min', label: '55 min', minutes: 55 },
     { id: '1hr', label: '1 hr', minutes: 60 },
+    { id: '1hr15min', label: '1 hr 15 min', minutes: 75 },
     { id: '1hr30min', label: '1 hr 30 min', minutes: 90 },
     { id: '2hr', label: '2 hr', minutes: 120 },
+    { id: '3hr', label: '3 hr', minutes: 180 },
+    { id: '4hr', label: '4 hr', minutes: 240 },
+    { id: '5hr', label: '5 hr', minutes: 300 },
+    { id: '6hr', label: '6 hr', minutes: 360 },
+    { id: '7hr', label: '7 hr', minutes: 420 },
+    { id: '8hr', label: '8 hr', minutes: 480 },
   ];
 
   // Generate available dates (next 30 days)
