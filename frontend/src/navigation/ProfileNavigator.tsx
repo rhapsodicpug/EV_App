@@ -18,6 +18,9 @@ import AppPreferencesScreen from '../screens/AppPreferencesScreen';
 import HelpSupportScreen from '../screens/HelpSupportScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import AboutScreen from '../screens/AboutScreen';
+import GettingStartedTutorial from '../screens/tutorials/GettingStartedTutorial';
+import BookingTutorial from '../screens/tutorials/BookingTutorial';
+import PaymentGuide from '../screens/tutorials/PaymentGuide';
 
 const Stack = createStackNavigator();
 
@@ -131,6 +134,33 @@ const ProfileNavigator: React.FC = () => {
         component={AppPreferencesScreen}
         options={{
           title: 'Preferences',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="GettingStartedTutorial"
+        component={GettingStartedTutorial}
+        options={{
+          title: 'Getting Started',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="BookingTutorial"
+        component={BookingTutorial}
+        options={{
+          title: 'Booking Tutorial',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PaymentGuide"
+        component={PaymentGuide}
+        options={{
+          title: 'Payment Guide',
           headerBackTitle: 'Back',
           headerShown: false,
         }}

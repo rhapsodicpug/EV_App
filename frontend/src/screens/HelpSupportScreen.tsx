@@ -218,27 +218,18 @@ const HelpSupportScreen: React.FC = () => {
 
   // User guide handlers
   const handleGettingStarted = () => {
-    Alert.alert(
-      'Getting Started Guide',
-      'This guide will help you set up your account, add your vehicle, and make your first booking. The guide will be available in the next app update.',
-      [{ text: 'OK' }]
-    );
+    // @ts-ignore
+    navigation.navigate('GettingStartedTutorial');
   };
 
   const handleBookingTutorial = () => {
-    Alert.alert(
-      'Booking Tutorial',
-      'Learn how to find charging stations, select the right slot, and complete your booking. The tutorial will be available in the next app update.',
-      [{ text: 'OK' }]
-    );
+    // @ts-ignore
+    navigation.navigate('BookingTutorial');
   };
 
   const handlePaymentGuide = () => {
-    Alert.alert(
-      'Payment Guide',
-      'Understand our payment methods, pricing structure, and how to manage your payment options. The guide will be available in the next app update.',
-      [{ text: 'OK' }]
-    );
+    // @ts-ignore
+    navigation.navigate('PaymentGuide');
   };
 
   const handleBackPress = () => {

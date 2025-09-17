@@ -392,4 +392,7 @@ export type ProfileStackParamList = {
   HelpSupport: undefined;
   Feedback: undefined;
   About: undefined;
+  GettingStartedTutorial: undefined;
+  BookingTutorial: undefined;
+  PaymentGuide: undefined;
 };
