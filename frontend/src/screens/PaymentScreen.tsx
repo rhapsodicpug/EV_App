@@ -13,7 +13,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
-import { useBookings } from '../../contexts/BookingContext';
+import { useBookings } from '../contexts/BookingContext';
 
 const PAYMENT_COLORS = {
   background: '#000000',
