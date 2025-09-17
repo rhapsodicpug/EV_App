@@ -1,43 +1,48 @@
-import React, { useState } from 'react';
+/**
+ * Help & Support Screen
+ * Clean, modern help interface with FAQ, contact options, and user guides
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   StatusBar,
+  ScrollView,
+  Dimensions,
+  BackHandler,
   Linking,
   Alert,
 } from 'react-native';
 import {
-  HelpCircle,
-  ChevronLeft,
-  Phone,
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
   Mail,
-  MessageSquare,
-  FileText,
-  ExternalLink,
+  Phone,
+  Book,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { NavigationProp } from '@react-navigation/native';
 
-// Clean Color Palette
-const COLORS = {
-  background: '#101010',
-  surface: '#1A1A1A',
-  surfaceLight: '#2A2A2A',
+const { width, height } = Dimensions.get('window');
+
+// Color scheme matching the app design
+const HELP_COLORS = {
+  background: '#1A1A1A',
+  surface: '#2A2A2A',
+  card: '#3A3A3A',
+  border: '#4A4A4A',
   text: {
     primary: '#FFFFFF',
-    secondary: '#B3B3B3',
+    secondary: '#B0B0B0',
     tertiary: '#666666',
   },
-  border: {
-    subtle: '#2A2A2A',
-    light: '#404040',
-  },
-  accent: '#00A8FF',
-  accentLight: '#4DC3FF',
-  success: '#10B981',
-  error: '#FF6B6B',
+  accent: '#8cd279',
+  icon: '#FFFFFF',
 };
 
 interface FAQItem {
@@ -46,373 +51,426 @@ interface FAQItem {
   answer: string;
 }
 
-interface ContactMethod {
+interface ContactOption {
   id: string;
   title: string;
-  subtitle: string;
-  icon: React.ComponentType<any>;
+  icon: React.ReactNode;
+  action: () => void;
+}
+
+interface UserGuide {
+  id: string;
+  title: string;
+  icon: React.ReactNode;
   action: () => void;
 }
 
 const HelpSupportScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<any>>();
   const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
 
-  // FAQ data
+  // FAQ Data
   const faqItems: FAQItem[] = [
     {
       id: '1',
-      question: 'How do I find charging stations?',
-      answer: 'Use the map view to locate nearby charging stations. You can filter by connector type, availability, and distance.',
+      question: 'How do I book a charging slot?',
+      answer: 'To book a charging slot, simply navigate to the Stations tab, select your preferred charging station, choose your date and time, select the duration, and proceed to payment. You can also use the map view to find nearby stations.',
     },
     {
       id: '2',
-      question: 'How do I book a charging slot?',
-      answer: 'Select a charging station from the list or map, choose your preferred time slot, and confirm your booking.',
+      question: 'What payment methods are accepted?',
+      answer: 'We accept all major credit cards (Visa, MasterCard, American Express), debit cards, UPI payments, and digital wallets like Paytm, PhonePe, and Google Pay. You can also add multiple payment methods to your account.',
     },
     {
       id: '3',
-      question: 'What payment methods are accepted?',
-      answer: 'We accept credit/debit cards, UPI, and digital wallets. You can manage your payment methods in the app settings.',
+      question: 'How do I cancel a booking?',
+      answer: 'You can cancel your booking by going to the Bookings section in your profile, selecting the booking you want to cancel, and tapping the "Cancel Booking" button. Cancellations are free up to 2 hours before your scheduled time.',
     },
     {
       id: '4',
-      question: 'How do I cancel a booking?',
-      answer: 'Go to your bookings section and select the booking you want to cancel. Cancellation fees may apply.',
+      question: 'What if the charging station is not working?',
+      answer: 'If you encounter any issues with a charging station, please contact our support team immediately. We will help you find an alternative station and may provide compensation for the inconvenience.',
+    },
+    {
+      id: '5',
+      question: 'How do I add my vehicle information?',
+      answer: 'Go to your Profile, select "My Vehicles", and tap "Add Vehicle". Enter your vehicle details including make, model, year, and charging specifications. This helps us provide better recommendations.',
     },
   ];
 
-  // Contact methods
-  const contactMethods: ContactMethod[] = [
+  // Contact Options
+  const contactOptions: ContactOption[] = [
     {
-      id: 'phone',
-      title: 'Call Support',
-      subtitle: 'Speak with our support team',
-      icon: Phone,
-      action: () => {
-        const phoneNumber = 'tel:+919876543210';
-        Linking.canOpenURL(phoneNumber)
-          .then((supported) => {
-            if (supported) {
-              Linking.openURL(phoneNumber);
-            } else {
-              Alert.alert('Error', 'Phone calls are not supported on this device');
-            }
-          })
-          .catch((err) => console.error('Error opening phone dialer:', err));
-      },
-    },
-    {
-      id: 'email',
-      title: 'Email Support',
-      subtitle: 'support@evchargeapp.com',
-      icon: Mail,
-      action: () => {
-        const email = 'mailto:support@evchargeapp.com?subject=EV Charge App Support';
-        Linking.canOpenURL(email)
-          .then((supported) => {
-            if (supported) {
-              Linking.openURL(email);
-            } else {
-              Alert.alert('Error', 'Email is not configured on this device');
-            }
-          })
-          .catch((err) => console.error('Error opening email:', err));
-      },
-    },
-    {
-      id: 'chat',
+      id: '1',
       title: 'Live Chat',
-      subtitle: 'Chat with our support team',
-      icon: MessageSquare,
-      action: () => {
-        Alert.alert('Live Chat', 'Live chat feature coming soon! Please use email or phone support for now.');
-      },
+      icon: <MessageCircle size={24} color={HELP_COLORS.icon} />,
+      action: () => handleLiveChat(),
+    },
+    {
+      id: '2',
+      title: 'Email',
+      icon: <Mail size={24} color={HELP_COLORS.icon} />,
+      action: () => handleEmail(),
+    },
+    {
+      id: '3',
+      title: 'Phone',
+      icon: <Phone size={24} color={HELP_COLORS.icon} />,
+      action: () => handlePhone(),
     },
   ];
 
+  // User Guides
+  const userGuides: UserGuide[] = [
+    {
+      id: '1',
+      title: 'Getting Started Guide',
+      icon: <Book size={24} color={HELP_COLORS.icon} />,
+      action: () => handleGettingStarted(),
+    },
+    {
+      id: '2',
+      title: 'Booking Tutorial',
+      icon: <Book size={24} color={HELP_COLORS.icon} />,
+      action: () => handleBookingTutorial(),
+    },
+    {
+      id: '3',
+      title: 'Payment Guide',
+      icon: <Book size={24} color={HELP_COLORS.icon} />,
+      action: () => handlePaymentGuide(),
+    },
+  ];
+
+  // Back button handler
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
+
+  // FAQ toggle handler
   const toggleFAQ = (id: string) => {
     setExpandedFAQ(expandedFAQ === id ? null : id);
   };
 
-  const openWebsite = () => {
-    const url = 'https://evchargeapp.com/help';
-    Linking.canOpenURL(url)
+  // Contact action handlers
+  const handleLiveChat = () => {
+    Alert.alert(
+      'Live Chat',
+      'Live chat feature will be available soon. For now, please use email or phone support.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleEmail = () => {
+    const email = 'support@evcharging.com';
+    const subject = 'EV Charging App Support';
+    const body = 'Hi, I need help with...';
+    
+    const emailUrl = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    Linking.canOpenURL(emailUrl)
       .then((supported) => {
         if (supported) {
-          Linking.openURL(url);
+          Linking.openURL(emailUrl);
         } else {
-          Alert.alert('Error', 'Cannot open web browser');
+          Alert.alert('Error', 'Email app is not available on this device');
         }
       })
-      .catch((err) => console.error('Error opening website:', err));
+      .catch((err) => {
+        Alert.alert('Error', 'Failed to open email app');
+      });
+  };
+
+  const handlePhone = () => {
+    const phoneNumber = '+91-800-123-4567';
+    
+    Alert.alert(
+      'Call Support',
+      `Call our support team at ${phoneNumber}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Call',
+          onPress: () => {
+            const phoneUrl = `tel:${phoneNumber}`;
+            Linking.canOpenURL(phoneUrl)
+              .then((supported) => {
+                if (supported) {
+                  Linking.openURL(phoneUrl);
+                } else {
+                  Alert.alert('Error', 'Phone app is not available on this device');
+                }
+              })
+              .catch((err) => {
+                Alert.alert('Error', 'Failed to open phone app');
+              });
+          },
+        },
+      ]
+    );
+  };
+
+  // User guide handlers
+  const handleGettingStarted = () => {
+    Alert.alert(
+      'Getting Started Guide',
+      'This guide will help you set up your account, add your vehicle, and make your first booking. The guide will be available in the next app update.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleBookingTutorial = () => {
+    Alert.alert(
+      'Booking Tutorial',
+      'Learn how to find charging stations, select the right slot, and complete your booking. The tutorial will be available in the next app update.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handlePaymentGuide = () => {
+    Alert.alert(
+      'Payment Guide',
+      'Understand our payment methods, pricing structure, and how to manage your payment options. The guide will be available in the next app update.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  const handleBackPress = () => {
+    navigation.goBack();
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-
+      <StatusBar barStyle="light-content" backgroundColor={HELP_COLORS.background} />
+      
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <ChevronLeft size={24} color={COLORS.text.primary} />
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <ArrowLeft size={24} color={HELP_COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Help & Support</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.headerRight} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
-      >
-        {/* Contact Methods */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Us</Text>
-
-          {contactMethods.map((method) => (
-            <TouchableOpacity
-              key={method.id}
-              style={styles.contactCard}
-              onPress={method.action}
-              activeOpacity={0.7}
-            >
-              <View style={styles.contactIcon}>
-                <method.icon size={24} color={COLORS.accent} />
-              </View>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactTitle}>{method.title}</Text>
-                <Text style={styles.contactSubtitle}>{method.subtitle}</Text>
-              </View>
-              <ExternalLink size={20} color={COLORS.text.tertiary} />
-            </TouchableOpacity>
-          ))}
-        </View>
-
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* FAQ Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-
-          {faqItems.map((faq) => (
+          {faqItems.map((item) => (
             <TouchableOpacity
-              key={faq.id}
+              key={item.id}
               style={styles.faqItem}
-              onPress={() => toggleFAQ(faq.id)}
+              onPress={() => toggleFAQ(item.id)}
               activeOpacity={0.7}
             >
               <View style={styles.faqHeader}>
-                <Text style={styles.faqQuestion}>{faq.question}</Text>
-                <Text style={styles.faqToggle}>
-                  {expandedFAQ === faq.id ? '−' : '+'}
-                </Text>
+                <Text style={styles.faqQuestion}>{item.question}</Text>
+                {expandedFAQ === item.id ? (
+                  <ChevronUp size={20} color={HELP_COLORS.icon} />
+                ) : (
+                  <ChevronDown size={20} color={HELP_COLORS.icon} />
+                )}
               </View>
-
-              {expandedFAQ === faq.id && (
-                <Text style={styles.faqAnswer}>{faq.answer}</Text>
+              {expandedFAQ === item.id && (
+                <View style={styles.faqAnswer}>
+                  <Text style={styles.faqAnswerText}>{item.answer}</Text>
+                </View>
               )}
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Additional Resources */}
+        {/* Contact Us Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Resources</Text>
-
-          <TouchableOpacity
-            style={styles.resourceCard}
-            onPress={openWebsite}
-            activeOpacity={0.7}
-          >
-            <View style={styles.resourceIcon}>
-              <FileText size={24} color={COLORS.accent} />
-            </View>
-            <View style={styles.resourceInfo}>
-              <Text style={styles.resourceTitle}>Help Center</Text>
-              <Text style={styles.resourceSubtitle}>Browse our comprehensive help articles</Text>
-            </View>
-            <ExternalLink size={20} color={COLORS.text.tertiary} />
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Contact Us</Text>
+          {contactOptions.map((option) => (
+            <TouchableOpacity
+              key={option.id}
+              style={styles.contactItem}
+              onPress={option.action}
+              activeOpacity={0.7}
+            >
+              <View style={styles.contactContent}>
+                {option.icon}
+                <Text style={styles.contactText}>{option.title}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* App Info */}
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>Need More Help?</Text>
-          <Text style={styles.infoText}>
-            Our support team is here to help you with any questions about charging stations, bookings, or using the app.
-          </Text>
+        {/* User Guides Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>User Guides</Text>
+          {userGuides.map((guide) => (
+            <TouchableOpacity
+              key={guide.id}
+              style={styles.guideItem}
+              onPress={guide.action}
+              activeOpacity={0.7}
+            >
+              <View style={styles.guideContent}>
+                {guide.icon}
+                <Text style={styles.guideText}>{guide.title}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
+
+        {/* Bottom spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
     </View>
   );
 };
 
-// Premium Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: HELP_COLORS.background,
   },
 
-  // Header
+  // Header Styles
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingTop: 60,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border.subtle,
+    paddingBottom: 20,
+    backgroundColor: HELP_COLORS.background,
   },
+
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: HELP_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
   headerTitle: {
-    flex: 1,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
-    color: COLORS.text.primary,
-    textAlign: 'center',
+    color: HELP_COLORS.text.primary,
   },
-  headerSpacer: {
+
+  headerRight: {
     width: 40,
   },
 
-  // Scroll View
-  scrollView: {
+  // Content Styles
+  content: {
     flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 120,
+    paddingHorizontal: 20,
   },
 
-  // Sections
   section: {
     marginBottom: 32,
   },
+
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text.primary,
+    fontSize: 24,
+    fontWeight: '700',
+    color: HELP_COLORS.text.primary,
     marginBottom: 16,
   },
 
-  // Contact Cards
-  contactCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
-  contactIcon: {
-    width: 48,
-    height: 48,
+  // FAQ Styles
+  faqItem: {
+    backgroundColor: HELP_COLORS.surface,
     borderRadius: 12,
-    backgroundColor: COLORS.accent + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 2,
-  },
-  contactSubtitle: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: HELP_COLORS.border,
   },
 
-  // FAQ Items
-  faqItem: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-  },
   faqHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
+
   faqQuestion: {
     fontSize: 16,
     fontWeight: '500',
-    color: COLORS.text.primary,
+    color: HELP_COLORS.text.primary,
     flex: 1,
-    marginRight: 16,
-  },
-  faqToggle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-  faqAnswer: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    marginTop: 12,
-    lineHeight: 20,
+    marginRight: 12,
   },
 
-  // Resource Cards
-  resourceCard: {
+  faqAnswer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: HELP_COLORS.border,
+  },
+
+  faqAnswerText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: HELP_COLORS.text.secondary,
+    lineHeight: 20,
+    marginTop: 12,
+  },
+
+  // Contact Styles
+  contactItem: {
+    backgroundColor: HELP_COLORS.surface,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: HELP_COLORS.border,
+  },
+
+  contactContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-  },
-  resourceIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: COLORS.accent + '20',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  resourceInfo: {
-    flex: 1,
-  },
-  resourceTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 2,
-  },
-  resourceSubtitle: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
 
-  // Info Section
-  infoSection: {
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.surfaceLight + '50',
-    borderRadius: 16,
-  },
-  infoTitle: {
+  contactText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text.primary,
-    marginBottom: 8,
+    fontWeight: '500',
+    color: HELP_COLORS.text.primary,
+    marginLeft: 12,
   },
-  infoText: {
-    fontSize: 14,
-    color: COLORS.text.secondary,
-    lineHeight: 20,
+
+  // Guide Styles
+  guideItem: {
+    backgroundColor: HELP_COLORS.surface,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: HELP_COLORS.border,
+  },
+
+  guideContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+
+  guideText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: HELP_COLORS.text.primary,
+    marginLeft: 12,
+  },
+
+  // Bottom spacing
+  bottomSpacing: {
+    height: 100,
   },
 });
 

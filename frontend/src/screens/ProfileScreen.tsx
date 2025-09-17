@@ -82,7 +82,8 @@ const ProfileScreen: React.FC = () => {
         Alert.alert('Language', 'Language settings functionality coming soon!');
         break;
       case 'help-support':
-        Alert.alert('Help & Support', 'Help & Support functionality coming soon!');
+        // @ts-ignore
+        navigation.navigate('HelpSupport');
         break;
       case 'logout':
         setShowLogoutModal(true);
