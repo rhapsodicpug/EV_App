@@ -21,7 +21,6 @@ import {
   MapPin,
   Clock,
   DollarSign,
-  CheckCircle,
   XCircle,
   MoreVertical,
   Trash2,
@@ -56,19 +55,20 @@ type TabType = 'upcoming' | 'completed' | 'cancelled';
 const BookingListScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp<any>>();
   const { 
+    state,
     getUpcomingBookings, 
     getCompletedBookings, 
     getCancelledBookings,
-    markCompleted,
     deleteBooking,
-    cancelBooking 
+    cancelBooking,
+    loadBookings
   } = useBookings();
   
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Back button handler
   useEffect(() => {
@@ -83,6 +83,11 @@ const BookingListScreen: React.FC = () => {
 
   const handleBackPress = () => {
     navigation.goBack();
+  };
+
+  // Force refresh function
+  const forceRefresh = () => {
+    setRefreshKey(prev => prev + 1);
   };
 
   const getCurrentBookings = () => {
@@ -114,25 +119,6 @@ const BookingListScreen: React.FC = () => {
     setShowActionModal(true);
   };
 
-  const handleMarkCompleted = () => {
-    if (selectedBooking) {
-      setShowCompleteModal(true);
-    }
-  };
-
-  const confirmMarkCompleted = async () => {
-    if (selectedBooking) {
-      try {
-        await markCompleted(selectedBooking.id);
-        setShowCompleteModal(false);
-        setShowActionModal(false);
-        setSelectedBooking(null);
-        Alert.alert('Success', 'Booking marked as completed!');
-      } catch (error) {
-        Alert.alert('Error', 'Failed to mark booking as completed');
-      }
-    }
-  };
 
   const handleDeleteBooking = () => {
     if (selectedBooking) {
@@ -143,12 +129,23 @@ const BookingListScreen: React.FC = () => {
   const confirmDeleteBooking = async () => {
     if (selectedBooking) {
       try {
+        console.log('🎯 Starting delete process for booking:', selectedBooking.id);
         await deleteBooking(selectedBooking.id);
+        console.log('🎯 Delete process finished');
+        
+        // Reload bookings from storage to ensure UI is updated
+        await loadBookings();
+        
+        // Force refresh the screen
+        forceRefresh();
+        
+        // Close modals and show success
         setShowDeleteModal(false);
         setShowActionModal(false);
         setSelectedBooking(null);
         Alert.alert('Success', 'Booking deleted successfully!');
       } catch (error) {
+        console.error('❌ Error in confirmDeleteBooking:', error);
         Alert.alert('Error', 'Failed to delete booking');
       }
     }
@@ -157,11 +154,22 @@ const BookingListScreen: React.FC = () => {
   const handleCancelBooking = async () => {
     if (selectedBooking) {
       try {
+        console.log('🎯 Starting cancel process for booking:', selectedBooking.id);
         await cancelBooking(selectedBooking.id);
+        console.log('🎯 Cancel process finished');
+        
+        // Reload bookings from storage to ensure UI is updated
+        await loadBookings();
+        
+        // Force refresh the screen
+        forceRefresh();
+        
+        // Close modals and show success
         setShowActionModal(false);
         setSelectedBooking(null);
         Alert.alert('Success', 'Booking cancelled successfully!');
       } catch (error) {
+        console.error('❌ Error in handleCancelBooking:', error);
         Alert.alert('Error', 'Failed to cancel booking');
       }
     }
@@ -198,7 +206,7 @@ const BookingListScreen: React.FC = () => {
       case 'upcoming':
         return <Clock size={16} color={BOOKING_COLORS.warning} />;
       case 'completed':
-        return <CheckCircle size={16} color={BOOKING_COLORS.success} />;
+        return <Clock size={16} color={BOOKING_COLORS.success} />;
       case 'cancelled':
         return <XCircle size={16} color={BOOKING_COLORS.error} />;
       default:
@@ -257,7 +265,7 @@ const BookingListScreen: React.FC = () => {
   const currentBookings = getCurrentBookings();
 
   return (
-    <View style={styles.container}>
+    <View key={refreshKey} style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={BOOKING_COLORS.background} />
       
       {/* Header */}
@@ -266,7 +274,27 @@ const BookingListScreen: React.FC = () => {
           <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Bookings</Text>
-        <View style={styles.headerRight} />
+        <View style={styles.headerRightContainer}>
+          <TouchableOpacity 
+            style={styles.refreshButton} 
+            onPress={forceRefresh}
+          >
+            <Text style={styles.refreshButtonText}>🔄</Text>
+          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity 
+              style={styles.testButton} 
+              onPress={() => {
+                console.log('🧪 Test: Current bookings count:', state.bookings.length);
+                console.log('🧪 Test: Upcoming:', getUpcomingBookings().length);
+                console.log('🧪 Test: Completed:', getCompletedBookings().length);
+                console.log('🧪 Test: Cancelled:', getCancelledBookings().length);
+              }}
+            >
+              <Text style={styles.testButtonText}>🧪</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Tabs */}
@@ -324,11 +352,6 @@ const BookingListScreen: React.FC = () => {
         options={[
           ...(selectedBooking?.status === 'upcoming' ? [
             {
-              text: 'Mark as Done',
-              onPress: handleMarkCompleted,
-              style: 'primary' as const,
-            },
-            {
               text: 'Cancel Booking',
               onPress: handleCancelBooking,
               style: 'destructive' as const,
@@ -354,25 +377,6 @@ const BookingListScreen: React.FC = () => {
         }}
       />
 
-      {/* Complete Confirmation Modal */}
-      <CustomModal
-        visible={showCompleteModal}
-        title="Mark as Completed"
-        message="Are you sure you want to mark this booking as completed? This will move it to the completed section."
-        options={[
-          {
-            text: 'Yes, Mark as Done',
-            onPress: confirmMarkCompleted,
-            style: 'primary' as const,
-          },
-          {
-            text: 'Cancel',
-            onPress: () => setShowCompleteModal(false),
-            style: 'cancel' as const,
-          },
-        ]}
-        onClose={() => setShowCompleteModal(false)}
-      />
 
       {/* Delete Confirmation Modal */}
       <CustomModal
@@ -431,6 +435,38 @@ const styles = StyleSheet.create({
 
   headerRight: {
     width: 40,
+  },
+
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: BOOKING_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  refreshButtonText: {
+    fontSize: 18,
+  },
+
+  testButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: BOOKING_COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  testButtonText: {
+    fontSize: 16,
   },
 
   // Tab Styles

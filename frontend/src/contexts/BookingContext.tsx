@@ -89,9 +89,11 @@ const bookingReducer = (state: BookingState, action: BookingAction): BookingStat
       };
     
     case 'DELETE_BOOKING':
+      const filteredBookings = state.bookings.filter(booking => booking.id !== action.payload);
+      console.log('🔄 DELETE_BOOKING reducer - Before:', state.bookings.length, 'After:', filteredBookings.length);
       return {
         ...state,
-        bookings: state.bookings.filter(booking => booking.id !== action.payload),
+        bookings: filteredBookings,
         error: null,
       };
     
@@ -104,17 +106,19 @@ const bookingReducer = (state: BookingState, action: BookingAction): BookingStat
       };
     
     case 'MARK_COMPLETED':
+      const updatedBookings = state.bookings.map(booking =>
+        booking.id === action.payload
+          ? { 
+              ...booking, 
+              status: 'completed' as const,
+              completedAt: new Date().toISOString()
+            }
+          : booking
+      );
+      console.log('🔄 MARK_COMPLETED reducer - Updated bookings:', updatedBookings.map(b => ({ id: b.id, status: b.status })));
       return {
         ...state,
-        bookings: state.bookings.map(booking =>
-          booking.id === action.payload
-            ? { 
-                ...booking, 
-                status: 'completed' as const,
-                completedAt: new Date().toISOString()
-              }
-            : booking
-        ),
+        bookings: updatedBookings,
         error: null,
       };
     
@@ -167,8 +171,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Save bookings to storage
   const saveBookings = async (bookings: Booking[]) => {
     try {
+      console.log('💾 Saving bookings to storage:', bookings.length, 'bookings');
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+      console.log('💾 Bookings saved successfully');
     } catch (error) {
+      console.error('❌ Failed to save bookings:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to save bookings' });
     }
   };
@@ -209,11 +216,21 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Delete booking
   const deleteBooking = async (id: string) => {
     try {
-      dispatch({ type: 'DELETE_BOOKING', payload: id });
+      console.log('🗑️ Deleting booking:', id);
+      console.log('📋 Current bookings before delete:', state.bookings.length);
+      
+      // Create the updated bookings array
       const updatedBookings = state.bookings.filter(booking => booking.id !== id);
+      console.log('📋 Updated bookings after filter:', updatedBookings.length);
+      
+      // Save to storage first, then update state
       await saveBookings(updatedBookings);
+      dispatch({ type: 'DELETE_BOOKING', payload: id });
+      console.log('✅ Booking deleted successfully');
     } catch (error) {
+      console.error('❌ Failed to delete booking:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete booking' });
+      throw error; // Re-throw to let the UI handle the error
     }
   };
 
@@ -221,7 +238,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const markCompleted = async (id: string) => {
     try {
       console.log('✅ Marking booking as completed:', id);
-      dispatch({ type: 'MARK_COMPLETED', payload: id });
+      
+      // Create the updated bookings array
       const updatedBookings = state.bookings.map(booking =>
         booking.id === id
           ? { 
@@ -231,7 +249,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           : booking
       );
+      
+      // Save to storage first, then update state
       await saveBookings(updatedBookings);
+      dispatch({ type: 'MARK_COMPLETED', payload: id });
       console.log('✅ Booking marked as completed successfully');
     } catch (error) {
       console.error('❌ Failed to mark booking as completed:', error);
@@ -242,7 +263,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Cancel booking
   const cancelBooking = async (id: string) => {
     try {
-      dispatch({ type: 'CANCEL_BOOKING', payload: id });
+      console.log('❌ Cancelling booking:', id);
+      
+      // Create the updated bookings array
       const updatedBookings = state.bookings.map(booking =>
         booking.id === id
           ? { 
@@ -252,31 +275,42 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           : booking
       );
+      
+      // Save to storage first, then update state
       await saveBookings(updatedBookings);
+      dispatch({ type: 'CANCEL_BOOKING', payload: id });
+      console.log('✅ Booking cancelled successfully');
     } catch (error) {
+      console.error('❌ Failed to cancel booking:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to cancel booking' });
     }
   };
 
   // Get upcoming bookings
   const getUpcomingBookings = () => {
-    return state.bookings
+    const upcoming = state.bookings
       .filter(booking => booking.status === 'upcoming')
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    console.log('📅 Upcoming bookings:', upcoming.length, upcoming.map(b => ({ id: b.id, status: b.status })));
+    return upcoming;
   };
 
   // Get completed bookings
   const getCompletedBookings = () => {
-    return state.bookings
+    const completed = state.bookings
       .filter(booking => booking.status === 'completed')
       .sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime());
+    console.log('✅ Completed bookings:', completed.length, completed.map(b => ({ id: b.id, status: b.status })));
+    return completed;
   };
 
   // Get cancelled bookings
   const getCancelledBookings = () => {
-    return state.bookings
+    const cancelled = state.bookings
       .filter(booking => booking.status === 'cancelled')
       .sort((a, b) => new Date(b.cancelledAt || b.createdAt).getTime() - new Date(a.cancelledAt || a.createdAt).getTime());
+    console.log('❌ Cancelled bookings:', cancelled.length, cancelled.map(b => ({ id: b.id, status: b.status })));
+    return cancelled;
   };
 
   // Load bookings on mount
