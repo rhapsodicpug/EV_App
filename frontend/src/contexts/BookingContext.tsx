@@ -220,6 +220,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Mark booking as completed
   const markCompleted = async (id: string) => {
     try {
+      console.log('✅ Marking booking as completed:', id);
       dispatch({ type: 'MARK_COMPLETED', payload: id });
       const updatedBookings = state.bookings.map(booking =>
         booking.id === id
@@ -231,7 +232,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           : booking
       );
       await saveBookings(updatedBookings);
+      console.log('✅ Booking marked as completed successfully');
     } catch (error) {
+      console.error('❌ Failed to mark booking as completed:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to mark booking as completed' });
     }
   };
