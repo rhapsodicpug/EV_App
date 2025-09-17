@@ -522,7 +522,8 @@ const styles = StyleSheet.create({
   // Navigation Styles
   navigationContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingTop: 20,
+    paddingBottom: 100, // Buffer space to prevent content from being hidden by navigation bar
   },
 
   navButton: {
@@ -532,6 +533,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
+    shadowColor: TUTORIAL_COLORS.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
   nextButton: {
@@ -540,8 +546,8 @@ const styles = StyleSheet.create({
 
   nextButtonText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: TUTORIAL_COLORS.background,
+    fontWeight: '700',
+    color: '#000000',
     marginRight: 8,
   },
 });
