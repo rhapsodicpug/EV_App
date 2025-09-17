@@ -13,6 +13,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
+import { useBookings } from '../../contexts/BookingContext';
 
 const PAYMENT_COLORS = {
   background: '#000000',
@@ -39,6 +40,7 @@ interface PaymentScreenProps {
 
 const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const { booking, totalAmount } = route.params;
+  const { addBooking } = useBookings();
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('card');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -64,7 +66,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     setSelectedPaymentMethod(method);
   };
 
-  const handlePay = () => {
+  const handlePay = async () => {
     // TODO: Implement payment processing
     console.log('Processing payment...', {
       paymentMethod: selectedPaymentMethod,
@@ -76,11 +78,31 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       totalAmount,
     });
     
-    // Navigate to booking confirmed screen
-    navigation.navigate('BookingConfirmed', {
-      booking,
-      totalAmount,
-    });
+    try {
+      // Add booking to context (mock payment success)
+      await addBooking({
+        stationId: booking.stationId,
+        stationName: booking.stationName,
+        stationAddress: booking.stationAddress,
+        date: booking.date,
+        time: booking.time,
+        duration: booking.duration,
+        price: totalAmount,
+      });
+      
+      // Navigate to booking confirmed screen
+      navigation.navigate('BookingConfirmed', {
+        booking,
+        totalAmount,
+      });
+    } catch (error) {
+      console.error('Failed to add booking:', error);
+      // Still navigate to confirmation even if context fails
+      navigation.navigate('BookingConfirmed', {
+        booking,
+        totalAmount,
+      });
+    }
   };
 
   const formatCardNumber = (text: string) => {

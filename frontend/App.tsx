@@ -10,6 +10,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { VehicleProvider } from './src/contexts/VehicleContext';
 import { PaymentMethodProvider } from './src/contexts/PaymentMethodContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { BookingProvider } from './src/contexts/BookingContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 const AppContent: React.FC = () => {
@@ -32,7 +33,9 @@ export default function App() {
       <AuthProvider>
         <VehicleProvider>
           <PaymentMethodProvider>
-            <AppContent />
+            <BookingProvider>
+              <AppContent />
+            </BookingProvider>
           </PaymentMethodProvider>
         </VehicleProvider>
       </AuthProvider>
