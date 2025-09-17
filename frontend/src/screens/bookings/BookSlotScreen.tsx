@@ -16,6 +16,8 @@ import {
   Animated,
   Platform,
   BackHandler,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
@@ -310,7 +312,12 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
   const navigation = useNavigation<NavigationProp<any>>();
   const { station } = route.params;
 
-  // State management for native date/time pickers
+  // Modal states
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showTimeModal, setShowTimeModal] = useState(false);
+  const [showDurationModal, setShowDurationModal] = useState(false);
+
+  // State management for selections
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -331,6 +338,56 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
     { id: '1hr30min', label: '1 hr 30 min', minutes: 90 },
     { id: '2hr', label: '2 hr', minutes: 120 },
   ];
+
+  // Generate available dates (next 30 days)
+  const generateAvailableDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 1; i <= 30; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      dates.push({
+        id: date.toISOString().split('T')[0],
+        date: date,
+        label: date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        }),
+        fullLabel: date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }),
+      });
+    }
+    return dates;
+  };
+
+  // Generate time slots (every 30 minutes from 6 AM to 10 PM)
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 6; hour <= 22; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = new Date();
+        time.setHours(hour, minute, 0, 0);
+        slots.push({
+          id: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+          time: time,
+          label: time.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+          }),
+        });
+      }
+    }
+    return slots;
+  };
+
+  const availableDates = generateAvailableDates();
+  const timeSlots = generateTimeSlots();
 
   // Calculate price based on selected duration
   useEffect(() => {
@@ -358,6 +415,22 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
 
   const handleDurationSelect = (duration: DurationChip) => {
     setSelectedDuration(duration);
+  };
+
+  // Modal handlers
+  const handleDateSelect = (dateItem: any) => {
+    setSelectedDate(dateItem.date);
+    setShowDateModal(false);
+  };
+
+  const handleTimeSelect = (timeItem: any) => {
+    setSelectedTime(timeItem.time);
+    setShowTimeModal(false);
+  };
+
+  const handleDurationSelectModal = (duration: DurationChip) => {
+    setSelectedDuration(duration);
+    setShowDurationModal(false);
   };
 
   const handleBookSlot = () => {
@@ -404,39 +477,72 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Select a time section */}
+        {/* Date Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select a time</Text>
-          <NativeDateTimePicker
-            selectedDate={selectedDate}
-            selectedTime={selectedTime}
-            onDateChange={handleDateChange}
-            onTimeChange={handleTimeChange}
-          />
+          <Text style={styles.sectionTitle}>Select Date</Text>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowDateModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.pickerButtonContent}>
+              <View style={styles.pickerButtonLeft}>
+                <Calendar size={20} color={BOOK_COLORS.accent} />
+                <Text style={styles.pickerButtonTitle}>Date</Text>
+              </View>
+              <Text style={styles.pickerButtonValue}>
+                {selectedDate.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Duration section */}
+        {/* Time Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Select Time</Text>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowTimeModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.pickerButtonContent}>
+              <View style={styles.pickerButtonLeft}>
+                <Clock size={20} color={BOOK_COLORS.accent} />
+                <Text style={styles.pickerButtonTitle}>Start Time</Text>
+              </View>
+              <Text style={styles.pickerButtonValue}>
+                {selectedTime.toLocaleTimeString('en-US', {
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true,
+                })}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Duration Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Duration</Text>
-          <View style={styles.durationChipsContainer}>
-            {durationChips.map((chip) => (
-              <TouchableOpacity
-                key={chip.id}
-                style={[
-                  styles.durationChip,
-                  selectedDuration?.id === chip.id && styles.durationChipSelected,
-                ]}
-                onPress={() => handleDurationSelect(chip)}
-              >
-                <Text style={[
-                  styles.durationChipText,
-                  selectedDuration?.id === chip.id && styles.durationChipTextSelected,
-                ]}>
-                  {chip.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={styles.pickerButton}
+            onPress={() => setShowDurationModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.pickerButtonContent}>
+              <View style={styles.pickerButtonLeft}>
+                <Clock size={20} color={BOOK_COLORS.accent} />
+                <Text style={styles.pickerButtonTitle}>Duration</Text>
+              </View>
+              <Text style={styles.pickerButtonValue}>
+                {selectedDuration ? selectedDuration.label : 'Select duration'}
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Price section */}
@@ -458,6 +564,111 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Date Selection Modal */}
+      <Modal
+        visible={showDateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Date</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={availableDates}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => handleDateSelect(item)}
+                >
+                  <Text style={styles.modalItemText}>{item.fullLabel}</Text>
+                </TouchableOpacity>
+              )}
+              style={styles.modalList}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time Selection Modal */}
+      <Modal
+        visible={showTimeModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTimeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Time</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowTimeModal(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={timeSlots}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => handleTimeSelect(item)}
+                >
+                  <Text style={styles.modalItemText}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+              style={styles.modalList}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Duration Selection Modal */}
+      <Modal
+        visible={showDurationModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowDurationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Duration</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowDurationModal(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={durationChips}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => handleDurationSelectModal(item)}
+                >
+                  <Text style={styles.modalItemText}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+              style={styles.modalList}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -521,6 +732,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: BOOK_COLORS.text.primary,
     marginBottom: 16,
+  },
+
+  // Picker Button Styles
+  pickerButton: {
+    backgroundColor: BOOK_COLORS.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 8,
+    shadowColor: '#00A8FF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: BOOK_COLORS.border,
+  },
+
+  pickerButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  pickerButtonLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  pickerButtonTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: BOOK_COLORS.text.primary,
+  },
+
+  pickerButtonValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: BOOK_COLORS.text.secondary,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
   },
 
   // Native Date/Time Picker Styles
@@ -689,6 +942,69 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000000',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+
+  modalContent: {
+    backgroundColor: BOOK_COLORS.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    minHeight: '50%',
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: BOOK_COLORS.border,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: BOOK_COLORS.text.primary,
+  },
+
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: BOOK_COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  modalCloseText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: BOOK_COLORS.text.primary,
+  },
+
+  modalList: {
+    flex: 1,
+  },
+
+  modalItem: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: BOOK_COLORS.border,
+  },
+
+  modalItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: BOOK_COLORS.text.primary,
   },
 });
 
