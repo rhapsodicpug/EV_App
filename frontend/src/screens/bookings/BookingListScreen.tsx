@@ -86,13 +86,24 @@ const BookingListScreen: React.FC = () => {
   };
 
   const getCurrentBookings = () => {
+    const upcoming = getUpcomingBookings();
+    const completed = getCompletedBookings();
+    const cancelled = getCancelledBookings();
+    
+    console.log('📊 Booking counts:', {
+      upcoming: upcoming.length,
+      completed: completed.length,
+      cancelled: cancelled.length,
+      activeTab
+    });
+    
     switch (activeTab) {
       case 'upcoming':
-        return getUpcomingBookings();
+        return upcoming;
       case 'completed':
-        return getCompletedBookings();
+        return completed;
       case 'cancelled':
-        return getCancelledBookings();
+        return cancelled;
       default:
         return [];
     }

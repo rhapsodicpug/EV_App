@@ -150,11 +150,16 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const storedBookings = await AsyncStorage.getItem(STORAGE_KEY);
+      console.log('📂 Loading bookings from storage:', storedBookings);
       if (storedBookings) {
         const bookings = JSON.parse(storedBookings);
+        console.log('📋 Loaded bookings:', bookings.length, 'bookings');
         dispatch({ type: 'LOAD_BOOKINGS', payload: bookings });
+      } else {
+        console.log('📭 No stored bookings found');
       }
     } catch (error) {
+      console.error('❌ Failed to load bookings:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load bookings' });
     }
   };
@@ -178,9 +183,12 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         status: 'upcoming',
       };
       
+      console.log('📝 Adding new booking:', newBooking);
       dispatch({ type: 'ADD_BOOKING', payload: newBooking });
       await saveBookings([newBooking, ...state.bookings]);
+      console.log('✅ Booking added successfully');
     } catch (error) {
+      console.error('❌ Failed to add booking:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to add booking' });
     }
   };

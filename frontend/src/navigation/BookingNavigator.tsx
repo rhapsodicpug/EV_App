@@ -9,7 +9,7 @@ import { BookingStackParamList } from '../types/api';
 import { useThemeColors, Colors, Spacing, BorderRadius, Elevation } from '../design';
 
 // Import screens
-import BookingScreen from '../screens/BookingScreen';
+import BookingListScreen from '../screens/bookings/BookingListScreen';
 import { SlotSelectionScreen } from '../screens/bookings/SlotSelectionScreen';
 
 const Stack = createStackNavigator<BookingStackParamList>();
@@ -37,7 +37,7 @@ const BookingNavigator: React.FC = () => {
     >
       <Stack.Screen 
         name="BookingsMain" 
-        component={BookingScreen}
+        component={BookingListScreen}
         options={{
           title: 'My Bookings',
           headerShown: false,
