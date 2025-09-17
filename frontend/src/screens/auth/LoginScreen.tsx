@@ -30,6 +30,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { testNetworkConnection, logNetworkInfo } from '../../utils/networkTest';
 
 const { width, height } = Dimensions.get('window');
 
@@ -251,6 +252,26 @@ const LoginScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Network Test Button (Development Only) */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={styles.networkTestButton}
+            onPress={async () => {
+              logNetworkInfo();
+              const result = await testNetworkConnection();
+              Alert.alert(
+                'Network Test Result',
+                result.success 
+                  ? 'Network connection successful!' 
+                  : `Network test failed: ${result.error}`,
+                [{ text: 'OK' }]
+              );
+            }}
+          >
+            <Text style={styles.networkTestButtonText}>Test Network Connection</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Sign Up Link */}
         <TouchableOpacity style={styles.signUpContainer} onPress={handleSignUp}>
           <Text style={styles.signUpText}>Don't have an account? Sign Up</Text>
@@ -396,6 +417,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: LOGIN_COLORS.text.primary,
+  },
+
+  networkTestButton: {
+    backgroundColor: LOGIN_COLORS.surface,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: LOGIN_COLORS.border,
+  },
+
+  networkTestButtonText: {
+    fontSize: 12,
+    color: LOGIN_COLORS.text.secondary,
+    fontWeight: '500',
   },
 
   signUpContainer: {
