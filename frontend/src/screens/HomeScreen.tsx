@@ -119,7 +119,14 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleProfilePress = () => {
-    navigation.navigate('Profile' as never);
+    // Navigate to the Profile tab (which shows ProfileMain screen)
+    // Use getParent to access the tab navigator
+    const parentNavigation = navigation.getParent();
+    if (parentNavigation) {
+      parentNavigation.navigate('Profile');
+    } else {
+      navigation.navigate('Profile' as never);
+    }
   };
 
   const handleFindCharger = () => {
@@ -184,8 +191,22 @@ const HomeScreen: React.FC = () => {
             <TouchableOpacity 
               style={[styles.addVehicleButton, { backgroundColor: theme.colors.accent }]}
               onPress={() => {
-                // @ts-ignore
-                navigation.navigate('Profile', { screen: 'AddVehicle' });
+                // Navigate to Profile tab first, then to AddVehicle screen
+                const parentNavigation = navigation.getParent();
+                if (parentNavigation) {
+                  // Navigate to Profile tab first to establish the context
+                  parentNavigation.navigate('Profile');
+                  // Then navigate to AddVehicle screen within the Profile tab
+                  setTimeout(() => {
+                    parentNavigation.navigate('Profile', { 
+                      screen: 'AddVehicle',
+                      params: {}
+                    });
+                  }, 50);
+                } else {
+                  // @ts-ignore
+                  navigation.navigate('Profile', { screen: 'AddVehicle' });
+                }
               }}
             >
               <Text style={[styles.addVehicleButtonText, { color: '#000000' }]}>Add Vehicle</Text>

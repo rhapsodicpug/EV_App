@@ -71,7 +71,7 @@ const BackToGetStartedScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>Welcome Back</Text>
+        <Text style={styles.headerTitle}>EV-App</Text>
         <View style={styles.headerSpacer} />
       </View>
 

@@ -20,6 +20,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DynamicWallpaper } from '../../components';
 import {
   ArrowLeft,
@@ -53,6 +54,7 @@ const SIGNUP_COLORS = {
 
 const SignUpScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp<any>>();
+  const insets = useSafeAreaInsets();
   
   // Form state
   const [fullName, setFullName] = useState('');
@@ -158,10 +160,10 @@ const SignUpScreen: React.FC = () => {
         style={styles.container} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <StatusBar barStyle="light-content" backgroundColor={SIGNUP_COLORS.background} />
         
         {/* Header */}
-        <SafeAreaView style={styles.headerSafeArea}>
+        <SafeAreaView style={[styles.headerSafeArea, { paddingTop: insets.top }]}>
           <BlurView
             style={styles.headerContainer}
             intensity={50}
@@ -312,57 +314,39 @@ const SignUpScreen: React.FC = () => {
         </BlurView>
 
         {/* Sign Up Button */}
-        <BlurView
+        <TouchableOpacity
           style={StyleSheet.flatten([styles.signUpButton, isLoading && styles.signUpButtonDisabled])}
-          intensity={15}
-          tint="dark"
+          onPress={handleSignUp}
+          disabled={isLoading}
+          activeOpacity={0.8}
         >
-          <TouchableOpacity
-            style={styles.signUpButtonTouchable}
-            onPress={handleSignUp}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.signUpButtonText}>
-              {isLoading ? 'Creating Account...' : 'Sign Up'}
-            </Text>
-          </TouchableOpacity>
-        </BlurView>
+          <Text style={styles.signUpButtonText}>
+            {isLoading ? 'Creating Account...' : 'Sign Up'}
+          </Text>
+        </TouchableOpacity>
 
         {/* Or sign up with */}
         <Text style={styles.orText}>Or sign up with</Text>
 
         {/* Social Sign Up Buttons */}
         <View style={styles.socialButtonsContainer}>
-          <BlurView
+          <TouchableOpacity
             style={styles.socialButton}
-            intensity={15}
-            tint="dark"
+            onPress={handleGoogleSignUp}
+            disabled={isLoading}
+            activeOpacity={0.8}
           >
-            <TouchableOpacity
-              style={styles.socialButtonTouchable}
-              onPress={handleGoogleSignUp}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.socialButtonText}>Continue with Google</Text>
-            </TouchableOpacity>
-          </BlurView>
+            <Text style={styles.socialButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
 
-          <BlurView
+          <TouchableOpacity
             style={styles.socialButton}
-            intensity={15}
-            tint="dark"
+            onPress={handleAppleSignUp}
+            disabled={isLoading}
+            activeOpacity={0.8}
           >
-            <TouchableOpacity
-              style={styles.socialButtonTouchable}
-              onPress={handleAppleSignUp}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.socialButtonText}>Continue with Apple</Text>
-            </TouchableOpacity>
-          </BlurView>
+            <Text style={styles.socialButtonText}>Continue with Apple</Text>
+          </TouchableOpacity>
         </View>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -529,19 +513,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: SIGNUP_COLORS.text.primary,
     textAlign: 'center',
-  },
-  signUpButtonTouchable: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-  },
-  socialButtonTouchable: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
   },
 });
 

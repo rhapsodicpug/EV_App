@@ -373,7 +373,8 @@ export type StationStackParamList = {
 
 export type MapStackParamList = {
   InteractiveMap: undefined;
-  StationDetails: { stationId: string };
+  StationDetails: { station: EVStation };
+  StationBooking: { stationId: string };
 };
 
 export type BookingStackParamList = {
