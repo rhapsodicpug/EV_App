@@ -18,6 +18,7 @@ import {
   Globe,
   HelpCircle,
   LogOut,
+  Bot,
 } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -85,6 +86,10 @@ const ProfileScreen: React.FC = () => {
         // @ts-ignore
         navigation.navigate('HelpSupport');
         break;
+      case 'chatbot':
+        // @ts-ignore
+        navigation.navigate('Chatbot');
+        break;
       case 'logout':
         setShowLogoutModal(true);
         break;
@@ -138,6 +143,13 @@ const ProfileScreen: React.FC = () => {
       subtitle: 'Help & Support',
       icon: HelpCircle,
       onPress: () => handleSettingPress('help-support'),
+    },
+    {
+      id: 'chatbot',
+      title: 'EV Assistant',
+      subtitle: 'AI-powered support',
+      icon: Bot,
+      onPress: () => handleSettingPress('chatbot'),
     },
     {
       id: 'logout',

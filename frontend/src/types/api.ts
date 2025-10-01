@@ -357,6 +357,10 @@ export type MainTabParamList = {
   Profile: undefined;
   EditProfile: undefined;
   VehicleInfo: undefined;
+  Chatbot: undefined;
+  BatteryHealth: undefined;
+  RangeAnxiety: undefined;
+  Notifications: undefined;
 };
 
 export type StationStackParamList = {

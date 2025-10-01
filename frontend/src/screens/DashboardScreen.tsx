@@ -251,10 +251,6 @@ const HomeScreen: React.FC = () => {
     navigation.navigate('Search', { screen: 'StationList' });
   };
 
-  const handleStartCharging = () => {
-    // Navigate to QR scanner or charging flow
-    Alert.alert('Start Charging', 'QR code scanner would open here');
-  };
 
   const handleBookSlot = () => {
     navigation.navigate('Bookings', { screen: 'BookingForm' });
@@ -388,11 +384,6 @@ const HomeScreen: React.FC = () => {
         <TouchableOpacity style={styles.quickActionButton} onPress={handleFindCharger}>
           <MapPin size={24} color={DASHBOARD_COLORS.text.primary} />
           <Text style={styles.quickActionText}>Find Charger</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.quickActionButton} onPress={handleStartCharging}>
-          <Zap size={24} color={DASHBOARD_COLORS.text.primary} />
-          <Text style={styles.quickActionText}>Start Charging</Text>
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.quickActionButton} onPress={handleBookSlot}>

@@ -274,27 +274,7 @@ const BookingListScreen: React.FC = () => {
           <ArrowLeft size={24} color={BOOKING_COLORS.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Bookings</Text>
-        <View style={styles.headerRightContainer}>
-          <TouchableOpacity 
-            style={styles.refreshButton} 
-            onPress={forceRefresh}
-          >
-            <Text style={styles.refreshButtonText}>🔄</Text>
-          </TouchableOpacity>
-          {__DEV__ && (
-            <TouchableOpacity 
-              style={styles.testButton} 
-              onPress={() => {
-                console.log('🧪 Test: Current bookings count:', state.bookings.length);
-                console.log('🧪 Test: Upcoming:', getUpcomingBookings().length);
-                console.log('🧪 Test: Completed:', getCompletedBookings().length);
-                console.log('🧪 Test: Cancelled:', getCancelledBookings().length);
-              }}
-            >
-              <Text style={styles.testButtonText}>🧪</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <View style={styles.headerRight} />
       </View>
 
       {/* Tabs */}
@@ -328,7 +308,11 @@ const BookingListScreen: React.FC = () => {
       </View>
 
       {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {currentBookings.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>No {activeTab} bookings</Text>
@@ -505,6 +489,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+
+  scrollContent: {
+    paddingBottom: 120, // Extra padding to avoid bottom navigation overlap
   },
 
   // Booking Card Styles

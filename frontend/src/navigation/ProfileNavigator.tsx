@@ -21,12 +21,13 @@ import AboutScreen from '../screens/AboutScreen';
 import GettingStartedTutorial from '../screens/tutorials/GettingStartedTutorial';
 import BookingTutorial from '../screens/tutorials/BookingTutorial';
 import PaymentGuide from '../screens/tutorials/PaymentGuide';
+import ChatbotScreen from '../screens/ChatbotScreen';
 
 const Stack = createStackNavigator();
 
 const ProfileNavigator: React.FC = () => {
   const { theme } = useTheme();
-  
+
   return (
     <Stack.Navigator
       initialRouteName="ProfileMain"
@@ -161,6 +162,15 @@ const ProfileNavigator: React.FC = () => {
         component={PaymentGuide}
         options={{
           title: 'Payment Guide',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Chatbot"
+        component={ChatbotScreen}
+        options={{
+          title: 'EV Assistant',
           headerBackTitle: 'Back',
           headerShown: false,
         }}
