@@ -4,11 +4,14 @@
 
 import Constants from 'expo-constants';
 
+// Determine if we're in development mode
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : true;
+
 // API Configuration
 export const API_CONFIG = {
   // Use local IP for development - update for production
-  BASE_URL: __DEV__
-    ? 'http://192.168.1.7:8000'  // Local development (use your machine's IP)
+  BASE_URL: isDev
+    ? 'http://192.168.1.13:8000'  // Local development (use your machine's IP)
     : 'https://your-production-api.com',  // Production URL
   
   TIMEOUT: 10000, // 10 seconds
@@ -95,8 +98,8 @@ export const MAP_CONFIG = {
 
 // Development Configuration
 export const DEV_CONFIG = {
-  ENABLE_LOGGING: __DEV__,
-  MOCK_DATA: __DEV__,
-  SHOW_PERFORMANCE: __DEV__,
-  API_LOGGING: __DEV__,
+  ENABLE_LOGGING: isDev,
+  MOCK_DATA: isDev,
+  SHOW_PERFORMANCE: isDev,
+  API_LOGGING: isDev,
 };

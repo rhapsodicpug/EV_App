@@ -68,6 +68,7 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [heatMapMode, setHeatMapMode] = useState(false);
   
   const mapRef = useRef<MapView>(null);
 
@@ -212,6 +213,12 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
   };
 
   const getMarkerColor = (station: EVStation): string => {
+    // If heat map mode is active, use density-based colors
+    if (heatMapMode) {
+      return getDensityColor(station);
+    }
+    
+    // Otherwise use availability-based colors
     const { status } = getStationAvailability(station);
     switch (status) {
       case 'available':
@@ -227,9 +234,64 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
     }
   };
 
+  const getDensityColor = (station: EVStation): string => {
+    // Calculate how many stations are within 5km of this station
+    const stationLat = station.location.coordinates[1];
+    const stationLon = station.location.coordinates[0];
+    
+    const nearbyCount = stations.filter((s) => {
+      const lat = s.location.coordinates[1];
+      const lon = s.location.coordinates[0];
+      const distance = calculateDistance(stationLat, stationLon, lat, lon);
+      return distance <= 5; // Within 5km
+    }).length;
+
+    // Color coding based on density
+    if (nearbyCount >= 8) {
+      return '#10B981'; // Green - High density
+    } else if (nearbyCount >= 4) {
+      return '#F59E0B'; // Orange - Medium density
+    } else {
+      return '#EF4444'; // Red - Low density
+    }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   const renderCustomMarker = (station: EVStation) => {
     const color = getMarkerColor(station);
     const { available, total } = getStationAvailability(station);
+
+    // In heat map mode, show density instead of availability
+    if (heatMapMode) {
+      const stationLat = station.location.coordinates[1];
+      const stationLon = station.location.coordinates[0];
+      const nearbyCount = stations.filter((s) => {
+        const lat = s.location.coordinates[1];
+        const lon = s.location.coordinates[0];
+        const distance = calculateDistance(stationLat, stationLon, lat, lon);
+        return distance <= 5;
+      }).length;
+
+      return (
+        <View style={[styles.markerContainer, { backgroundColor: color }]}>
+          <Ionicons name="pulse" size={20} color="#FFFFFF" />
+          <Text style={styles.markerText}>{nearbyCount}</Text>
+        </View>
+      );
+    }
 
     return (
       <View style={[styles.markerContainer, { backgroundColor: color }]}>
@@ -473,6 +535,41 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
         <Ionicons name="locate" size={24} color={MAP_COLORS.text.primary} />
       </TouchableOpacity>
 
+      {/* Heat Map Toggle Button */}
+      <TouchableOpacity
+        style={[styles.heatMapButton, heatMapMode && styles.heatMapButtonActive]}
+        onPress={() => setHeatMapMode(!heatMapMode)}
+        activeOpacity={0.8}
+      >
+        <Ionicons 
+          name={heatMapMode ? "layers" : "layers-outline"} 
+          size={24} 
+          color={heatMapMode ? '#000' : MAP_COLORS.text.primary} 
+        />
+      </TouchableOpacity>
+
+      {/* Heat Map Legend */}
+      {heatMapMode && (
+        <View style={styles.heatMapLegend}>
+          <View style={styles.legendHeader}>
+            <Ionicons name="layers" size={18} color={MAP_COLORS.accent} />
+            <Text style={styles.legendTitle}>Station Density</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#10B981' }]} />
+            <Text style={styles.legendText}>High (8+ nearby)</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#F59E0B' }]} />
+            <Text style={styles.legendText}>Medium (4-7 nearby)</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#EF4444' }]} />
+            <Text style={styles.legendText}>Low (&lt;4 nearby)</Text>
+          </View>
+        </View>
+      )}
+
       {renderBottomSheet()}
     </View>
   );
@@ -698,6 +795,81 @@ const styles = StyleSheet.create({
     elevation: 5,
     borderWidth: 1,
     borderColor: MAP_COLORS.border,
+  },
+
+  heatMapButton: {
+    position: 'absolute',
+    bottom: 180, // Above the location button
+    left: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: MAP_COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: MAP_COLORS.border,
+  },
+
+  heatMapButtonActive: {
+    backgroundColor: MAP_COLORS.accent,
+    borderColor: MAP_COLORS.accent,
+  },
+
+  heatMapLegend: {
+    position: 'absolute',
+    top: 100,
+    right: 20,
+    backgroundColor: MAP_COLORS.surface,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: MAP_COLORS.border,
+  },
+
+  legendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+
+  legendTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: MAP_COLORS.text.primary,
+  },
+
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+
+  legendColor: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+
+  legendText: {
+    fontSize: 12,
+    color: MAP_COLORS.text.secondary,
+    fontWeight: '500',
   },
 });
 

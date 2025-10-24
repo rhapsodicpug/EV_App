@@ -74,6 +74,7 @@ const StationListScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [radiusKm] = useState(25); // Fixed radius - backend supports dynamic but UI removed
 
   // Animated values
   const scrollY = new Animated.Value(0);
@@ -130,10 +131,10 @@ const StationListScreen: React.FC = () => {
           });
 
           const { latitude, longitude } = location.coords;
-          console.log('📍 Using location for station search:', { latitude, longitude });
+          console.log('📍 Using location for station search:', { latitude, longitude, radiusKm });
 
-          // Fetch stations with location
-          const response = await apiService.getStationsByLocation(latitude, longitude, 50);
+          // Fetch stations with location and radius
+          const response = await apiService.getStationsByLocation(latitude, longitude, 50, radiusKm);
           stationData = response.stations || [];
         } else {
           console.log('📍 Location permission denied, fetching general stations');
@@ -599,9 +600,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 20,
     marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   searchInput: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

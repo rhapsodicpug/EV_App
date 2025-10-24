@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import {
   ArrowLeft,
+  Search,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useVehicles } from '../contexts/VehicleContext';
@@ -255,6 +256,9 @@ const AddVehicleScreen: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // State for search
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
 
   // Handle back gesture
   useEffect(() => {
@@ -290,7 +294,13 @@ const AddVehicleScreen: React.FC = () => {
   const handleModelSelectConfirm = (model: string) => {
     handleInputChange('model', model);
     setShowModelModal(false);
+    setModelSearchQuery(''); // Clear search when closing
   };
+
+  // Filter vehicle models based on search query
+  const filteredVehicleModels = VEHICLE_MODELS.filter(model =>
+    model.toLowerCase().includes(modelSearchQuery.toLowerCase())
+  );
 
   const handleYearSelectConfirm = (year: string) => {
     handleInputChange('year', year);
@@ -435,7 +445,10 @@ const AddVehicleScreen: React.FC = () => {
         visible={showModelModal}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowModelModal(false)}
+        onRequestClose={() => {
+          setShowModelModal(false);
+          setModelSearchQuery('');
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -443,13 +456,31 @@ const AddVehicleScreen: React.FC = () => {
               <Text style={styles.modalTitle}>Select Vehicle Model</Text>
               <TouchableOpacity
                 style={styles.modalCloseButton}
-                onPress={() => setShowModelModal(false)}
+                onPress={() => {
+                  setShowModelModal(false);
+                  setModelSearchQuery('');
+                }}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
+            
+            {/* Search Input */}
+            <View style={styles.searchContainer}>
+              <Search size={20} color={COLORS.text.secondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search vehicle model..."
+                placeholderTextColor={COLORS.text.tertiary}
+                value={modelSearchQuery}
+                onChangeText={setModelSearchQuery}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
+            </View>
+            
             <FlatList
-              data={VEHICLE_MODELS}
+              data={filteredVehicleModels}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
@@ -460,6 +491,12 @@ const AddVehicleScreen: React.FC = () => {
                 </TouchableOpacity>
               )}
               style={styles.modalList}
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No vehicle found</Text>
+                  <Text style={styles.emptyStateSubtext}>Try a different search term</Text>
+                </View>
+              }
             />
           </View>
         </View>
@@ -677,8 +714,40 @@ const styles = StyleSheet.create({
     color: COLORS.text.primary,
     fontWeight: '600',
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBackground,
+    marginHorizontal: 20,
+    marginVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    color: COLORS.text.primary,
+  },
   modalList: {
     maxHeight: 400,
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
   },
   modalItem: {
     paddingHorizontal: 20,

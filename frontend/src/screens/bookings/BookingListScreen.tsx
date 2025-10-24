@@ -60,30 +60,14 @@ const BookingListScreen: React.FC = () => {
     getCompletedBookings, 
     getCancelledBookings,
     deleteBooking,
-    cancelBooking,
     loadBookings
   } = useBookings();
   
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  // Back button handler
-  useEffect(() => {
-    const backAction = () => {
-      navigation.goBack();
-      return true;
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
-  }, [navigation]);
-
-  const handleBackPress = () => {
-    navigation.goBack();
-  };
+  const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
 
   // Force refresh function
   const forceRefresh = () => {
@@ -114,66 +98,86 @@ const BookingListScreen: React.FC = () => {
     }
   };
 
+  // Back button handler
+  useEffect(() => {
+    const backAction = () => {
+      navigation.goBack();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [navigation]);
+
+  // Monitor state changes and update current bookings
+  useEffect(() => {
+    console.log('🔄 State changed, total bookings:', state.bookings.length);
+    console.log('🔄 Active tab:', activeTab);
+    const current = getCurrentBookings();
+    console.log('🔄 Current bookings for tab:', current.length);
+    console.log('🔄 Current bookings IDs:', current.map(b => b.id));
+    setCurrentBookings(current);
+  }, [state.bookings, activeTab]);
+
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
+
   const handleBookingPress = (booking: Booking) => {
     setSelectedBooking(booking);
-    setShowActionModal(true);
+    // Only show delete confirmation for completed bookings
+    if (booking.status === 'completed') {
+      setShowDeleteModal(true);
+    }
+    // For cancelled and upcoming bookings, just close the selection
   };
 
 
   const handleDeleteBooking = () => {
+    console.log('🔍 Delete button clicked, selectedBooking:', selectedBooking);
     if (selectedBooking) {
+      console.log('✅ Showing delete modal for booking:', selectedBooking.id);
       setShowDeleteModal(true);
+    } else {
+      console.log('❌ No selected booking to delete');
     }
   };
 
   const confirmDeleteBooking = async () => {
     if (selectedBooking) {
-      try {
-        console.log('🎯 Starting delete process for booking:', selectedBooking.id);
-        await deleteBooking(selectedBooking.id);
-        console.log('🎯 Delete process finished');
-        
-        // Reload bookings from storage to ensure UI is updated
-        await loadBookings();
-        
-        // Force refresh the screen
-        forceRefresh();
-        
-        // Close modals and show success
-        setShowDeleteModal(false);
-        setShowActionModal(false);
-        setSelectedBooking(null);
-        Alert.alert('Success', 'Booking deleted successfully!');
-      } catch (error) {
-        console.error('❌ Error in confirmDeleteBooking:', error);
-        Alert.alert('Error', 'Failed to delete booking');
-      }
+      const bookingId = selectedBooking.id;
+      console.log('🎯 Starting delete process for booking:', bookingId);
+      console.log('📊 Current bookings before delete:', currentBookings.length);
+      
+      // Close the delete modal first
+      setShowDeleteModal(false);
+      
+      // Delete the booking
+      await deleteBooking(bookingId);
+      console.log('🎯 Delete process finished');
+      
+      // Manually reload bookings to ensure UI updates
+      await loadBookings();
+      console.log('📥 Bookings reloaded');
+      
+      // Update current bookings manually
+      const updated = getCurrentBookings();
+      console.log('📊 Updated bookings count:', updated.length);
+      setCurrentBookings(updated);
+      
+      // Clear selection
+      setSelectedBooking(null);
+      
+      // Force refresh the screen to update UI
+      forceRefresh();
+      
+      console.log('✅ Delete complete, UI should update now');
+      
+      // Show success message
+      Alert.alert('Success', 'Booking deleted successfully!');
     }
   };
 
-  const handleCancelBooking = async () => {
-    if (selectedBooking) {
-      try {
-        console.log('🎯 Starting cancel process for booking:', selectedBooking.id);
-        await cancelBooking(selectedBooking.id);
-        console.log('🎯 Cancel process finished');
-        
-        // Reload bookings from storage to ensure UI is updated
-        await loadBookings();
-        
-        // Force refresh the screen
-        forceRefresh();
-        
-        // Close modals and show success
-        setShowActionModal(false);
-        setSelectedBooking(null);
-        Alert.alert('Success', 'Booking cancelled successfully!');
-      } catch (error) {
-        console.error('❌ Error in handleCancelBooking:', error);
-        Alert.alert('Error', 'Failed to cancel booking');
-      }
-    }
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -262,8 +266,6 @@ const BookingListScreen: React.FC = () => {
     </TouchableOpacity>
   );
 
-  const currentBookings = getCurrentBookings();
-
   return (
     <View key={refreshKey} style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={BOOKING_COLORS.background} />
@@ -327,40 +329,6 @@ const BookingListScreen: React.FC = () => {
           currentBookings.map(renderBookingCard)
         )}
       </ScrollView>
-
-      {/* Action Modal */}
-      <CustomModal
-        visible={showActionModal}
-        title="Booking Actions"
-        message={`What would you like to do with your booking at ${selectedBooking?.stationName}?`}
-        options={[
-          ...(selectedBooking?.status === 'upcoming' ? [
-            {
-              text: 'Cancel Booking',
-              onPress: handleCancelBooking,
-              style: 'destructive' as const,
-            },
-          ] : []),
-          {
-            text: 'Delete',
-            onPress: handleDeleteBooking,
-            style: 'destructive' as const,
-          },
-          {
-            text: 'Close',
-            onPress: () => {
-              setShowActionModal(false);
-              setSelectedBooking(null);
-            },
-            style: 'cancel' as const,
-          },
-        ]}
-        onClose={() => {
-          setShowActionModal(false);
-          setSelectedBooking(null);
-        }}
-      />
-
 
       {/* Delete Confirmation Modal */}
       <CustomModal

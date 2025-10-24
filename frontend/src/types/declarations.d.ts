@@ -1,3 +1,5 @@
+declare const __DEV__: boolean;
+
 declare module 'expo-notifications' {
   export interface NotificationPermissionsStatus {
     status: 'granted' | 'denied' | 'undetermined';

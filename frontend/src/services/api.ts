@@ -218,12 +218,14 @@ class ApiService {
   async getStationsByLocation(
     latitude: number,
     longitude: number,
-    limit = 50
+    limit = 50,
+    radiusKm = 25
   ): Promise<{ stations: EVStation[]; count: number; source?: string }> {
     const response = await this.client.get(API_CONFIG.ENDPOINTS.STATIONS.LIST, {
       params: {
         latitude,
         longitude,
+        radius_km: radiusKm,
         limit,
       },
     });

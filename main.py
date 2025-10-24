@@ -243,29 +243,70 @@ async def create_station(station: StationCreate):
 async def get_stations(
     latitude: Optional[float] = Query(None, description="User's latitude"),
     longitude: Optional[float] = Query(None, description="User's longitude"),
+    radius_km: float = Query(25, description="Search radius in kilometers"),
     skip: int = 0,
     limit: int = 100
 ):
-    """Get EV charging stations - from OpenChargeMap API if location provided, otherwise from database"""
+    """Get EV charging stations - returns nearby stations from database and OpenChargeMap"""
 
-    # If location is provided, fetch from OpenChargeMap API
+    all_stations = []
+    
+    # Helper function to calculate distance between two points (Haversine formula)
+    def calculate_distance(lat1, lon1, lat2, lon2):
+        from math import radians, sin, cos, sqrt, atan2
+        R = 6371  # Earth radius in kilometers
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1-a))
+        return R * c
+    
+    # Fetch from database
+    if stations_collection is not None:
+        try:
+            db_stations = []
+            for station_doc in stations_collection.find().skip(skip).limit(limit * 2):  # Fetch more to filter
+                station_doc["id"] = str(station_doc["_id"])
+                del station_doc["_id"]
+                
+                # If location is provided, filter by distance (using radius_km)
+                if latitude is not None and longitude is not None:
+                    station_coords = station_doc.get("location", {}).get("coordinates", [])
+                    if len(station_coords) == 2:
+                        station_lon, station_lat = station_coords[0], station_coords[1]
+                        distance = calculate_distance(latitude, longitude, station_lat, station_lon)
+                        if distance <= radius_km:  # Within specified radius
+                            station_doc["distance_km"] = round(distance, 2)
+                            db_stations.append(station_doc)
+                else:
+                    # No location provided, include all stations
+                    db_stations.append(station_doc)
+            
+            all_stations.extend(db_stations)
+        except Exception as e:
+            print(f"⚠️ Error fetching from database: {e}")
+
+    # If location is provided, also fetch from OpenChargeMap API
     if latitude is not None and longitude is not None:
-        return await get_stations_from_ocm(latitude, longitude, limit)
+        try:
+            ocm_response = await get_stations_from_ocm(latitude, longitude, limit, radius_km)
+            ocm_stations = ocm_response.get("stations", [])
+            all_stations.extend(ocm_stations)
+        except Exception as e:
+            print(f"⚠️ Error fetching from OpenChargeMap: {e}")
 
-    # Otherwise, fall back to database
-    if stations_collection is None:
-        raise HTTPException(status_code=500, detail="Database not available")
+    # Sort all stations by distance if location provided
+    if latitude is not None and longitude is not None:
+        # Sort by distance_km if available, otherwise put at end
+        all_stations.sort(key=lambda x: (
+            x.get("distance_km", 999) if "distance_km" in x else 999,
+            x.get("id", "")  # For stable sorting
+        ))
+        # Limit to the requested number
+        all_stations = all_stations[:limit]
 
-    try:
-        stations = []
-        for station_doc in stations_collection.find().skip(skip).limit(limit):
-            station_doc["id"] = str(station_doc["_id"])
-            del station_doc["_id"]
-            stations.append(station_doc)
-
-        return {"stations": stations, "count": len(stations)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    return {"stations": all_stations, "count": len(all_stations)}
 
 @app.get("/stations/{station_id}")
 async def get_station(station_id: str):
@@ -983,7 +1024,7 @@ async def get_charging_slots(station_id: str):
 
 # ==================== OPENCHARGEMAP API INTEGRATION ====================
 
-async def get_stations_from_ocm(latitude: float, longitude: float, limit: int = 50):
+async def get_stations_from_ocm(latitude: float, longitude: float, limit: int = 50, radius_km: float = 25):
     """Fetch charging stations from OpenChargeMap API"""
 
     if not OCM_API_KEY:
@@ -999,7 +1040,7 @@ async def get_stations_from_ocm(latitude: float, longitude: float, limit: int = 
                 "output": "json",
                 "latitude": latitude,
                 "longitude": longitude,
-                "distance": 25,  # Search within 25km radius
+                "distance": radius_km,  # Search within specified radius
                 "distanceunit": "km",
                 "maxresults": min(limit, 100),  # OCM limit is 100
             })

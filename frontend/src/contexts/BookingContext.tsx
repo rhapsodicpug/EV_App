@@ -219,18 +219,20 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.log('🗑️ Deleting booking:', id);
       console.log('📋 Current bookings before delete:', state.bookings.length);
       
-      // Create the updated bookings array
+      // Compute the updated bookings array
       const updatedBookings = state.bookings.filter(booking => booking.id !== id);
       console.log('📋 Updated bookings after filter:', updatedBookings.length);
       
-      // Save to storage first, then update state
+      // Save to storage first
       await saveBookings(updatedBookings);
-      dispatch({ type: 'DELETE_BOOKING', payload: id });
+      
+      // Update state directly with the filtered bookings
+      dispatch({ type: 'LOAD_BOOKINGS', payload: updatedBookings });
+      
       console.log('✅ Booking deleted successfully');
     } catch (error) {
       console.error('❌ Failed to delete booking:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete booking' });
-      throw error; // Re-throw to let the UI handle the error
     }
   };
 
