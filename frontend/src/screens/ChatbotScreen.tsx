@@ -216,22 +216,28 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
   };
 
   const handleBookStation = async (station: PersonalizedRecommendation) => {
-    Alert.alert(
-      'Book Station?',
-      `Book ${station.name}?\n\nEstimated Cost: ₹${station.estimatedCost}\nTime: ${station.estimatedTime}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Book', 
-          onPress: () => {
-            (navigation as any).navigate('Search', {
-              screen: 'StationDetails',
-              params: { stationId: station.id }
-            });
-          }
-        },
-      ]
-    );
+    // Navigate directly to booking flow
+    // Convert PersonalizedRecommendation to EVStation format
+    const stationData: any = {
+      id: station.id,
+      name: station.name,
+      address: station.address || '',
+      location: station.location,
+      connectors: station.connectors || [],
+      amenities: station.amenities || [],
+      availableSlots: station.availableSlots || 0,
+      distance_km: station.distance_km,
+      // Add estimated cost and time for display
+      estimatedCost: station.estimatedCost,
+      estimatedTime: station.estimatedTime,
+    };
+    
+    (navigation as any).navigate('Search', {
+      screen: 'BookSlot',
+      params: { 
+        station: stationData
+      }
+    });
   };
 
   const handleViewStationDetails = (station: PersonalizedRecommendation) => {
