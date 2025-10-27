@@ -19,6 +19,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useNavigationBar } from '../../contexts/NavigationBarContext';
 
 const { width } = Dimensions.get('window');
 
@@ -40,6 +41,12 @@ const FloatingNavigation: React.FC<FloatingNavigationProps> = ({
   activeIndex = 0,
   onItemPress,
 }) => {
+  const { hideNavBar } = useNavigationBar();
+
+  // Don't render if hidden
+  if (hideNavBar) {
+    return null;
+  }
   // Icon mapping function
   const getIconComponent = (iconName: string) => {
     switch (iconName) {

@@ -9,19 +9,17 @@ import {
   ScrollView,
   BackHandler,
 } from 'react-native';
-import { CheckCircle, Calendar, MapPin, Clock, Zap, ArrowLeft } from 'lucide-react-native';
+import { Calendar, MapPin, Clock, Zap, ArrowLeft } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withSequence,
-  withDelay,
   withTiming,
-  withRepeat,
-  interpolate,
-  Extrapolate,
+  withSequence,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import ConfettiAnimation from '../../components/ui/ConfettiAnimation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -57,11 +55,18 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
   const { booking, totalAmount } = route.params;
   
   // Animation values
-  const tickScale = useSharedValue(0);
-  const tickOpacity = useSharedValue(0);
-  const tickRotation = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(50);
+  
+  // Wave reaction effects
+  const titleScale = useSharedValue(1);
+  const titleRotation = useSharedValue(0);
+  const subtitleOpacity = useSharedValue(1);
+  const subtitleY = useSharedValue(0);
+  const cardScale = useSharedValue(1);
+  const cardY = useSharedValue(0);
+  const button1Scale = useSharedValue(1);
+  const button2Scale = useSharedValue(1);
   
   // Handle back gesture
   useEffect(() => {
@@ -72,69 +77,78 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
   }, [navigation]);
-  
-  // Celebration effects
-  const pulseScale = useSharedValue(1);
-  const sparkleOpacity = useSharedValue(0);
-  const sparkleRotation = useSharedValue(0);
-  const bounceY = useSharedValue(0);
-  const glowOpacity = useSharedValue(0);
 
   useEffect(() => {
-    // Epic celebration animation sequence
-    const startCelebration = () => {
-      // Main tick animation with multiple effects
-      tickScale.value = withSequence(
-        withTiming(0.5, { duration: 100 }),
-        withSpring(1.3, { damping: 6, stiffness: 100 }),
-        withSpring(1, { damping: 8, stiffness: 100 })
-      );
-      
-      tickOpacity.value = withTiming(1, { duration: 200 });
-      tickRotation.value = withSequence(
-        withTiming(360, { duration: 800 }),
-        withRepeat(withTiming(0, { duration: 1000 }), 2, true)
-      );
+    // Show content immediately
+    contentOpacity.value = withTiming(1, { duration: 400 });
+    contentTranslateY.value = withSpring(0, { damping: 8, stiffness: 100 });
 
-      // Pulse effect
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.2, { duration: 300 }),
-          withTiming(1, { duration: 300 })
-        ),
-        3,
-        false
-      );
-
-      // Sparkle effects
-      sparkleOpacity.value = withDelay(500, withTiming(1, { duration: 200 }));
-      sparkleRotation.value = withDelay(500, withRepeat(withTiming(360, { duration: 2000 }), -1, false));
-
-      // Bounce effect
-      bounceY.value = withDelay(300, withRepeat(
-        withSequence(
-          withSpring(-10, { damping: 8, stiffness: 100 }),
-          withSpring(0, { damping: 8, stiffness: 100 })
-        ),
-        2,
-        false
-      ));
-
-      // Glow effect
-      glowOpacity.value = withDelay(200, withSequence(
-        withTiming(1, { duration: 300 }),
-        withTiming(0.3, { duration: 2000 }),
-        withTiming(0, { duration: 500 })
-      ));
-
-      // Show content after celebration
+    // Enhanced wave reaction effects - simulating ripple effects from confetti
+    const triggerReactions = () => {
+      // First wave at 50ms
       setTimeout(() => {
-        contentOpacity.value = withTiming(1, { duration: 400 });
-        contentTranslateY.value = withSpring(0, { damping: 8, stiffness: 100 });
-      }, 1500);
+        titleScale.value = withSequence(
+          withTiming(1.08, { duration: 200 }),
+          withTiming(1, { duration: 300 })
+        );
+        titleRotation.value = withSequence(
+          withTiming(-2, { duration: 150 }),
+          withTiming(2, { duration: 150 }),
+          withTiming(0, { duration: 200 })
+        );
+      }, 50);
+
+      // Second wave at 150ms
+      setTimeout(() => {
+        subtitleOpacity.value = withSequence(
+          withTiming(0.7, { duration: 100 }),
+          withTiming(1, { duration: 200 })
+        );
+        subtitleY.value = withSequence(
+          withTiming(-2, { duration: 200 }),
+          withTiming(0, { duration: 250 })
+        );
+      }, 150);
+
+      // Third wave at 250ms
+      setTimeout(() => {
+        cardScale.value = withSequence(
+          withTiming(1.04, { duration: 200 }),
+          withTiming(1, { duration: 300 })
+        );
+        cardY.value = withSequence(
+          withTiming(-3, { duration: 200 }),
+          withTiming(3, { duration: 200 }),
+          withTiming(0, { duration: 250 })
+        );
+      }, 250);
+
+      // Fourth wave at 350ms
+      setTimeout(() => {
+        button1Scale.value = withSequence(
+          withTiming(1.06, { duration: 200 }),
+          withTiming(1, { duration: 300 })
+        );
+      }, 350);
+
+      // Fifth wave at 450ms
+      setTimeout(() => {
+        button2Scale.value = withSequence(
+          withTiming(1.06, { duration: 200 }),
+          withTiming(1, { duration: 300 })
+        );
+      }, 450);
+
+      // Final reverberation at 550ms
+      setTimeout(() => {
+        titleScale.value = withSequence(
+          withTiming(1.02, { duration: 150 }),
+          withTiming(1, { duration: 200 })
+        );
+      }, 550);
     };
 
-    startCelebration();
+    triggerReactions();
   }, []);
 
   const handleBackPress = () => {
@@ -150,32 +164,36 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
   };
 
   // Animated styles
-  const tickStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: tickScale.value },
-      { rotate: `${tickRotation.value}deg` },
-      { translateY: bounceY.value },
-    ],
-    opacity: tickOpacity.value,
-  }));
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-    opacity: interpolate(pulseScale.value, [1, 1.2], [0.3, 0.1], Extrapolate.CLAMP),
-  }));
-
-  const sparkleStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${sparkleRotation.value}deg` }],
-    opacity: sparkleOpacity.value,
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: glowOpacity.value,
-  }));
-
   const contentStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: contentTranslateY.value }],
     opacity: contentOpacity.value,
+  }));
+
+  const titleStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: titleScale.value },
+      { rotate: `${titleRotation.value}deg` },
+    ],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: subtitleY.value }],
+    opacity: subtitleOpacity.value,
+  }));
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: cardScale.value },
+      { translateY: cardY.value },
+    ],
+  }));
+
+  const button1Style = useAnimatedStyle(() => ({
+    transform: [{ scale: button1Scale.value }],
+  }));
+
+  const button2Style = useAnimatedStyle(() => ({
+    transform: [{ scale: button2Scale.value }],
   }));
 
   const renderHeader = () => (
@@ -188,38 +206,14 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
             <ArrowLeft size={24} color={CONFIRMED_COLORS.text.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Booking Confirmed</Text>
           <View style={styles.headerRight} />
         </View>
       </LinearGradient>
     </View>
   );
 
-  const renderTickAnimation = () => (
-    <View style={styles.celebrationContainer}>
-      {/* Glow background */}
-      <Animated.View style={[styles.glowBackground, glowStyle]} />
-      
-      {/* Pulse rings */}
-      <Animated.View style={[styles.pulseRing1, pulseStyle]} />
-      <Animated.View style={[styles.pulseRing2, pulseStyle]} />
-      <Animated.View style={[styles.pulseRing3, pulseStyle]} />
-      
-      {/* Sparkle effects */}
-      <Animated.View style={[styles.sparkle1, sparkleStyle]} />
-      <Animated.View style={[styles.sparkle2, sparkleStyle]} />
-      <Animated.View style={[styles.sparkle3, sparkleStyle]} />
-      <Animated.View style={[styles.sparkle4, sparkleStyle]} />
-      
-      {/* Main tick */}
-      <Animated.View style={[styles.tickContainer, tickStyle]}>
-        <CheckCircle size={120} color={CONFIRMED_COLORS.success} fill={CONFIRMED_COLORS.success} />
-      </Animated.View>
-    </View>
-  );
-
   const renderBookingDetails = () => (
-    <Animated.View style={[styles.bookingDetailsCard, contentStyle]}>
+    <Animated.View style={[styles.bookingDetailsCard, contentStyle, cardStyle]}>
       <Text style={styles.cardTitle}>Booking Details</Text>
       
       <View style={styles.detailRow}>
@@ -266,17 +260,17 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
 
   const renderActionButtons = () => (
     <Animated.View style={[styles.actionButtonsContainer, contentStyle]}>
-      <View style={styles.buttonContainer}>
+      <Animated.View style={[styles.buttonContainer, button1Style]}>
         <TouchableOpacity style={styles.primaryButton} onPress={handleViewBooking}>
           <Text style={styles.primaryButtonText}>View My Bookings</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
       
-      <View style={styles.buttonContainer}>
+      <Animated.View style={[styles.buttonContainer, button2Style]}>
         <TouchableOpacity style={styles.secondaryButton} onPress={handleBookAnother}>
           <Text style={styles.secondaryButtonText}>Book Another Slot</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </Animated.View>
   );
 
@@ -284,8 +278,10 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={CONFIRMED_COLORS.background} />
       
+      {/* Confetti Animation */}
+      <ConfettiAnimation />
+      
       {renderHeader()}
-      {renderTickAnimation()}
       
       <ScrollView 
         style={styles.scrollView}
@@ -293,10 +289,10 @@ const BookingConfirmedScreen: React.FC<BookingConfirmedScreenProps> = ({ navigat
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.successMessage, contentStyle]}>
-          <Text style={styles.successTitle}>Booking Confirmed!</Text>
-          <Text style={styles.successSubtitle}>
+          <Animated.Text style={[styles.successTitle, titleStyle]}>Booking Confirmed!</Animated.Text>
+          <Animated.Text style={[styles.successSubtitle, subtitleStyle]}>
             Your charging slot has been successfully booked. You'll receive a confirmation email shortly.
-          </Text>
+          </Animated.Text>
         </Animated.View>
 
         {renderBookingDetails()}
@@ -359,109 +355,13 @@ const styles = StyleSheet.create({
     height: 40,
   },
 
-  // Celebration Animation Styles
-  celebrationContainer: {
-    position: 'absolute',
-    top: '30%',
-    left: '50%',
-    transform: [{ translateX: -100 }],
-    width: 200,
-    height: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-
-  glowBackground: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: CONFIRMED_COLORS.success,
-    opacity: 0.2,
-  },
-
-  // Pulse rings
-  pulseRing1: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 3,
-    borderColor: CONFIRMED_COLORS.success,
-  },
-  pulseRing2: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 2,
-    borderColor: CONFIRMED_COLORS.success,
-  },
-  pulseRing3: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: CONFIRMED_COLORS.success,
-  },
-
-  // Sparkle effects
-  sparkle1: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    backgroundColor: CONFIRMED_COLORS.success,
-    borderRadius: 4,
-    top: 20,
-    left: 20,
-  },
-  sparkle2: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    backgroundColor: CONFIRMED_COLORS.accent,
-    borderRadius: 3,
-    top: 30,
-    right: 25,
-  },
-  sparkle3: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    backgroundColor: CONFIRMED_COLORS.secondary,
-    borderRadius: 5,
-    bottom: 40,
-    left: 15,
-  },
-  sparkle4: {
-    position: 'absolute',
-    width: 7,
-    height: 7,
-    backgroundColor: CONFIRMED_COLORS.success,
-    borderRadius: 3.5,
-    bottom: 30,
-    right: 20,
-  },
-
-  tickContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: CONFIRMED_COLORS.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-
   // Scroll View Styles
   scrollView: {
     flex: 1,
   },
 
   scrollContent: {
-    paddingTop: 200,
+    paddingTop: 120,
     paddingHorizontal: 20,
     paddingBottom: 100,
   },

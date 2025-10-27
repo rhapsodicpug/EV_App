@@ -60,12 +60,14 @@ const BookingListScreen: React.FC = () => {
     getCompletedBookings, 
     getCancelledBookings,
     deleteBooking,
+    cancelBooking,
     loadBookings
   } = useBookings();
   
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [currentBookings, setCurrentBookings] = useState<Booking[]>([]);
 
@@ -125,11 +127,55 @@ const BookingListScreen: React.FC = () => {
 
   const handleBookingPress = (booking: Booking) => {
     setSelectedBooking(booking);
-    // Only show delete confirmation for completed bookings
+    // Show delete confirmation for completed bookings
     if (booking.status === 'completed') {
       setShowDeleteModal(true);
     }
-    // For cancelled and upcoming bookings, just close the selection
+    // Show cancel confirmation for upcoming bookings
+    if (booking.status === 'upcoming') {
+      setShowCancelModal(true);
+    }
+  };
+
+  const handleCancelBooking = () => {
+    if (selectedBooking && selectedBooking.status === 'upcoming') {
+      setShowCancelModal(true);
+    }
+  };
+
+  const confirmCancelBooking = async () => {
+    if (selectedBooking) {
+      const bookingId = selectedBooking.id;
+      console.log('🎯 Starting cancel process for booking:', bookingId);
+      console.log('📊 Current bookings before cancel:', currentBookings.length);
+      
+      // Close the cancel modal first
+      setShowCancelModal(false);
+      
+      // Cancel the booking
+      await cancelBooking(bookingId);
+      console.log('🎯 Cancel process finished');
+      
+      // Manually reload bookings to ensure UI updates
+      await loadBookings();
+      console.log('📥 Bookings reloaded');
+      
+      // Update current bookings manually
+      const updated = getCurrentBookings();
+      console.log('📊 Updated bookings count:', updated.length);
+      setCurrentBookings(updated);
+      
+      // Clear selection
+      setSelectedBooking(null);
+      
+      // Force refresh the screen to update UI
+      forceRefresh();
+      
+      console.log('✅ Cancel complete, UI should update now');
+      
+      // Show success message
+      Alert.alert('Booking Cancelled', 'Your booking has been cancelled successfully.');
+    }
   };
 
 
@@ -180,12 +226,36 @@ const BookingListScreen: React.FC = () => {
 
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    try {
+      // Handle both date formats (YYYY-MM-DD and MM/DD/YYYY)
+      let date: Date;
+      
+      if (dateString.includes('-')) {
+        // ISO format (YYYY-MM-DD)
+        date = new Date(dateString + 'T00:00:00');
+      } else if (dateString.includes('/')) {
+        // Locale format (MM/DD/YYYY or DD/MM/YYYY)
+        date = new Date(dateString);
+      } else {
+        // Try to parse as ISO date string
+        date = new Date(dateString);
+      }
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date string:', dateString);
+        return dateString; // Return original string if invalid
+      }
+
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (error) {
+      console.warn('Date formatting error:', error);
+      return dateString; // Return original string on error
+    }
   };
 
   const formatTime = (timeString: string) => {
@@ -262,6 +332,18 @@ const BookingListScreen: React.FC = () => {
 
       <View style={styles.bookingFooter}>
         <Text style={styles.durationText}>{booking.duration} minutes</Text>
+        {booking.status === 'upcoming' && (
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => {
+              setSelectedBooking(booking);
+              setShowCancelModal(true);
+            }}
+          >
+            <XCircle size={18} color={BOOKING_COLORS.error} />
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -348,6 +430,26 @@ const BookingListScreen: React.FC = () => {
           },
         ]}
         onClose={() => setShowDeleteModal(false)}
+      />
+
+      {/* Cancel Confirmation Modal */}
+      <CustomModal
+        visible={showCancelModal}
+        title="Cancel Booking"
+        message="Are you sure you want to cancel this booking? This will move it to the Cancelled section."
+        options={[
+          {
+            text: 'Yes, Cancel',
+            onPress: confirmCancelBooking,
+            style: 'destructive' as const,
+          },
+          {
+            text: 'Keep Booking',
+            onPress: () => setShowCancelModal(false),
+            style: 'cancel' as const,
+          },
+        ]}
+        onClose={() => setShowCancelModal(false)}
       />
     </View>
   );
@@ -523,12 +625,33 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: BOOKING_COLORS.border,
     paddingTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 
   durationText: {
     fontSize: 14,
     fontWeight: '500',
     color: BOOKING_COLORS.text.primary,
+  },
+
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: BOOKING_COLORS.error,
+  },
+
+  cancelButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BOOKING_COLORS.error,
+    marginLeft: 4,
   },
 
   // Empty State Styles

@@ -24,6 +24,7 @@ import type { NavigationProp } from '@react-navigation/native';
 import { ArrowLeft, Calendar, Clock } from 'lucide-react-native';
 import { EVStation } from '../../types/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import AnimatedButton from '../../components/ui/AnimatedButton';
 
 const { width, height } = Dimensions.get('window');
 
@@ -456,8 +457,8 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
       return;
     }
 
-    // Format the selected date and time
-    const dateString = selectedDate.toLocaleDateString();
+    // Format the selected date and time using ISO format for consistent parsing
+    const dateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
     const timeString = selectedTime.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -572,13 +573,12 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
 
         {/* Book slot button */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.bookButton}
+          <AnimatedButton
+            title="Book slot"
             onPress={handleBookSlot}
             disabled={!selectedDuration}
-          >
-            <Text style={styles.bookButtonText}>Book slot</Text>
-          </TouchableOpacity>
+            variant="primary"
+          />
         </View>
       </View>
 
@@ -940,25 +940,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 20,
-  },
-
-  bookButton: {
-    backgroundColor: BOOK_COLORS.success,
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: BOOK_COLORS.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-
-  bookButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000000',
   },
 
   // Modal Styles

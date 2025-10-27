@@ -7,6 +7,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MapPin, Zap, DollarSign, Clock, CheckCircle, Star } from 'lucide-react-native';
 import { PersonalizedRecommendation } from '../../services/RecommendationEngine';
+import AnimatedButton from '../ui/AnimatedButton';
 
 interface PersonalizedStationCardProps {
   recommendation: PersonalizedRecommendation;
@@ -75,12 +76,11 @@ const PersonalizedStationCard: React.FC<PersonalizedStationCardProps> = ({
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.bookButton}
+        <AnimatedButton
+          title="Book Now"
           onPress={() => onBook(recommendation)}
-        >
-          <Text style={styles.bookButtonText}>Book Now</Text>
-        </TouchableOpacity>
+          variant="primary"
+        />
         <TouchableOpacity
           style={styles.detailsButton}
           onPress={() => onViewDetails(recommendation)}
@@ -166,18 +166,6 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-  },
-  bookButton: {
-    flex: 1,
-    backgroundColor: '#8cd279',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  bookButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000000',
   },
   detailsButton: {
     flex: 1,

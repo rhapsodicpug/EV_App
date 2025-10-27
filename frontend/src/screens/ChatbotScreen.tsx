@@ -15,6 +15,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { 
   ArrowLeft, 
@@ -28,10 +30,12 @@ import {
   MapPin,
   Navigation
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAIChatbot } from '../contexts/AIChatbotContext';
 import { useVehicles } from '../contexts/VehicleContext';
+import { useNavigationBar } from '../contexts/NavigationBarContext';
 import ChatMessage from '../components/chat/ChatMessage';
 import ContextCollectionModal, { UserContext } from '../components/ui/ContextCollectionModal';
 import EmergencyModeCard from '../components/chat/EmergencyModeCard';
@@ -48,6 +52,7 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
     error,
     sendMessage,
     sendQuickReply,
+    addBotMessage,
     clearConversation,
     getConversationStats,
     isTyping
@@ -67,9 +72,27 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
   
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
+  const { setHideNavBar } = useNavigationBar();
+  const glowingAnimatedValue = useRef(new Animated.Value(0)).current;
   
   const recommendationEngine = RecommendationEngine.getInstance();
   const rangeCalculator = RangeCalculator.getInstance();
+
+  // Animated gradient glow effect - seamless border animation
+  useEffect(() => {
+    // Create a seamless chasing light effect around the border
+    const startAnimation = () => {
+      Animated.loop(
+        Animated.timing(glowingAnimatedValue, {
+          toValue: 1,
+          duration: 20000, // Super slow: 20 seconds for continuous seamless loop
+          easing: Easing.linear,
+          useNativeDriver: false,
+        })
+      ).start();
+    };
+    startAnimation();
+  }, []);
 
   // Get user location on mount
   useEffect(() => {
@@ -165,8 +188,8 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
       setRecommendations(recs);
       setShowRecommendations(true);
 
-      // Send bot message
-      await sendMessage(`I found ${recs.length} perfect stations for you!`);
+      // Send bot message (from AI assistant, not user)
+      addBotMessage(`I found ${recs.length} perfect stations for you!`);
     } catch (error) {
       Alert.alert('Error', 'Failed to get recommendations. Please try again.');
     }
@@ -190,7 +213,7 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
         preferences: { distance: true, speed: false, price: false, amenities: false },
       });
       
-      await sendMessage('🚨 Emergency mode activated! Finding nearest stations...');
+      addBotMessage('🚨 Emergency mode activated! Finding nearest stations...');
     } catch (error) {
       Alert.alert('Error', 'Failed to get emergency recommendations.');
     }
@@ -301,12 +324,22 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
     }
   }, [messages.length, showRecommendations]);
 
+  // Hide bottom navigation bar when this screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      setHideNavBar(true);
+      return () => {
+        setHideNavBar(false);
+      };
+    }, [setHideNavBar])
+  );
+
   return (
     <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 90}
-    >
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
       <StatusBar barStyle="light-content" backgroundColor="#1A1A1A" />
       
       {/* Header */}
@@ -427,27 +460,66 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
       {/* Input */}
       <View style={styles.inputContainer}>
         <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Type your message..."
-            placeholderTextColor="#666666"
-            multiline
-            maxLength={500}
-            onSubmitEditing={handleSendMessage}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
+          <Animated.View
             style={[
-              styles.sendButton,
-              (!inputText.trim() || isLoading) && styles.sendButtonDisabled
+              styles.gradientBorder,
+              {
+                opacity: glowingAnimatedValue.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.7, 1, 0.7],
+                }),
+              },
             ]}
-            onPress={handleSendMessage}
-            disabled={!inputText.trim() || isLoading}
           >
-            <Send size={20} color={inputText.trim() ? "#000000" : "#666666"} />
-          </TouchableOpacity>
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                ...StyleSheet.absoluteFillObject,
+                transform: [
+                  {
+                    rotate: glowingAnimatedValue.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <LinearGradient
+                colors={['#8cd279', '#4ADE80', '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#EC4899', '#F59E0B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  ...StyleSheet.absoluteFillObject,
+                  width: '100%',
+                  height: '100%',
+                }}
+              />
+            </Animated.View>
+          </Animated.View>
+          <View style={styles.inputContent}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Type your message..."
+              placeholderTextColor="#666666"
+              multiline
+              maxLength={500}
+              onSubmitEditing={handleSendMessage}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!inputText.trim() || isLoading) && styles.sendButtonDisabled
+              ]}
+              onPress={handleSendMessage}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <Send size={20} color={inputText.trim() ? "#000000" : "#666666"} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -472,7 +544,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1A1A1A',
-    paddingBottom: 90,
   },
   header: {
     flexDirection: 'row',
@@ -620,7 +691,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 70,
     backgroundColor: '#1A1A1A',
     borderTopWidth: 1,
     borderTopColor: '#4A4A4A',
@@ -628,12 +699,34 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#2A2A2A',
+    backgroundColor: 'transparent',
     borderRadius: 24,
+    padding: 2,
+    borderWidth: 0,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  gradientBorder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 24,
+    overflow: 'hidden',
+    zIndex: 0,
+  },
+  inputContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: '#2A2A2A',
+    borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#4A4A4A',
+    flex: 1,
+    position: 'relative',
+    zIndex: 1,
+    margin: 2,
   },
   textInput: {
     flex: 1,

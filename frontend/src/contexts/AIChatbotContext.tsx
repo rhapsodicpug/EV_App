@@ -19,6 +19,7 @@ interface AIChatbotContextType {
   error: string | null;
   sendMessage: (message: string) => Promise<ChatResponse>;
   sendQuickReply: (quickReply: QuickReply) => Promise<ChatResponse>;
+  addBotMessage: (message: string) => void;
   clearConversation: () => void;
   getQuickReplies: () => QuickReply[];
   getConversationStats: () => any;
@@ -149,6 +150,17 @@ export const AIChatbotProvider: React.FC<AIChatbotProviderProps> = ({
     }
   };
 
+  const addBotMessage = (message: string) => {
+    const botMessage: ChatMessage = {
+      id: `bot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      text: message,
+      isUser: false,
+      timestamp: new Date().toISOString(),
+      type: 'text',
+    };
+    setMessages(prev => [...prev, botMessage]);
+  };
+
   const clearConversation = () => {
     chatbotService.clearConversation();
     setMessages([]);
@@ -172,6 +184,7 @@ export const AIChatbotProvider: React.FC<AIChatbotProviderProps> = ({
     error,
     sendMessage,
     sendQuickReply,
+    addBotMessage,
     clearConversation,
     getQuickReplies,
     getConversationStats,

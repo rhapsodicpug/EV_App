@@ -36,7 +36,9 @@ import {
   AlertCircle,
   ArrowLeft,
   Bell,
-  User
+  User,
+  DollarSign,
+  CheckCircle,
 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import StationCard from '../../components/custom/StationCard';
@@ -75,6 +77,7 @@ const StationListScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [radiusKm] = useState(25); // Fixed radius - backend supports dynamic but UI removed
+  const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
 
   // Animated values
   const scrollY = new Animated.Value(0);
@@ -88,6 +91,7 @@ const StationListScreen: React.FC = () => {
       duration: 600,
       useNativeDriver: true,
     }).start();
+    
   }, []);
 
   // Handle initial query from navigation
@@ -98,19 +102,59 @@ const StationListScreen: React.FC = () => {
     }
   }, [route.params]);
 
-  // Filter stations based on search query
+  // Filter stations based on search query and active filters
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredStations(stations);
-    } else {
-      const filtered = stations.filter(station =>
+    let filtered = [...stations];
+
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      filtered = filtered.filter(station =>
         station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         station.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
         station.city?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredStations(filtered);
     }
-  }, [searchQuery, stations]);
+
+    // Apply additional filters
+    if (activeFilters.size > 0) {
+      filtered = filtered.filter(station => {
+        // Available Now filter
+        if (activeFilters.has('available')) {
+          const hasAvailable = station.charging_slots?.some(slot => 
+            slot.status === 'AVAILABLE'
+          );
+          if (!hasAvailable) return false;
+        }
+
+        // Fast Charging filter
+        if (activeFilters.has('fast')) {
+          const hasFastCharging = station.charging_slots?.some(slot => 
+            slot.charger_type === 'DC_ULTRA_FAST' || 
+            (slot.power_kw && slot.power_kw >= 50)
+          );
+          if (!hasFastCharging) return false;
+        }
+
+        // Within 5km filter
+        if (activeFilters.has('nearby')) {
+          const distance = station.distance || 0;
+          if (distance > 5) return false;
+        }
+
+        // Budget Friendly filter (price <= 10)
+        if (activeFilters.has('cheap')) {
+          const hasCheapSlot = station.charging_slots?.some(slot => 
+            slot.price_per_kwh && slot.price_per_kwh <= 10
+          );
+          if (!hasCheapSlot) return false;
+        }
+
+        return true;
+      });
+    }
+
+    setFilteredStations(filtered);
+  }, [searchQuery, stations, activeFilters]);
 
   const loadStations = async () => {
     try {
@@ -193,7 +237,7 @@ const StationListScreen: React.FC = () => {
   };
 
   const renderHeader = () => (
-    <SafeAreaView style={styles.headerSafeArea}>
+    <View style={styles.headerSafeArea}>
       <BlurView
         style={styles.headerContainer}
         intensity={50}
@@ -201,6 +245,9 @@ const StationListScreen: React.FC = () => {
       >
         {/* Enhanced visual overlay for depth */}
         <View style={styles.headerOverlay} />
+        
+        {/* StatusBar spacing */}
+        <View style={{ height: StatusBar.currentHeight || 44 }} />
         
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
@@ -215,23 +262,25 @@ const StationListScreen: React.FC = () => {
           <View style={styles.headerRight} />
         </View>
         
-        {/* Search Input */}
+        {/* Search Input with Border Glow */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchInput}>
-            <View style={styles.searchIconContainer}>
-              <Search size={20} color={STATION_COLORS.accent} />
-            </View>
-            <TextInput
-              style={styles.searchTextInput}
-              placeholder="Search stations..."
-              placeholderTextColor={STATION_COLORS.text.secondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <View style={styles.searchChevron}>
-              <ChevronRight size={16} color={STATION_COLORS.text.secondary} />
+          <View style={styles.searchInputWrapper}>
+            <View style={styles.searchInputContent}>
+              <View style={styles.searchIconContainer}>
+                <Search size={20} color={STATION_COLORS.accent} />
+              </View>
+              <TextInput
+                style={styles.searchTextInput}
+                placeholder="Search stations..."
+                placeholderTextColor={STATION_COLORS.text.secondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <View style={styles.searchChevron}>
+                <ChevronRight size={16} color={STATION_COLORS.text.secondary} />
+              </View>
             </View>
           </View>
         </View>
@@ -244,28 +293,49 @@ const StationListScreen: React.FC = () => {
             contentContainerStyle={styles.filterScrollContent}
           >
             {[
-              { id: 'available', label: 'Available Now', icon: 'flash' },
-              { id: 'fast', label: 'Fast Charging', icon: 'zap' },
-              { id: 'nearby', label: 'Within 5km', icon: 'location' },
-              { id: 'cheap', label: 'Budget Friendly', icon: 'wallet' },
-            ].map((filter) => (
-              <TouchableOpacity
-                key={filter.id}
-                style={styles.filterChip}
-                onPress={() => {
-                  console.log('Filter pressed:', filter.label);
-                }}
-              >
-                <Ionicons name={filter.icon as any} size={14} color={STATION_COLORS.text.primary} />
-                <Text style={styles.filterChipText}>
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+              { id: 'available', label: 'Available Now', icon: 'flash', lucideIcon: 'CheckCircle' },
+              { id: 'fast', label: 'Fast Charging', icon: 'flash', lucideIcon: 'Zap' },
+              { id: 'nearby', label: 'Within 5km', icon: 'location', lucideIcon: 'MapPin' },
+              { id: 'cheap', label: 'Budget Friendly', icon: 'wallet', lucideIcon: 'DollarSign' },
+            ].map((filter) => {
+              const isActive = activeFilters.has(filter.id);
+              const IconComponent = 
+                filter.lucideIcon === 'Zap' ? Zap : 
+                filter.lucideIcon === 'MapPin' ? MapPin : 
+                filter.lucideIcon === 'DollarSign' ? DollarSign :
+                CheckCircle;
+              
+              return (
+                <TouchableOpacity
+                  key={filter.id}
+                  style={[
+                    styles.filterChip,
+                    isActive && styles.filterChipActive
+                  ]}
+                  onPress={() => {
+                    const newFilters = new Set(activeFilters);
+                    if (newFilters.has(filter.id)) {
+                      newFilters.delete(filter.id);
+                    } else {
+                      newFilters.add(filter.id);
+                    }
+                    setActiveFilters(newFilters);
+                  }}
+                >
+                  <IconComponent size={14} color={isActive ? '#000000' : STATION_COLORS.text.primary} />
+                  <Text style={[
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive
+                  ]}>
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
       </BlurView>
-    </SafeAreaView>
+    </View>
   );
 
   const getStatusVariant = (status: string) => {
@@ -433,7 +503,7 @@ const StationListScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={STATION_COLORS.background} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       {renderHeader()}
       
       {/* Stations List */}
@@ -604,16 +674,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  searchInput: {
+  searchInputWrapper: {
     flex: 1,
+    borderRadius: 20,
+    position: 'relative',
+  },
+
+  searchInputContent: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(140, 210, 121, 0.6)',
+    position: 'relative',
+    zIndex: 1,
   },
 
   searchIconContainer: {
@@ -632,10 +709,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     paddingVertical: 0,
-  },
-
-  searchChevron: {
-    marginLeft: 8,
+    paddingRight: 10,
   },
 
   // Filter Styles
@@ -665,6 +739,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: STATION_COLORS.text.primary,
+  },
+
+  filterChipActive: {
+    backgroundColor: STATION_COLORS.accent,
+    borderColor: STATION_COLORS.accent,
+  },
+
+  filterChipTextActive: {
+    color: '#000000',
   },
 
   // Scroll View Styles

@@ -16,6 +16,7 @@ import { RangeAnxietyProvider } from './src/contexts/RangeAnxietyContext';
 import { SmartNotificationProvider } from './src/contexts/SmartNotificationContext';
 import { PredictiveMaintenanceProvider } from './src/contexts/PredictiveMaintenanceContext';
 import { AIChatbotProvider } from './src/contexts/AIChatbotContext';
+import { NavigationBarProvider } from './src/contexts/NavigationBarContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 const AppContent: React.FC = () => {
@@ -44,7 +45,9 @@ export default function App() {
                   <SmartNotificationProvider>
                     <PredictiveMaintenanceProvider>
                       <AIChatbotProvider userId="default_user">
-                        <AppContent />
+                        <NavigationBarProvider>
+                          <AppContent />
+                        </NavigationBarProvider>
                       </AIChatbotProvider>
                     </PredictiveMaintenanceProvider>
                   </SmartNotificationProvider>
