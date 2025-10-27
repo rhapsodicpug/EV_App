@@ -29,6 +29,7 @@ import {
   Navigation
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAIChatbot } from '../contexts/AIChatbotContext';
 import { useVehicles } from '../contexts/VehicleContext';
 import ChatMessage from '../components/chat/ChatMessage';
@@ -65,6 +66,7 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
   const [currentVehicle, setCurrentVehicle] = useState<any>(null);
   
   const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
   
   const recommendationEngine = RecommendationEngine.getInstance();
   const rangeCalculator = RangeCalculator.getInstance();
@@ -302,8 +304,8 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 90}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <StatusBar barStyle="light-content" backgroundColor="#1A1A1A" />
       
@@ -470,7 +472,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1A1A1A',
-    paddingBottom: 90,
   },
   header: {
     flexDirection: 'row',
@@ -618,7 +619,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 20,
+    paddingBottom: 80,
     backgroundColor: '#1A1A1A',
     borderTopWidth: 1,
     borderTopColor: '#4A4A4A',
