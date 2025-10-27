@@ -303,7 +303,7 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 60}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 90}
     >
       <StatusBar barStyle="light-content" backgroundColor="#1A1A1A" />
       
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1A1A1A',
-    paddingBottom: 60,
+    paddingBottom: 90,
   },
   header: {
     flexDirection: 'row',
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 20,
     backgroundColor: '#1A1A1A',
     borderTopWidth: 1,
     borderTopColor: '#4A4A4A',
