@@ -11,7 +11,7 @@ const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : true;
 export const API_CONFIG = {
   // Use local IP for development - update for production
   BASE_URL: isDev
-    ? 'http://192.168.1.13:8000'  // Local development (use your machine's IP)
+    ? 'http://192.168.1.14:8000'  // Local development (use your machine's IP)
     : 'https://your-production-api.com',  // Production URL
   
   TIMEOUT: 10000, // 10 seconds
