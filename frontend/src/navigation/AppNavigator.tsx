@@ -19,9 +19,18 @@ import { RootStackParamList } from '../types/api';
 const Stack = createStackNavigator<RootStackParamList>();
 
 const AppNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, is2FAPending } = useAuth();
   const [isFirstTime, setIsFirstTime] = useState<boolean | null>(null);
   const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
+
+  // Log auth state changes
+  useEffect(() => {
+    console.log('🔄 AppNavigator - Auth state changed:', {
+      isAuthenticated,
+      isLoading,
+      is2FAPending,
+    });
+  }, [isAuthenticated, isLoading, is2FAPending]);
 
   useEffect(() => {
     checkFirstTimeUser();
@@ -76,8 +85,9 @@ const AppNavigator: React.FC = () => {
   };
 
   // Show splash screen while checking auth status or first time status
-  if (isLoading || isFirstTime === null || hasSeenGetStarted === null) {
-    console.log('🔄 Loading state:', { isLoading, isFirstTime, hasSeenGetStarted });
+  // BUT: Don't show splash if 2FA is pending (user is mid-login)
+  if ((isLoading && !is2FAPending) || isFirstTime === null || hasSeenGetStarted === null) {
+    console.log('🔄 Loading state:', { isLoading, isFirstTime, hasSeenGetStarted, is2FAPending });
     return (
       <SafeAreaProvider>
         <Stack.Navigator
@@ -92,7 +102,12 @@ const AppNavigator: React.FC = () => {
     );
   }
 
-  console.log('🎯 Navigation state:', { isFirstTime, hasSeenGetStarted, isAuthenticated });
+  console.log('🎯 Navigation state:', { 
+    isFirstTime, 
+    hasSeenGetStarted, 
+    isAuthenticated,
+    is2FAPending 
+  });
 
   return (
     <SafeAreaProvider>
@@ -131,7 +146,8 @@ const AppNavigator: React.FC = () => {
           // User is authenticated, show main app
           <Stack.Screen name="Main" component={MainNavigator} />
         ) : (
-          // User is not authenticated, show auth flow
+          // User is not authenticated (or 2FA pending), show auth flow
+          // Keep showing auth screen even during 2FA verification
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}
       </Stack.Navigator>

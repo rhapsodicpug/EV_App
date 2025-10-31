@@ -10,7 +10,7 @@ import { MainTabParamList } from '../types/api';
 import FloatingNavigation from '../components/ui/FloatingNavigation';
 
 // Import screens
-import HomeScreen from '../screens/HomeScreen';
+import HomeNavigator from './HomeNavigator';
 import StationNavigator from './StationNavigator';
 import BookingNavigator from './BookingNavigator';
 import ProfileNavigator from './ProfileNavigator';
@@ -66,7 +66,7 @@ const MainNavigator: React.FC = () => {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={HomeNavigator}
         options={{
           title: 'Home',
         }}

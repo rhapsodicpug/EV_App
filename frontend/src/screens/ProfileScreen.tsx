@@ -5,23 +5,25 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   StatusBar,
+  Modal,
+  TextInput,
 } from 'react-native';
 import CustomModal from '../components/ui/CustomModal';
+import AlertService from '../services/AlertService';
 import {
   ArrowLeft,
   User,
   Car,
   CreditCard,
-  Settings,
-  Globe,
   HelpCircle,
   LogOut,
   Bot,
+  Shield,
 } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import api from '../services/api';
 
 // Color Palette matching the design
 const COLORS = {
@@ -55,7 +57,23 @@ const ProfileScreen: React.FC = () => {
   
   // State for modals
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+
+  // Reload user data when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
+
+  const loadUserData = async () => {
+    try {
+      const response = await api.request('GET', '/users/me');
+      setTwoFactorEnabled(response.two_factor_enabled || false);
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
 
   const handleBackPress = () => {
     navigation.goBack();
@@ -75,12 +93,21 @@ const ProfileScreen: React.FC = () => {
         // @ts-ignore
         navigation.navigate('PaymentMethods');
         break;
-      case 'app-preferences':
-        // @ts-ignore
-        navigation.navigate('AppPreferences');
-        break;
-      case 'language':
-        Alert.alert('Language', 'Language settings functionality coming soon!');
+      case 'two-factor':
+        if (twoFactorEnabled) {
+          // Confirm disable 2FA
+          AlertService.destructiveConfirm(
+            'Disable 2FA',
+            'Are you sure you want to disable two-factor authentication?',
+            () => disable2FA(),
+            undefined,
+            'Disable',
+            'Cancel'
+          );
+        } else {
+          // @ts-ignore
+          navigation.navigate('TwoFactorSetup');
+        }
         break;
       case 'help-support':
         // @ts-ignore
@@ -93,11 +120,31 @@ const ProfileScreen: React.FC = () => {
       case 'logout':
         setShowLogoutModal(true);
         break;
-      case 'delete-account':
-        setShowDeleteModal(true);
-        break;
       default:
-        Alert.alert('Coming Soon', `${settingId} functionality is being developed!`);
+        AlertService.info('Coming Soon', `${settingId} functionality is being developed!`);
+    }
+  };
+
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState('');
+
+  const disable2FA = async () => {
+    setShowPasswordModal(true);
+  };
+
+  const handleDisable2FA = async () => {
+    if (!password) {
+      AlertService.error('Error', 'Password is required');
+      return;
+    }
+    try {
+      await api.request('POST', '/auth/2fa/disable', { password });
+      setTwoFactorEnabled(false);
+      setShowPasswordModal(false);
+      setPassword('');
+      AlertService.success('Success', '2FA has been disabled');
+    } catch (error: any) {
+      AlertService.error('Error', error.response?.data?.detail || 'Failed to disable 2FA');
     }
   };
 
@@ -124,18 +171,11 @@ const ProfileScreen: React.FC = () => {
       onPress: () => handleSettingPress('payment-methods'),
     },
     {
-      id: 'app-preferences',
-      title: 'App Preferences',
-      subtitle: 'App preferences',
-      icon: Settings,
-      onPress: () => handleSettingPress('app-preferences'),
-    },
-    {
-      id: 'language',
-      title: 'Language',
-      subtitle: 'Language settings',
-      icon: Globe,
-      onPress: () => handleSettingPress('language'),
+      id: 'two-factor',
+      title: 'Two-Factor Authentication',
+      subtitle: twoFactorEnabled ? '✓ Enabled' : 'Enable 2FA',
+      icon: Shield,
+      onPress: () => handleSettingPress('two-factor'),
     },
     {
       id: 'help-support',
@@ -213,16 +253,6 @@ const ProfileScreen: React.FC = () => {
             </View>
           </TouchableOpacity>
         ))}
-        
-        {/* Button Container - Same as BookSlot and Payment screens */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleSettingPress('delete-account')}
-          >
-            <Text style={styles.deleteButtonText}>Delete Account</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
 
       {/* Custom Modals */}
@@ -245,26 +275,54 @@ const ProfileScreen: React.FC = () => {
         onClose={() => setShowLogoutModal(false)}
       />
 
-      <CustomModal
-        visible={showDeleteModal}
-        title="Delete Account"
-        message="Are you sure you want to delete your account? This action cannot be undone."
-        options={[
-          {
-            text: 'Cancel',
-            onPress: () => {},
-            style: 'cancel',
-          },
-          {
-            text: 'Delete',
-            onPress: () => {
-              Alert.alert('Account Deletion', 'Account deletion functionality coming soon!');
-            },
-            style: 'destructive',
-          },
-        ]}
-        onClose={() => setShowDeleteModal(false)}
-      />
+      {/* Password Input Modal for 2FA */}
+      <Modal
+        visible={showPasswordModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {
+          setShowPasswordModal(false);
+          setPassword('');
+        }}
+      >
+        <View style={styles.passwordModalOverlay}>
+          <View style={styles.passwordModalContainer}>
+            <Text style={styles.passwordModalTitle}>Confirm Password</Text>
+            <Text style={styles.passwordModalMessage}>
+              Enter your password to disable 2FA
+            </Text>
+            
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Enter password"
+              placeholderTextColor={COLORS.text.tertiary}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoFocus
+            />
+
+            <View style={styles.passwordModalButtons}>
+              <TouchableOpacity
+                style={[styles.passwordModalButton, styles.passwordModalCancelButton]}
+                onPress={() => {
+                  setShowPasswordModal(false);
+                  setPassword('');
+                }}
+              >
+                <Text style={styles.passwordModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.passwordModalButton, styles.passwordModalConfirmButton]}
+                onPress={handleDisable2FA}
+              >
+                <Text style={styles.passwordModalConfirmText}>Disable</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -306,7 +364,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingVertical: 20,
-    paddingBottom: 0, // Remove bottom padding since buttonContainer handles it
+    paddingBottom: 100, // Extra padding to avoid bottom navigation overlap
   },
   settingsItem: {
     marginBottom: 16,
@@ -351,29 +409,84 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
   },
   
-  // Button Container - Same as BookSlot and Payment screens
-  buttonContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 100, // Extra padding to avoid bottom navigation overlap
+  // Password Modal Styles
+  passwordModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-  
-  deleteButton: {
-    backgroundColor: COLORS.error,
+  passwordModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  passwordModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  passwordModalMessage: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  passwordInput: {
+    backgroundColor: COLORS.background,
     borderRadius: 12,
-    paddingVertical: 16,
+    padding: 16,
+    fontSize: 16,
+    color: COLORS.text.primary,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
+  },
+  passwordModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  passwordModalButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  passwordModalCancelButton: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border.subtle,
+  },
+  passwordModalConfirmButton: {
+    backgroundColor: COLORS.error,
     shadowColor: COLORS.error,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
-  
-  deleteButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
+  passwordModalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text.primary,
+  },
+  passwordModalConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
 });

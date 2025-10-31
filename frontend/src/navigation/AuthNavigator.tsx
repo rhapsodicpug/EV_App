@@ -14,6 +14,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import SignUpScreen from '../screens/auth/SignUpScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import BackToGetStartedScreen from '../screens/auth/BackToGetStartedScreen';
+import TwoFactorVerificationScreen from '../screens/auth/TwoFactorVerificationScreen';
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -61,6 +62,10 @@ const AuthNavigator: React.FC = () => {
       <Stack.Screen 
         name="BackToGetStarted" 
         component={BackToGetStartedScreen}
+      />
+      <Stack.Screen 
+        name="TwoFactorVerification" 
+        component={TwoFactorVerificationScreen}
       />
     </Stack.Navigator>
   );

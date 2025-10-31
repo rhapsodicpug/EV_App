@@ -164,14 +164,10 @@ class AIChatbotService {
         return this.handleHelp();
       case 'charging_stations':
         return this.handleChargingStations();
+      case 'trip_planning':
+        return this.handleTripPlanning();
       case 'booking':
         return this.handleBooking();
-      case 'battery_health':
-        return this.handleBatteryHealth();
-      case 'range_anxiety':
-        return this.handleRangeAnxiety();
-      case 'maintenance':
-        return this.handleMaintenance();
       case 'pricing':
         return this.handlePricing();
       case 'support':
@@ -213,21 +209,13 @@ class AIChatbotService {
         patterns: ['station', 'charger', 'charging', 'find', 'nearby', 'location', 'where can i charge', 'charging point', 'ev station'],
         confidence: 0.85
       },
+      trip_planning: {
+        patterns: ['trip', 'route', 'plan', 'travel', 'journey', 'plan a trip', 'route planning', 'battery estimate', 'trip planner', 'road trip'],
+        confidence: 0.9
+      },
       booking: {
         patterns: ['book', 'reserve', 'schedule', 'appointment', 'slot', 'make reservation', 'book charging', 'reserve slot'],
         confidence: 0.9
-      },
-      battery_health: {
-        patterns: ['battery', 'health', 'degradation', 'capacity', 'life', 'battery status', 'battery level', 'battery condition'],
-        confidence: 0.85
-      },
-      range_anxiety: {
-        patterns: ['range', 'distance', 'trip', 'route', 'planning', 'anxiety', 'how far can i go', 'range check', 'trip planning'],
-        confidence: 0.8
-      },
-      maintenance: {
-        patterns: ['maintenance', 'service', 'repair', 'check', 'inspection', 'servicing', 'maintenance schedule', 'service reminder'],
-        confidence: 0.85
       },
       pricing: {
         patterns: ['price', 'cost', 'rate', 'expensive', 'cheap', 'discount', 'pricing', 'how much', 'cost of charging'],
@@ -325,8 +313,9 @@ class AIChatbotService {
       type: 'quick_reply',
       quickReplies: [
         { id: 'find_stations', text: 'Find Charging Stations', action: 'find_stations' },
+        { id: 'plan_trip', text: 'Plan a Trip', action: 'plan_trip' },
         { id: 'book_slot', text: 'Book a Slot', action: 'book_slot' },
-        { id: 'battery_health', text: 'Check Battery Health', action: 'battery_health' },
+        { id: 'view_bookings', text: 'View My Bookings', action: 'view_bookings' },
         { id: 'help', text: 'Get Help', action: 'help' },
       ],
       confidence: 0.95,
@@ -366,11 +355,11 @@ class AIChatbotService {
           },
           {
             id: 'help_card_3',
-            title: 'Vehicle Insights',
-            description: 'Get detailed analytics about your vehicle\'s performance',
+            title: 'Support & Help',
+            description: 'Get assistance and help with any issues',
             actions: [
-              { id: 'vehicle_analytics', text: 'Vehicle Analytics', action: 'vehicle_analytics' },
-              { id: 'maintenance_insights', text: 'Maintenance Insights', action: 'maintenance_insights' },
+              { id: 'get_support', text: 'Get Support', action: 'support' },
+              { id: 'report_issue', text: 'Report Issue', action: 'support' },
             ],
           },
         ],
@@ -402,11 +391,11 @@ class AIChatbotService {
         },
         {
           id: 'help_card_3',
-          title: 'Vehicle Health',
-          description: 'Monitor battery health and maintenance needs',
+          title: 'Pricing & Weather',
+          description: 'Check charging prices and weather conditions',
           actions: [
-            { id: 'check_health', text: 'Check Health', action: 'check_health' },
-            { id: 'maintenance', text: 'Maintenance', action: 'maintenance' },
+            { id: 'check_pricing', text: 'Check Pricing', action: 'pricing' },
+            { id: 'check_weather', text: 'Check Weather', action: 'weather' },
           ],
         },
       ],
@@ -467,76 +456,19 @@ class AIChatbotService {
   }
 
   /**
-   * Handle battery health intent
+   * Handle trip planning intent
    */
-  private handleBatteryHealth(): ChatResponse {
-    const batteryLevel = this.context?.currentBattery || 'unknown';
-    const vehicleHealth = this.context?.vehicleHealth;
-    const context = this.getConversationContext();
-    const contextualPrefix = this.getContextualResponse('battery_health');
-
-    if (vehicleHealth?.batteryHealth) {
-      const healthStatus = vehicleHealth.batteryHealth >= 90 ? 'excellent' :
-                          vehicleHealth.batteryHealth >= 80 ? 'good' :
-                          vehicleHealth.batteryHealth >= 70 ? 'fair' : 'needs attention';
-
-      return {
-        message: `${contextualPrefix}Your battery is in ${healthStatus} condition (${vehicleHealth.batteryHealth}%) with ${batteryLevel}% charge. Here's how I can help:`,
-        type: 'quick_reply',
-        quickReplies: [
-          { id: 'detailed_analysis', text: 'Detailed Analysis', action: 'detailed_analysis' },
-          { id: 'health_trends', text: 'Health Trends', action: 'health_trends' },
-          { id: 'charging_recommendations', text: 'Charging Tips', action: 'charging_recommendations' },
-          { id: 'predictive_maintenance', text: 'Maintenance Alerts', action: 'predictive_maintenance' },
-        ],
-        confidence: 0.95,
-      };
-    }
-
+  private handleTripPlanning(): ChatResponse {
     return {
-      message: `I can help you monitor your battery health. Current battery level is ${batteryLevel}%. What would you like to know?`,
+      message: 'I can help you plan your trip with battery estimates and charging stops. Let me assist you with route planning! 🗺️🚗',
       type: 'quick_reply',
       quickReplies: [
-        { id: 'current_health', text: 'Current Health', action: 'current_health' },
-        { id: 'health_trends', text: 'Health Trends', action: 'health_trends' },
-        { id: 'charging_tips', text: 'Charging Tips', action: 'charging_tips' },
-        { id: 'maintenance', text: 'Maintenance', action: 'maintenance' },
-      ],
-      confidence: 0.92,
-    };
-  }
-
-  /**
-   * Handle range anxiety intent
-   */
-  private handleRangeAnxiety(): ChatResponse {
-    return {
-      message: 'I understand range anxiety can be stressful. Let me help you plan your trip:',
-      type: 'quick_reply',
-      quickReplies: [
-        { id: 'plan_route', text: 'Plan Route', action: 'plan_route' },
-        { id: 'check_range', text: 'Check Range', action: 'check_range' },
-        { id: 'find_stops', text: 'Find Charging Stops', action: 'find_stops' },
-        { id: 'range_tips', text: 'Range Tips', action: 'range_tips' },
+        { id: 'plan_trip', text: 'Plan a Trip', action: 'plan_trip' },
+        { id: 'find_stations', text: 'Find Stations', action: 'find_stations' },
+        { id: 'view_map', text: 'View Map', action: 'show_map' },
+        { id: 'book_now', text: 'Book Now', action: 'book_now' },
       ],
       confidence: 0.90,
-    };
-  }
-
-  /**
-   * Handle maintenance intent
-   */
-  private handleMaintenance(): ChatResponse {
-    return {
-      message: 'I can help you with vehicle maintenance. Here\'s what I can do:',
-      type: 'quick_reply',
-      quickReplies: [
-        { id: 'maintenance_schedule', text: 'Maintenance Schedule', action: 'maintenance_schedule' },
-        { id: 'service_history', text: 'Service History', action: 'service_history' },
-        { id: 'find_service', text: 'Find Service Center', action: 'find_service' },
-        { id: 'maintenance_tips', text: 'Maintenance Tips', action: 'maintenance_tips' },
-      ],
-      confidence: 0.87,
     };
   }
 
@@ -632,16 +564,15 @@ class AIChatbotService {
    */
   private handleVehicleInfo(): ChatResponse {
     const vehicleModel = this.context?.vehicleModel || 'your vehicle';
-    const batteryLevel = this.context?.currentBattery || 'unknown';
 
     return {
-      message: `I can provide information about ${vehicleModel}. Current battery level is ${batteryLevel}%. What would you like to know?`,
+      message: `I can provide information about ${vehicleModel}. What would you like to know?`,
       type: 'quick_reply',
       quickReplies: [
-        { id: 'battery_status', text: 'Battery Status', action: 'battery_status' },
         { id: 'vehicle_specs', text: 'Vehicle Specs', action: 'vehicle_specs' },
         { id: 'charging_history', text: 'Charging History', action: 'charging_history' },
-        { id: 'maintenance_info', text: 'Maintenance Info', action: 'maintenance_info' },
+        { id: 'find_stations', text: 'Find Stations', action: 'find_stations' },
+        { id: 'book_slot', text: 'Book Slot', action: 'book_slot' },
       ],
       confidence: 0.9,
     };
@@ -668,17 +599,14 @@ class AIChatbotService {
    * Handle current status intent
    */
   private handleCurrentStatus(): ChatResponse {
-    const batteryLevel = this.context?.currentBattery || 'unknown';
-    const vehicleHealth = this.context?.vehicleHealth?.overallHealth || 'unknown';
-
     return {
-      message: `Here's your current status:\n• Battery: ${batteryLevel}%\n• Vehicle Health: ${vehicleHealth}%\n\nWhat specific information would you like?`,
+      message: `Here's what I can help you with right now:`,
       type: 'quick_reply',
       quickReplies: [
-        { id: 'detailed_battery', text: 'Detailed Battery Info', action: 'detailed_battery' },
-        { id: 'vehicle_diagnostics', text: 'Vehicle Diagnostics', action: 'vehicle_diagnostics' },
-        { id: 'upcoming_maintenance', text: 'Upcoming Maintenance', action: 'upcoming_maintenance' },
-        { id: 'current_location', text: 'Current Location', action: 'current_location' },
+        { id: 'find_stations', text: 'Find Stations', action: 'find_stations' },
+        { id: 'view_bookings', text: 'View Bookings', action: 'view_bookings' },
+        { id: 'book_slot', text: 'Book Slot', action: 'book_slot' },
+        { id: 'check_pricing', text: 'Check Pricing', action: 'pricing' },
       ],
       confidence: 0.85,
     };
@@ -694,8 +622,8 @@ class AIChatbotService {
     let suggestions = [
       { id: 'suggest_1', text: 'Find charging stations', category: 'stations' },
       { id: 'suggest_2', text: 'Book a charging slot', category: 'booking' },
-      { id: 'suggest_3', text: 'Check battery health', category: 'health' },
-      { id: 'suggest_4', text: 'Plan a trip', category: 'trip' },
+      { id: 'suggest_3', text: 'View my bookings', category: 'bookings' },
+      { id: 'suggest_4', text: 'Check pricing', category: 'pricing' },
       { id: 'suggest_5', text: 'Get help', category: 'support' },
     ];
 
@@ -706,13 +634,6 @@ class AIChatbotService {
         { id: 'suggest_2', text: 'Compare station prices', category: 'pricing' },
         { id: 'suggest_3', text: 'Filter stations by type', category: 'stations' },
         { id: 'suggest_4', text: 'Find stations with amenities', category: 'amenities' },
-      ];
-    } else if (context.recentTopics.includes('battery_health')) {
-      suggestions = [
-        { id: 'suggest_1', text: 'Check detailed battery analysis', category: 'health' },
-        { id: 'suggest_2', text: 'View charging recommendations', category: 'health' },
-        { id: 'suggest_3', text: 'See maintenance alerts', category: 'maintenance' },
-        { id: 'suggest_4', text: 'Check battery trends', category: 'health' },
       ];
     }
 
@@ -744,9 +665,10 @@ class AIChatbotService {
   getQuickReplies(): QuickReply[] {
     return [
       { id: 'find_stations', text: 'Find Stations', action: 'find_stations' },
+      { id: 'plan_trip', text: 'Plan a Trip', action: 'plan_trip' },
       { id: 'book_slot', text: 'Book Slot', action: 'book_slot' },
-      { id: 'battery_health', text: 'Battery Health', action: 'battery_health' },
-      { id: 'maintenance', text: 'Maintenance', action: 'maintenance' },
+      { id: 'view_bookings', text: 'View Bookings', action: 'view_bookings' },
+      { id: 'check_pricing', text: 'Check Pricing', action: 'pricing' },
       { id: 'support', text: 'Support', action: 'support' },
       { id: 'help', text: 'Help', action: 'help' },
     ];
@@ -829,14 +751,14 @@ class AIChatbotService {
       .find(msg => msg.isUser);
 
     if (lastUserMessage) {
-      // If they asked about battery health before, provide more specific info
-      if (lastUserMessage.text.toLowerCase().includes('battery') && lowerMessage.includes('health')) {
-        return "Based on our previous discussion about battery health, ";
-      }
-
       // If they asked about charging before, reference it
       if (lastUserMessage.text.toLowerCase().includes('charging') && lowerMessage.includes('station')) {
         return "Following up on your charging inquiry, ";
+      }
+
+      // If they asked about booking before, reference it
+      if (lastUserMessage.text.toLowerCase().includes('book') && lowerMessage.includes('station')) {
+        return "Based on your booking inquiry, ";
       }
     }
 
@@ -889,10 +811,11 @@ class AIChatbotService {
    */
   private extractIntentFromMessage(message: string): string | undefined {
     const lowerMessage = message.toLowerCase();
+    if (lowerMessage.includes('trip') || lowerMessage.includes('route') || lowerMessage.includes('plan') || lowerMessage.includes('travel')) return 'trip_planning';
     if (lowerMessage.includes('station') || lowerMessage.includes('charger')) return 'charging_stations';
     if (lowerMessage.includes('book') || lowerMessage.includes('reserve')) return 'booking';
-    if (lowerMessage.includes('battery') || lowerMessage.includes('health')) return 'battery_health';
-    if (lowerMessage.includes('maintenance') || lowerMessage.includes('service')) return 'maintenance';
+    if (lowerMessage.includes('price') || lowerMessage.includes('cost')) return 'pricing';
+    if (lowerMessage.includes('support') || lowerMessage.includes('help')) return 'support';
     return undefined;
   }
 

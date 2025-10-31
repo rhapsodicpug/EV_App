@@ -22,6 +22,8 @@ import GettingStartedTutorial from '../screens/tutorials/GettingStartedTutorial'
 import BookingTutorial from '../screens/tutorials/BookingTutorial';
 import PaymentGuide from '../screens/tutorials/PaymentGuide';
 import ChatbotScreen from '../screens/ChatbotScreen';
+import TripResultsScreen from '../screens/trip/TripResultsScreen';
+import TwoFactorSetupScreen from '../screens/settings/TwoFactorSetupScreen';
 
 const Stack = createStackNavigator();
 
@@ -171,6 +173,24 @@ const ProfileNavigator: React.FC = () => {
         component={ChatbotScreen}
         options={{
           title: 'EV Assistant',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="TripResults"
+        component={TripResultsScreen}
+        options={{
+          title: 'Trip Plan',
+          headerBackTitle: 'Back',
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="TwoFactorSetup"
+        component={TwoFactorSetupScreen}
+        options={{
+          title: 'Setup 2FA',
           headerBackTitle: 'Back',
           headerShown: false,
         }}

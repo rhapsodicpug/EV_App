@@ -40,8 +40,11 @@ import ChatMessage from '../components/chat/ChatMessage';
 import ContextCollectionModal, { UserContext } from '../components/ui/ContextCollectionModal';
 import EmergencyModeCard from '../components/chat/EmergencyModeCard';
 import PersonalizedStationCard from '../components/chat/PersonalizedStationCard';
+import TripPlannerModal from '../components/trip/TripPlannerModal';
 import RecommendationEngine, { PersonalizedRecommendation } from '../services/RecommendationEngine';
 import RangeCalculator from '../services/RangeCalculator';
+import { tripPlannerService } from '../services/TripPlannerService';
+import { MumbaiLocation } from '../constants/mumbaiLocations';
 import * as Location from 'expo-location';
 
 const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
@@ -64,6 +67,7 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
   const [inputText, setInputText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [showContextModal, setShowContextModal] = useState(false);
+  const [showTripPlannerModal, setShowTripPlannerModal] = useState(false);
   const [recommendations, setRecommendations] = useState<PersonalizedRecommendation[]>([]);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
@@ -136,6 +140,13 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
 
     const message = inputText.trim().toLowerCase();
     setInputText('');
+
+    // Check for trip planning keywords
+    if (message.includes('plan') && (message.includes('trip') || message.includes('route'))) {
+      console.log('🗺️ Trip planning detected from message');
+      setShowTripPlannerModal(true);
+      return;
+    }
 
     // Check for context-triggering keywords
     if (message.includes('find') && (message.includes('station') || message.includes('charging'))) {
@@ -272,24 +283,122 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
     });
   };
 
+  const handlePlanTrip = (startLocation: MumbaiLocation, endLocation: MumbaiLocation) => {
+    setShowTripPlannerModal(false);
+    
+    // Calculate trip plan
+    const tripPlan = tripPlannerService.calculateTripPlan(
+      startLocation,
+      endLocation,
+      currentVehicle?.batteryCapacity ? parseFloat(currentVehicle.batteryCapacity) : undefined
+    );
+    
+    // Navigate to TripResultsScreen
+    (navigation as any).navigate('TripResults', { tripPlan });
+    
+    // Add bot confirmation message
+    addBotMessage(`Great! I've calculated your trip from ${startLocation.name} to ${endLocation.name}. 📍🚗`);
+  };
+
   const handleQuickReply = async (quickReply: any) => {
-    switch (quickReply.action) {
-      case 'find_stations':
-      case 'find_charging':
-        setShowContextModal(true);
-        break;
-      case 'emergency':
-        handleEmergencyMode();
-        break;
-      case 'check_range':
-        showRangeInfo();
-        break;
-      case 'book_now':
-        (navigation as any).navigate('Bookings');
-        break;
-      default:
-        await sendQuickReply(quickReply);
+    // Check button text for common patterns (case-insensitive)
+    const buttonText = (quickReply.text || '').toLowerCase();
+    const actionType = (quickReply.action || '').toLowerCase();
+    
+    console.log('🔍 Quick Reply Debug:', { buttonText, actionType, quickReply });
+    
+    // Handle based on action type or button text
+    if (actionType === 'plan_trip' || buttonText.includes('plan trip') || 
+        buttonText.includes('plan a trip') || buttonText.includes('route planning')) {
+      // Open Trip Planner Modal
+      console.log('✅ Opening Trip Planner Modal');
+      setShowTripPlannerModal(true);
+      return;
     }
+    
+    if (actionType === 'find_stations' || actionType === 'find_charging' || 
+        buttonText.includes('find nearby') || buttonText.includes('find stations')) {
+      // Navigate to charging stations with map
+      (navigation as any).navigate('Search', {
+        screen: 'StationList'
+      });
+      return;
+    }
+    
+    if (actionType === 'emergency') {
+      handleEmergencyMode();
+      return;
+    }
+    
+    if (actionType === 'check_range' || buttonText.includes('check range')) {
+      showRangeInfo();
+      return;
+    }
+    
+    if (actionType === 'book_now' || buttonText.includes('book now')) {
+      // Navigate to booking screen
+      (navigation as any).navigate('Bookings', {
+        screen: 'BookingList'
+      });
+      return;
+    }
+    
+    if (buttonText.includes('view booking') || buttonText.includes('my booking') || 
+        buttonText.includes('bookings')) {
+      // Navigate to user's bookings
+      (navigation as any).navigate('Bookings', {
+        screen: 'BookingList'
+      });
+      return;
+    }
+    
+    if (buttonText.includes('search location') || buttonText.includes('search station')) {
+      // Navigate to station search/list
+      (navigation as any).navigate('Search', {
+        screen: 'StationList'
+      });
+      return;
+    }
+    
+    if (buttonText.includes('show map') || buttonText.includes('view map') || 
+        buttonText.includes('open map')) {
+      // Navigate to map view
+      (navigation as any).navigate('Map');
+      return;
+    }
+    
+    if (buttonText.includes('my vehicle') || buttonText.includes('vehicle info')) {
+      // Navigate to vehicle info
+      (navigation as any).navigate('Profile', {
+        screen: 'MyVehicle'
+      });
+      return;
+    }
+    
+    if (buttonText.includes('payment') || buttonText.includes('add payment')) {
+      // Navigate to payment methods
+      (navigation as any).navigate('Profile', {
+        screen: 'PaymentMethods'
+      });
+      return;
+    }
+    
+    if (buttonText.includes('profile') || buttonText.includes('my profile')) {
+      // Navigate to profile
+      (navigation as any).navigate('Profile');
+      return;
+    }
+    
+    if (buttonText.includes('help') || buttonText.includes('support')) {
+      // Navigate to help & support
+      (navigation as any).navigate('Profile', {
+        screen: 'HelpSupport'
+      });
+      return;
+    }
+    
+    // Default: send as a message to the bot
+    await sendQuickReply(quickReply);
   };
 
   const handleClearConversation = () => {
@@ -415,6 +524,7 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
               key={message.id}
               message={message}
               onQuickReply={handleQuickReply}
+              onCardAction={handleQuickReply}
               onSuggestion={() => {}}
             />
           ))
@@ -535,6 +645,12 @@ const ChatbotScreenEnhanced: React.FC = ({ route }: any) => {
         visible={showContextModal}
         onClose={() => setShowContextModal(false)}
         onContextSubmit={handleContextSubmit}
+      />
+
+      <TripPlannerModal
+        visible={showTripPlannerModal}
+        onClose={() => setShowTripPlannerModal(false)}
+        onPlanTrip={handlePlanTrip}
       />
     </KeyboardAvoidingView>
   );

@@ -5,6 +5,8 @@
 
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { bookingNotificationService } from '../services/BookingNotificationService';
+import apiService from '../services/api';
 
 // Types
 export interface Booking {
@@ -194,6 +196,22 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       dispatch({ type: 'ADD_BOOKING', payload: newBooking });
       await saveBookings([newBooking, ...state.bookings]);
       console.log('✅ Booking added successfully');
+
+      // Send notification for the new booking
+      await bookingNotificationService.sendBookingCreatedNotification({
+        bookingId: newBooking.id,
+        stationName: newBooking.stationName,
+        date: newBooking.date,
+        time: newBooking.time,
+      });
+
+      // Schedule reminder for upcoming booking (30 minutes before)
+      await bookingNotificationService.scheduleUpcomingBookingReminder({
+        bookingId: newBooking.id,
+        stationName: newBooking.stationName,
+        date: newBooking.date,
+        time: newBooking.time,
+      });
     } catch (error) {
       console.error('❌ Failed to add booking:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to add booking' });
@@ -267,6 +285,18 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       console.log('❌ Cancelling booking:', id);
       
+      // Find the booking to get its details
+      const booking = state.bookings.find(b => b.id === id);
+      
+      // Call backend API to cancel booking (this will broadcast the update via WebSocket)
+      try {
+        await apiService.cancelBooking(id);
+        console.log('✅ Booking cancelled on backend');
+      } catch (apiError: any) {
+        console.warn('⚠️ Backend cancellation failed, updating locally:', apiError?.message);
+        // Continue with local update even if backend fails
+      }
+      
       // Create the updated bookings array
       const updatedBookings = state.bookings.map(booking =>
         booking.id === id
@@ -282,6 +312,19 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await saveBookings(updatedBookings);
       dispatch({ type: 'CANCEL_BOOKING', payload: id });
       console.log('✅ Booking cancelled successfully');
+
+      // Cancel any scheduled notifications for this booking
+      await bookingNotificationService.cancelBookingNotifications(id);
+
+      // Send cancellation notification if we have booking details
+      if (booking) {
+        await bookingNotificationService.sendBookingCancelledNotification({
+          bookingId: booking.id,
+          stationName: booking.stationName,
+          date: booking.date,
+          time: booking.time,
+        });
+      }
     } catch (error) {
       console.error('❌ Failed to cancel booking:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to cancel booking' });
@@ -319,6 +362,18 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     loadBookings();
   }, []);
+
+  // Check for upcoming bookings and send notifications
+  useEffect(() => {
+    const checkUpcomingBookingsNotifications = async () => {
+      if (state.bookings.length > 0) {
+        await bookingNotificationService.checkUpcomingBookings(state.bookings);
+      }
+    };
+
+    // Run on initial load and whenever bookings change
+    checkUpcomingBookingsNotifications();
+  }, [state.bookings]);
 
   const value: BookingContextType = {
     state,

@@ -9,7 +9,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Platform,
   Linking,
   Dimensions,
@@ -19,12 +18,15 @@ import {
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
 import { EVStation, ChargerStatus } from '../../types/api';
 import { apiService } from '../../services/api';
+import { tripStorageService, SavedTrip } from '../../services/TripStorageService';
+import { tripPlannerService, StationWithDistance } from '../../services/TripPlannerService';
+import AlertService from '../../services/AlertService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -62,6 +64,7 @@ interface InteractiveMapScreenProps {
 }
 
 const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation }) => {
+  const route = useRoute();
   const [stations, setStations] = useState<EVStation[]>([]);
   const [selectedStation, setSelectedStation] = useState<EVStation | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Region>(DEFAULT_LOCATION);
@@ -69,6 +72,12 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
   const [locationError, setLocationError] = useState<string | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [heatMapMode, setHeatMapMode] = useState(false);
+  
+  // Trip Planning State
+  const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([]);
+  const [selectedTrip, setSelectedTrip] = useState<SavedTrip | null>(null);
+  const [showTripsPanel, setShowTripsPanel] = useState(false);
+  const [tripStations, setTripStations] = useState<EVStation[]>([]);
   
   const mapRef = useRef<MapView>(null);
 
@@ -91,6 +100,118 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
   useEffect(() => {
     initializeMap();
   }, []);
+
+  // Load saved trips
+  useFocusEffect(
+    React.useCallback(() => {
+      loadSavedTrips();
+      
+      // Check if we need to load a specific trip (from TripResultsScreen)
+      const params = route.params as any;
+      if (params?.tripId) {
+        loadTripById(params.tripId);
+      }
+    }, [route.params])
+  );
+
+  const loadSavedTrips = async () => {
+    try {
+      const trips = await tripStorageService.getAllTrips();
+      setSavedTrips(trips);
+      console.log('✅ Loaded', trips.length, 'saved trips');
+    } catch (error) {
+      console.error('Failed to load trips:', error);
+    }
+  };
+
+  const loadTripById = async (tripId: string) => {
+    try {
+      const trip = await tripStorageService.getTripById(tripId);
+      if (trip) {
+        await handleSelectTrip(trip);
+        setShowTripsPanel(true);
+      }
+    } catch (error) {
+      console.error('Failed to load trip:', error);
+    }
+  };
+
+  const handleSelectTrip = async (trip: SavedTrip) => {
+    setSelectedTrip(trip);
+    
+    // Find stations along this route
+    const routeStations = tripPlannerService.findStationsAlongRoute(
+      trip.tripPlan.startLocation,
+      trip.tripPlan.endLocation,
+      stations,
+      5
+    );
+    
+    const stationsData = routeStations.map(rs => rs.station);
+    setTripStations(stationsData);
+    
+    // Zoom to fit the start and end points
+    if (mapRef.current) {
+      const coordinates = [
+        { latitude: trip.tripPlan.startLocation.lat, longitude: trip.tripPlan.startLocation.lng },
+        { latitude: trip.tripPlan.endLocation.lat, longitude: trip.tripPlan.endLocation.lng },
+      ];
+      
+      mapRef.current.fitToCoordinates(coordinates, {
+        edgePadding: { top: 100, right: 100, bottom: 300, left: 100 },
+        animated: true,
+      });
+    }
+    
+    console.log('✅ Selected trip:', trip.name);
+  };
+
+  const openInGoogleMaps = (trip: SavedTrip) => {
+    const startLat = trip.tripPlan.startLocation.lat;
+    const startLng = trip.tripPlan.startLocation.lng;
+    const endLat = trip.tripPlan.endLocation.lat;
+    const endLng = trip.tripPlan.endLocation.lng;
+    
+    // Google Maps URL with directions
+    const url = Platform.select({
+      ios: `comgooglemaps://?saddr=${startLat},${startLng}&daddr=${endLat},${endLng}&directionsmode=driving`,
+      android: `google.navigation:q=${endLat},${endLng}&mode=d`,
+      default: `https://www.google.com/maps/dir/?api=1&origin=${startLat},${startLng}&destination=${endLat},${endLng}&travelmode=driving`
+    });
+    
+    Linking.canOpenURL(url).then((supported) => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        // Fallback to web URL if Google Maps app not installed
+        const webUrl = `https://www.google.com/maps/dir/?api=1&origin=${startLat},${startLng}&destination=${endLat},${endLng}&travelmode=driving`;
+        Linking.openURL(webUrl);
+      }
+    });
+  };
+
+  const handleDeleteTrip = async (tripId: string) => {
+    AlertService.destructiveConfirm(
+      'Delete Trip',
+      'Are you sure you want to delete this trip?',
+      async () => {
+        try {
+          await tripStorageService.deleteTrip(tripId);
+          await loadSavedTrips();
+          if (selectedTrip?.id === tripId) {
+            setSelectedTrip(null);
+            setTripStations([]);
+          }
+          AlertService.success('Success', 'Trip deleted successfully');
+        } catch (error) {
+          AlertService.error('Error', 'Failed to delete trip');
+        }
+      },
+      undefined,
+      'Delete',
+      'Cancel'
+    );
+  };
 
   const initializeMap = async () => {
     try {
@@ -144,7 +265,7 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
       console.log('✅ Loaded stations:', response.stations.length);
     } catch (error) {
       console.error('❌ Error loading stations:', error);
-      Alert.alert('Error', 'Failed to load charging stations. Please try again.');
+      AlertService.error('Error', 'Failed to load charging stations. Please try again.');
     }
   };
 
@@ -186,7 +307,7 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
     // Try to open the URL
     Linking.openURL(url!).catch(err => {
       console.error('An error occurred opening the map app', err);
-      Alert.alert('Error', 'Could not open the map application.');
+      AlertService.error('Error', 'Could not open the map application.');
     });
   };
 
@@ -524,6 +645,33 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
             {renderCustomMarker(station)}
           </Marker>
         ))}
+
+        {/* Trip Markers */}
+        {selectedTrip && (
+          <>
+            {/* Start Marker */}
+            <Marker
+              coordinate={{
+                latitude: selectedTrip.tripPlan.startLocation.lat,
+                longitude: selectedTrip.tripPlan.startLocation.lng,
+              }}
+              title={selectedTrip.tripPlan.startLocation.name}
+              description="Start"
+              pinColor="#4ADE80"
+            />
+            
+            {/* End Marker */}
+            <Marker
+              coordinate={{
+                latitude: selectedTrip.tripPlan.endLocation.lat,
+                longitude: selectedTrip.tripPlan.endLocation.lng,
+              }}
+              title={selectedTrip.tripPlan.endLocation.name}
+              description="Destination"
+              pinColor="#EF4444"
+            />
+          </>
+        )}
       </MapView>
 
       {/* Custom Location Button */}
@@ -567,6 +715,84 @@ const InteractiveMapScreen: React.FC<InteractiveMapScreenProps> = ({ navigation 
             <View style={[styles.legendColor, { backgroundColor: '#EF4444' }]} />
             <Text style={styles.legendText}>Low (&lt;4 nearby)</Text>
           </View>
+        </View>
+      )}
+
+      {/* Trips Panel Button */}
+      <TouchableOpacity
+        style={styles.tripsButton}
+        onPress={() => setShowTripsPanel(!showTripsPanel)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="map-outline" size={24} color={MAP_COLORS.text.primary} />
+        {savedTrips.length > 0 && (
+          <View style={styles.tripsBadge}>
+            <Text style={styles.tripsBadgeText}>{savedTrips.length}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Trips Panel */}
+      {showTripsPanel && (
+        <View style={[styles.tripsPanel, { paddingBottom: 100 }]}>
+          <View style={styles.tripsPanelHeader}>
+            <Text style={styles.tripsPanelTitle}>Saved Trips</Text>
+            <TouchableOpacity onPress={() => setShowTripsPanel(false)}>
+              <Ionicons name="close" size={24} color={MAP_COLORS.text.primary} />
+            </TouchableOpacity>
+          </View>
+          
+          {savedTrips.length === 0 ? (
+            <View style={styles.emptyTripsContainer}>
+              <Ionicons name="map-outline" size={48} color={MAP_COLORS.text.tertiary} />
+              <Text style={styles.emptyTripsText}>No saved trips yet</Text>
+              <Text style={styles.emptyTripsSubtext}>
+                Plan a trip to see it here
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.tripsList}>
+              {savedTrips.map((trip) => (
+                <View
+                  key={trip.id}
+                  style={[
+                    styles.tripCard,
+                    selectedTrip?.id === trip.id && styles.tripCardSelected,
+                  ]}
+                >
+                  <TouchableOpacity
+                    style={styles.tripCardContent}
+                    onPress={() => handleSelectTrip(trip)}
+                  >
+                    <View style={styles.tripInfo}>
+                      <Text style={styles.tripName}>{trip.name}</Text>
+                      <Text style={styles.tripDistance}>
+                        {trip.tripPlan.distance} km • {trip.tripPlan.estimatedTime} min
+                      </Text>
+                      <Text style={styles.tripBattery}>
+                        🔋 -{trip.tripPlan.batteryConsumption.mediumTraffic.percentage}% battery
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.tripDeleteButton}
+                      onPress={() => handleDeleteTrip(trip.id)}
+                    >
+                      <Ionicons name="trash-outline" size={20} color={MAP_COLORS.error} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  
+                  {/* Get Directions Button */}
+                  <TouchableOpacity
+                    style={styles.directionsButton}
+                    onPress={() => openInGoogleMaps(trip)}
+                  >
+                    <Ionicons name="navigate" size={18} color="#FFFFFF" />
+                    <Text style={styles.directionsButtonText}>Get Directions</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -870,6 +1096,140 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: MAP_COLORS.text.secondary,
     fontWeight: '500',
+  },
+  // Trips Panel Styles
+  tripsButton: {
+    position: 'absolute',
+    bottom: 120,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: MAP_COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  tripsBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: MAP_COLORS.accent,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  tripsBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#000',
+  },
+  tripsPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    maxHeight: '50%',
+    backgroundColor: MAP_COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  tripsPanelHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  tripsPanelTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: MAP_COLORS.text.primary,
+  },
+  emptyTripsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyTripsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: MAP_COLORS.text.primary,
+    marginTop: 16,
+  },
+  emptyTripsSubtext: {
+    fontSize: 14,
+    color: MAP_COLORS.text.secondary,
+    marginTop: 8,
+  },
+  tripsList: {
+    maxHeight: 300,
+  },
+  tripCard: {
+    backgroundColor: MAP_COLORS.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  tripCardSelected: {
+    borderColor: MAP_COLORS.accent,
+    backgroundColor: 'rgba(140, 210, 121, 0.1)',
+  },
+  tripCardContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tripInfo: {
+    flex: 1,
+  },
+  tripName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MAP_COLORS.text.primary,
+    marginBottom: 4,
+  },
+  tripDistance: {
+    fontSize: 14,
+    color: MAP_COLORS.text.secondary,
+    marginBottom: 4,
+  },
+  tripBattery: {
+    fontSize: 13,
+    color: MAP_COLORS.accent,
+  },
+  tripDeleteButton: {
+    padding: 8,
+    marginLeft: 12,
+  },
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: MAP_COLORS.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  directionsButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#000000',
   },
 });
 

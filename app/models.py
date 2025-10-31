@@ -87,6 +87,9 @@ class User(BaseModel):
     vehicle_info: Optional[Dict[str, Any]] = Field(None, description="Vehicle details")
     is_active: bool = Field(default=True, description="Account status")
     is_verified: bool = Field(default=False, description="Email verification status")
+    two_factor_enabled: bool = Field(default=False, description="2FA enabled status")
+    two_factor_secret: Optional[str] = Field(None, description="TOTP secret (encrypted)")
+    backup_codes: Optional[List[str]] = Field(default_factory=list, description="Hashed backup codes")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -115,6 +118,7 @@ class UserResponse(BaseModel):
     vehicle_info: Optional[Dict[str, Any]] = Field(None, description="Vehicle details")
     is_active: bool = Field(..., description="Account status")
     is_verified: bool = Field(..., description="Email verification status")
+    two_factor_enabled: bool = Field(default=False, description="2FA enabled status")
     created_at: datetime = Field(..., description="Account creation date")
     
     class Config:
@@ -129,6 +133,22 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = Field(None, description="User email from token")
+
+# 2FA Models
+class TwoFactorSetup(BaseModel):
+    secret: str = Field(..., description="TOTP secret")
+    qr_code: str = Field(..., description="Base64 encoded QR code image")
+    backup_codes: List[str] = Field(..., description="10 backup codes for recovery")
+
+class TwoFactorEnable(BaseModel):
+    code: str = Field(..., description="6-digit TOTP code")
+
+class TwoFactorVerify(BaseModel):
+    email: str = Field(..., description="User email")
+    code: str = Field(..., description="6-digit TOTP code or backup code")
+
+class TwoFactorDisable(BaseModel):
+    password: str = Field(..., description="User password for verification")
 
 class Booking(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")

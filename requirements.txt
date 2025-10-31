@@ -10,3 +10,6 @@ python-multipart==0.0.6
 motor==3.3.2
 email-validator==2.1.0
 httpx==0.26.0
+pyotp==2.9.0
+qrcode==7.4.2
+pillow==10.1.0

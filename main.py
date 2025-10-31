@@ -1,6 +1,6 @@
 import os
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse
-from fastapi import FastAPI, HTTPException, Depends, Query, status, Request
+from fastapi import FastAPI, HTTPException, Depends, Query, status, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import Field, BaseModel
 from datetime import datetime, timedelta
@@ -12,6 +12,9 @@ from typing import List, Optional
 from datetime import datetime
 import razorpay
 import httpx
+import json
+import asyncio
+from typing import Set
 
 # Import our models
 from models import (
@@ -133,6 +136,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# WebSocket Connection Manager for Real-time Updates
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Set[WebSocket] = set()
+    
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.add(websocket)
+        print(f"✅ WebSocket connected. Total connections: {len(self.active_connections)}")
+    
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.discard(websocket)
+        print(f"❌ WebSocket disconnected. Total connections: {len(self.active_connections)}")
+    
+    async def broadcast(self, message: dict):
+        """Broadcast message to all connected clients"""
+        if not self.active_connections:
+            return
+        
+        message_json = json.dumps(message)
+        disconnected = []
+        
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message_json)
+            except Exception as e:
+                print(f"❌ Error sending message to client: {e}")
+                disconnected.append(connection)
+        
+        # Remove disconnected clients
+        for conn in disconnected:
+            self.disconnect(conn)
+        
+        print(f"📡 Broadcast sent to {len(self.active_connections)} clients: {message.get('type', 'unknown')}")
+
+# Create global connection manager instance
+manager = ConnectionManager()
 
 # Get the MongoDB connection string from environment variables
 MONGO_URI = os.getenv("MONGO_URI")
@@ -957,6 +998,59 @@ async def cancel_booking(
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Booking not found")
         
+        # Free up the slot by updating it back to AVAILABLE
+        station_id = booking_doc.get("station_id")
+        slot_number = booking_doc.get("slot_number")
+        
+        if station_id and slot_number:
+            # Update slot status to AVAILABLE
+            stations_collection.update_one(
+                {
+                    "_id": ObjectId(station_id),
+                    "charging_slots.slot_number": slot_number
+                },
+                {
+                    "$set": {
+                        "charging_slots.$.status": "AVAILABLE",
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                }
+            )
+            print(f"✅ Slot {slot_number} freed up at station {station_id}")
+            
+            # Fetch updated station data
+            updated_station = stations_collection.find_one({"_id": ObjectId(station_id)})
+            
+            if updated_station:
+                # Convert ObjectId to string for JSON serialization
+                updated_station["id"] = str(updated_station["_id"])
+                del updated_station["_id"]
+                
+                # Count available slots
+                available_slots = [slot for slot in updated_station.get("charging_slots", []) 
+                                  if slot.get("status") == "AVAILABLE"]
+                updated_station["available_slots_count"] = len(available_slots)
+                updated_station["total_slots_count"] = len(updated_station.get("charging_slots", []))
+                
+                print(f"📊 Updated station availability: {len(available_slots)}/{len(updated_station.get('charging_slots', []))} slots available")
+                
+                # Broadcast real-time update to all connected clients
+                broadcast_message = {
+                    "type": "booking_cancelled",
+                    "station_id": station_id,
+                    "station": {
+                        "id": updated_station["id"],
+                        "name": updated_station.get("name", ""),
+                        "available_slots_count": len(available_slots),
+                        "total_slots_count": len(updated_station.get("charging_slots", [])),
+                        "charging_slots": updated_station.get("charging_slots", [])
+                    },
+                    "booking_id": booking_id,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+                await manager.broadcast(broadcast_message)
+                print(f"📡 Real-time update broadcasted: Station {station_id} availability updated")
+        
         return {"message": "Booking cancelled successfully"}
         
     except HTTPException:
@@ -1387,6 +1481,40 @@ async def search_stations(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search query error: {str(e)}")
 
+# ==================== WEBSOCKET ENDPOINT ====================
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time booking updates"""
+    try:
+        await manager.connect(websocket)
+        print(f"✅ WebSocket client connected. Total: {len(manager.active_connections)}")
+        
+        while True:
+            try:
+                # Keep connection alive and handle ping/pong
+                data = await websocket.receive_text()
+                try:
+                    message = json.loads(data)
+                    if message.get("type") == "ping":
+                        # Respond to ping with pong
+                        await websocket.send_text(json.dumps({"type": "pong", "message": "connected"}))
+                except json.JSONDecodeError:
+                    # Not JSON, ignore
+                    pass
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                print(f"❌ Error receiving WebSocket message: {e}")
+                break
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        print(f"❌ WebSocket connection error: {e}")
+    finally:
+        manager.disconnect(websocket)
+        print(f"❌ WebSocket client disconnected. Total: {len(manager.active_connections)}")
+
 # ==================== API BOOKING ENDPOINTS ====================
 
 @app.post("/api/bookings/", response_model=BookingWithUpdatedStationResponse)
@@ -1567,6 +1695,23 @@ async def create_booking_api(
             updated_station["total_slots_count"] = len(updated_station.get("charging_slots", []))
             
             print(f"📊 Updated station availability: {len(available_slots)}/{len(updated_station.get('charging_slots', []))} slots available")
+            
+            # Broadcast real-time update to all connected clients
+            broadcast_message = {
+                "type": "booking_created",
+                "station_id": station_id,
+                "station": {
+                    "id": updated_station["id"],
+                    "name": updated_station.get("name", ""),
+                    "available_slots_count": len(available_slots),
+                    "total_slots_count": len(updated_station.get("charging_slots", [])),
+                    "charging_slots": updated_station.get("charging_slots", [])
+                },
+                "booking_id": str(booking_doc["id"]),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            await manager.broadcast(broadcast_message)
+            print(f"📡 Real-time update broadcasted: Station {station_id} availability updated")
         else:
             print(f"⚠️ Could not fetch updated station data")
             updated_station = {}

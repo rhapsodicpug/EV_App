@@ -14,7 +14,6 @@ import {
   Dimensions,
   BackHandler,
   Linking,
-  Alert,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
+import AlertService from '../services/AlertService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -160,10 +160,9 @@ const HelpSupportScreen: React.FC = () => {
 
   // Contact action handlers
   const handleLiveChat = () => {
-    Alert.alert(
+    AlertService.info(
       'Live Chat',
-      'Live chat feature will be available soon. For now, please use email or phone support.',
-      [{ text: 'OK' }]
+      'Live chat feature will be available soon. For now, please use email or phone support.'
     );
   };
 
@@ -179,40 +178,37 @@ const HelpSupportScreen: React.FC = () => {
         if (supported) {
           Linking.openURL(emailUrl);
         } else {
-          Alert.alert('Error', 'Email app is not available on this device');
+          AlertService.error('Error', 'Email app is not available on this device');
         }
       })
       .catch((err) => {
-        Alert.alert('Error', 'Failed to open email app');
+        AlertService.error('Error', 'Failed to open email app');
       });
   };
 
   const handlePhone = () => {
-    const phoneNumber = '+91-800-123-4567';
+    const phoneNumber = '+91 8291661002';
     
-    Alert.alert(
+    AlertService.confirm(
       'Call Support',
       `Call our support team at ${phoneNumber}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Call',
-          onPress: () => {
-            const phoneUrl = `tel:${phoneNumber}`;
-            Linking.canOpenURL(phoneUrl)
-              .then((supported) => {
-                if (supported) {
-                  Linking.openURL(phoneUrl);
-                } else {
-                  Alert.alert('Error', 'Phone app is not available on this device');
-                }
-              })
-              .catch((err) => {
-                Alert.alert('Error', 'Failed to open phone app');
-              });
-          },
-        },
-      ]
+      () => {
+        const phoneUrl = `tel:${phoneNumber.replace(/\s/g, '')}`;
+        Linking.canOpenURL(phoneUrl)
+          .then((supported) => {
+            if (supported) {
+              Linking.openURL(phoneUrl);
+            } else {
+              AlertService.error('Error', 'Phone app is not available on this device');
+            }
+          })
+          .catch((err) => {
+            AlertService.error('Error', 'Failed to open phone app');
+          });
+      },
+      undefined,
+      'Call',
+      'Cancel'
     );
   };
 

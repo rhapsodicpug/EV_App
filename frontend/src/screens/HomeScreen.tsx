@@ -41,13 +41,18 @@ import {
   Gauge,
   Car,
   Bot,
+  Navigation,
 } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useVehicles } from '../contexts/VehicleContext';
+import { useBookings } from '../contexts/BookingContext';
 import { useNavigation } from '@react-navigation/native';
 import { apiService } from '../services/api';
 import CustomModal from '../components/ui/CustomModal';
 import { useTheme } from '../contexts/ThemeContext';
+import TripPlannerModal from '../components/trip/TripPlannerModal';
+import { MumbaiLocation } from '../constants/mumbaiLocations';
+import { tripPlannerService } from '../services/TripPlannerService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -161,6 +166,7 @@ const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
   const { vehicles } = useVehicles();
+  const { getUpcomingBookings, getCompletedBookings } = useBookings();
   const { theme } = useTheme();
   
   // State for dynamic data
@@ -171,12 +177,12 @@ const HomeScreen: React.FC = () => {
   
   // State for modals
   const [showVehicleInfoModal, setShowVehicleInfoModal] = useState(false);
+  const [showTripPlannerModal, setShowTripPlannerModal] = useState(false);
   
   // Animation values for modal
   const modalScale = useRef(new Animated.Value(0)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
   const [showRepeatBookingModal, setShowRepeatBookingModal] = useState(false);
-  const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -239,8 +245,27 @@ const HomeScreen: React.FC = () => {
   };
 
 
-  const handleBookSlot = () => {
-    navigation.navigate('Search' as never);
+  const handlePlanTrip = () => {
+    setShowTripPlannerModal(true);
+  };
+
+  const handleTripPlanned = (startLocation: MumbaiLocation, endLocation: MumbaiLocation) => {
+    setShowTripPlannerModal(false);
+    
+    // Calculate trip plan
+    const tripPlan = tripPlannerService.calculateTripPlan(
+      startLocation,
+      endLocation,
+      vehicles && vehicles.length > 0 && vehicles[0].batteryCapacity 
+        ? parseFloat(vehicles[0].batteryCapacity) 
+        : undefined
+    );
+    
+    // Navigate to TripResultsScreen
+    (navigation as any).navigate('Profile', {
+      screen: 'TripResults',
+      params: { tripPlan }
+    });
   };
 
   // Modal animation functions
@@ -286,7 +311,7 @@ const HomeScreen: React.FC = () => {
   };
 
   const handleNotificationPress = () => {
-    setShowNotificationModal(true);
+    navigation.navigate('BookingNotifications' as never);
   };
 
   const handleEVAssistantPress = () => {
@@ -419,22 +444,22 @@ const HomeScreen: React.FC = () => {
             activeOpacity={0.8}
           >
             <View style={styles.quickActionIcon}>
-              <MapPin size={24} color={HOME_COLORS.success} />
+              <Zap size={24} color="#000000" />
             </View>
             <Text style={styles.quickActionTitle}>Find Charger</Text>
             <Text style={styles.quickActionDescription}>Locate nearby stations</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.quickActionCard}
-            onPress={handleBookSlot}
+            onPress={handlePlanTrip}
             activeOpacity={0.8}
           >
             <View style={styles.quickActionIcon}>
-              <Calendar size={24} color={HOME_COLORS.success} />
+              <Navigation size={24} color="#000000" />
             </View>
-            <Text style={styles.quickActionTitle}>Book Slot</Text>
-            <Text style={styles.quickActionDescription}>Reserve charging time</Text>
+            <Text style={styles.quickActionTitle}>Plan a Trip</Text>
+            <Text style={styles.quickActionDescription}>Route & battery calc</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -443,7 +468,7 @@ const HomeScreen: React.FC = () => {
             activeOpacity={0.8}
           >
             <View style={styles.quickActionIcon}>
-              <Bot size={24} color={HOME_COLORS.primary} />
+              <Bot size={24} color="#000000" />
             </View>
             <Text style={styles.quickActionTitle}>EV Assistant</Text>
             <Text style={styles.quickActionDescription}>AI-powered support</Text>
@@ -454,6 +479,27 @@ const HomeScreen: React.FC = () => {
   );
 
   const renderRecentBookingSection = () => {
+    const upcomingBookings = getUpcomingBookings();
+    const completedBookings = getCompletedBookings();
+    const allActivities = [...upcomingBookings.slice(0, 2), ...completedBookings.slice(0, 1)];
+    
+    const formatBookingDate = (dateStr: string): Date => {
+      try {
+        // Handle ISO format (YYYY-MM-DD)
+        if (dateStr.includes('-')) {
+          return new Date(dateStr);
+        }
+        // Handle other formats
+        const parsedDate = new Date(dateStr);
+        if (isNaN(parsedDate.getTime())) {
+          return new Date(); // Fallback to today
+        }
+        return parsedDate;
+      } catch {
+        return new Date(); // Fallback to today
+      }
+    };
+    
     return (
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
@@ -462,47 +508,72 @@ const HomeScreen: React.FC = () => {
         </View>
         
         <View style={styles.sectionContent}>
-          {!recentBooking ? (
+          {allActivities.length === 0 ? (
             <View style={styles.emptyStateCard}>
               <View style={styles.emptyStateIcon}>
                 <Calendar size={32} color={HOME_COLORS.text.tertiary} />
               </View>
-              <Text style={styles.emptyStateTitle}>No Recent Bookings</Text>
+              <Text style={styles.emptyStateTitle}>No Recent Activity</Text>
               <Text style={styles.emptyStateDescription}>
-                Your recent charging sessions will appear here
+                Your bookings and charging sessions will appear here
               </Text>
             </View>
           ) : (
-            <View style={styles.bookingCard}>
-              <View style={styles.bookingCardContent}>
-                <View style={styles.bookingDateContainer}>
-                  <Text style={styles.bookingDay}>
-                    {new Date(recentBooking.start_time).toLocaleDateString('en-US', { weekday: 'short' })}
-                  </Text>
-                  <Text style={styles.bookingDateNumber}>
-                    {new Date(recentBooking.start_time).getDate()}
-                  </Text>
-                </View>
+            <>
+              {allActivities.map((booking, index) => {
+                const bookingDate = formatBookingDate(booking.date);
+                const isUpcoming = booking.status === 'upcoming';
+                const isCompleted = booking.status === 'completed';
                 
-                <View style={styles.bookingInfo}>
-                  <Text style={styles.bookingTitle}>Last Charging Session</Text>
-                  <Text style={styles.bookingStation}>{recentBooking.station_name || 'Unknown Station'}</Text>
-                  <Text style={styles.bookingTime}>
-                    {new Date(recentBooking.start_time).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    })} • {recentBooking.duration_minutes} minutes
-                  </Text>
-                </View>
-                
-                <TouchableOpacity 
-                  style={styles.secondaryButton} 
-                  onPress={handleRepeatBooking}
-                >
-                  <Text style={styles.secondaryButtonText}>Repeat</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                return (
+                  <TouchableOpacity 
+                    key={booking.id}
+                    style={[styles.activityCard, index > 0 && styles.activityCardSpacing]}
+                    onPress={() => navigation.navigate('Bookings' as never)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.activityCardContent}>
+                      <View style={[
+                        styles.activityDateContainer,
+                        isUpcoming && styles.activityDateUpcoming,
+                        isCompleted && styles.activityDateCompleted
+                      ]}>
+                        <Text style={styles.activityDay}>
+                          {bookingDate.toLocaleDateString('en-US', { weekday: 'short' })}
+                        </Text>
+                        <Text style={styles.activityDateNumber}>
+                          {bookingDate.getDate()}
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.activityInfo}>
+                        <View style={styles.activityTitleRow}>
+                          <Text style={styles.activityTitle}>
+                            {isUpcoming ? '🔜 Upcoming Booking' : '✅ Completed'}
+                          </Text>
+                          {isUpcoming && (
+                            <View style={styles.upcomingBadge}>
+                              <Text style={styles.upcomingBadgeText}>Soon</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.activityStation}>{booking.stationName}</Text>
+                        <Text style={styles.activityTime}>
+                          {bookingDate.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })} • {booking.time} • {booking.duration} min
+                        </Text>
+                      </View>
+                      
+                      <View style={styles.activityAction}>
+                        <ChevronRight size={20} color={HOME_COLORS.text.secondary} />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
           )}
         </View>
       </View>
@@ -638,17 +709,6 @@ const HomeScreen: React.FC = () => {
           onPress: () => {},
         }]}
         onClose={() => setShowRepeatBookingModal(false)}
-      />
-
-      <CustomModal
-        visible={showNotificationModal}
-        title="Notifications"
-        message="Notification feature coming soon!"
-        options={[{
-          text: 'OK',
-          onPress: () => {},
-        }]}
-        onClose={() => setShowNotificationModal(false)}
       />
 
       {/* Enhanced Vehicle Info Modal */}
@@ -799,6 +859,13 @@ const HomeScreen: React.FC = () => {
           </BlurView>
         </Animated.View>
       </Modal>
+
+      {/* Trip Planner Modal */}
+      <TripPlannerModal
+        visible={showTripPlannerModal}
+        onClose={() => setShowTripPlannerModal(false)}
+        onPlanTrip={handleTripPlanned}
+      />
     </DynamicWallpaper>
   );
 };
@@ -1108,49 +1175,37 @@ const styles = StyleSheet.create({
 
   // Quick actions system
   quickActionsGrid: {
-    flexDirection: 'row',
     gap: SPACING.md,
-    justifyContent: 'space-between',
   },
 
   quickActionCard: {
-    flex: 1,
-    maxWidth: '32%', // Allow 3 cards per row with spacing
-    backgroundColor: HOME_COLORS.surface,
-    borderRadius: 16,
-    padding: SPACING.md,
+    width: '100%',
+    backgroundColor: HOME_COLORS.primary,
+    borderRadius: 50, // Full rounded pill shape
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: HOME_COLORS.border,
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
 
   quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(140, 210, 121, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.sm,
+    marginRight: 12,
   },
 
   quickActionTitle: {
-    ...TYPOGRAPHY.bodyLarge,
-    color: HOME_COLORS.text.primary,
-    fontWeight: '600' as const,
-    marginBottom: SPACING.xs,
-    textAlign: 'center' as const,
+    fontSize: 18,
+    color: '#000000',
+    fontWeight: '700' as const,
   },
 
   quickActionDescription: {
-    ...TYPOGRAPHY.bodySmall,
-    color: HOME_COLORS.text.secondary,
-    textAlign: 'center' as const,
+    display: 'none', // Hide descriptions for full-width button style
   },
 
   // Booking card system
@@ -1216,6 +1271,120 @@ const styles = StyleSheet.create({
   bookingTime: {
     ...TYPOGRAPHY.bodySmall,
     color: HOME_COLORS.text.tertiary,
+  },
+
+  // Activity card system (for Recent Activity section)
+  activityCard: {
+    backgroundColor: HOME_COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HOME_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  activityCardSpacing: {
+    marginTop: SPACING.md,
+  },
+
+  activityCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+  },
+
+  activityDateContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: HOME_COLORS.glass,
+    borderWidth: 1,
+    borderColor: HOME_COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+
+  activityDateUpcoming: {
+    backgroundColor: 'rgba(140, 210, 121, 0.1)',
+    borderColor: 'rgba(140, 210, 121, 0.3)',
+  },
+
+  activityDateCompleted: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+  },
+
+  activityDay: {
+    ...TYPOGRAPHY.label,
+    fontSize: 10,
+    color: HOME_COLORS.text.secondary,
+    marginBottom: 2,
+  },
+
+  activityDateNumber: {
+    ...TYPOGRAPHY.h3,
+    fontSize: 20,
+    color: HOME_COLORS.text.primary,
+    fontWeight: '700' as const,
+  },
+
+  activityInfo: {
+    flex: 1,
+  },
+
+  activityTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+
+  activityTitle: {
+    ...TYPOGRAPHY.body,
+    fontSize: 15,
+    color: HOME_COLORS.text.primary,
+    fontWeight: '600' as const,
+    flex: 1,
+  },
+
+  upcomingBadge: {
+    backgroundColor: 'rgba(140, 210, 121, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(140, 210, 121, 0.4)',
+  },
+
+  upcomingBadgeText: {
+    ...TYPOGRAPHY.label,
+    fontSize: 10,
+    color: HOME_COLORS.success,
+    fontWeight: '600' as const,
+  },
+
+  activityStation: {
+    ...TYPOGRAPHY.body,
+    fontSize: 14,
+    color: HOME_COLORS.text.secondary,
+    marginBottom: 4,
+  },
+
+  activityTime: {
+    ...TYPOGRAPHY.bodySmall,
+    fontSize: 12,
+    color: HOME_COLORS.text.tertiary,
+  },
+
+  activityAction: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
   },
 
   // Legacy styles - keeping for compatibility

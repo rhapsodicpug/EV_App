@@ -1,440 +1,312 @@
-import { Platform } from 'react-native';
-import { storageService } from './StorageService';
+/**
+ * Payment Service - Production-Ready Razorpay Integration
+ * Handles payment flow with proper error handling and user feedback
+ */
 
-// ==================== TYPES ====================
+import RazorpayCheckout from 'react-native-razorpay';
+import { Alert, Platform } from 'react-native';
+import api from './api';
 
-export interface PaymentMethod {
-  id: string;
-  type: 'card' | 'upi' | 'wallet' | 'netbanking';
-  name: string;
-  last4?: string;
-  brand?: string;
-  isDefault: boolean;
-  isActive: boolean;
-}
-
-export interface Wallet {
-  id: string;
-  balance: number;
-  currency: string;
-  lastUpdated: Date;
-  transactions: WalletTransaction[];
-}
-
-export interface WalletTransaction {
-  id: string;
-  type: 'credit' | 'debit' | 'refund';
+export interface CreateOrderRequest {
+  booking_id: string;
   amount: number;
-  description: string;
-  timestamp: Date;
-  bookingId?: string;
-  status: 'pending' | 'completed' | 'failed';
+  description?: string;
 }
 
-export interface PaymentIntent {
-  id: string;
+export interface CreateOrderResponse {
+  order_id: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'processing' | 'succeeded' | 'failed';
-  paymentMethodId: string;
-  bookingId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  key_id: string;
+  booking_id: string;
 }
 
-export interface PaymentReceipt {
-  id: string;
-  paymentIntentId: string;
-  amount: number;
-  currency: string;
-  paymentMethod: string;
-  bookingDetails: {
-    stationName: string;
-    duration: number;
-    startTime: Date;
-    endTime: Date;
-  };
-  timestamp: Date;
-  invoiceNumber: string;
+export interface VerifyPaymentRequest {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  booking_id: string;
 }
 
-// ==================== PAYMENT SERVICE ====================
+export interface VerifyPaymentResponse {
+  success: boolean;
+  message: string;
+  payment_id?: string;
+  order_id?: string;
+}
+
+export interface PaymentResult {
+  success: boolean;
+  message: string;
+  payment_id?: string;
+  order_id?: string;
+  error_code?: string;
+  error_description?: string;
+}
 
 class PaymentService {
-  private isWeb = Platform.OS === 'web';
-  private mockWallet: Wallet = {
-    id: 'wallet_001',
-    balance: 500.00,
-    currency: 'INR',
-    lastUpdated: new Date(),
-    transactions: [
-      {
-        id: 'tx_001',
-        type: 'credit',
-        amount: 1000.00,
-        description: 'Initial wallet top-up',
-        timestamp: new Date('2024-01-01'),
-        status: 'completed',
-      },
-      {
-        id: 'tx_002',
-        type: 'debit',
-        amount: 150.00,
-        description: 'Charging session at Mumbai Central',
-        timestamp: new Date('2024-01-15'),
-        bookingId: 'booking_001',
-        status: 'completed',
-      },
-    ],
-  };
-
-  // ==================== PAYMENT METHODS ====================
-
-  async getPaymentMethods(): Promise<PaymentMethod[]> {
+  /**
+   * Create a Razorpay order
+   */
+  async createOrder(data: CreateOrderRequest): Promise<CreateOrderResponse> {
     try {
-      const stored = await storageService.getItem('payment_methods');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-
-      // Default payment methods
-      const defaultMethods: PaymentMethod[] = [
-        {
-          id: 'card_001',
-          type: 'card',
-          name: 'HDFC Credit Card',
-          last4: '1234',
-          brand: 'Visa',
-          isDefault: true,
-          isActive: true,
-        },
-        {
-          id: 'upi_001',
-          type: 'upi',
-          name: 'UPI ID: user@hdfc',
-          isDefault: false,
-          isActive: true,
-        },
-        {
-          id: 'wallet_001',
-          type: 'wallet',
-          name: 'App Wallet',
-          isDefault: false,
-          isActive: true,
-        },
-      ];
-
-      await storageService.setItem('payment_methods', JSON.stringify(defaultMethods));
-      return defaultMethods;
-    } catch (error) {
-      console.error('❌ Error getting payment methods:', error);
-      return [];
+      console.log('📝 Creating payment order for booking:', data.booking_id);
+      
+      const response = await api.request<CreateOrderResponse>(
+        'POST',
+        '/payment/create-order',
+        data
+      );
+      
+      console.log('✅ Order created successfully:', response.order_id);
+      return response;
+      
+    } catch (error: any) {
+      console.error('❌ Error creating order:', error);
+      throw new Error(
+        error.response?.data?.detail || 
+        'Failed to create payment order. Please try again.'
+      );
     }
   }
 
-  async addPaymentMethod(method: Omit<PaymentMethod, 'id'>): Promise<PaymentMethod> {
+  /**
+   * Verify payment with backend
+   */
+  async verifyPayment(data: VerifyPaymentRequest): Promise<VerifyPaymentResponse> {
     try {
-      const methods = await this.getPaymentMethods();
-      const newMethod: PaymentMethod = {
-        ...method,
-        id: `method_${Date.now()}`,
+      console.log('🔍 Verifying payment:', data.razorpay_payment_id);
+      
+      const response = await api.request<VerifyPaymentResponse>(
+        'POST',
+        '/payment/verify',
+        data
+      );
+      
+      console.log('✅ Payment verification response:', response);
+      return response;
+      
+    } catch (error: any) {
+      console.error('❌ Error verifying payment:', error);
+      throw new Error(
+        error.response?.data?.detail || 
+        'Failed to verify payment. Please contact support.'
+      );
+    }
+  }
+
+  /**
+   * Open Razorpay checkout and handle the complete payment flow
+   * 
+   * @param bookingId - Booking ID to pay for
+   * @param amount - Amount in INR (will be converted to paise)
+   * @param description - Optional payment description
+   * @param userDetails - User details (name, email, contact)
+   * @param onSuccess - Callback on successful payment
+   * @param onFailure - Callback on payment failure
+   * @param onVerifying - Callback when verification starts (show loading)
+   */
+  async initiatePayment(
+    bookingId: string,
+    amount: number,
+    description: string,
+    userDetails: {
+      name: string;
+      email: string;
+      contact: string;
+    },
+    onSuccess: (result: PaymentResult) => void,
+    onFailure: (result: PaymentResult) => void,
+    onVerifying?: () => void
+  ): Promise<void> {
+    try {
+      // Step 1: Create order from backend
+      console.log('🚀 Initiating payment flow...');
+      
+      const order = await this.createOrder({
+        booking_id: bookingId,
+        amount: amount,
+        description: description
+      });
+
+      // Step 2: Prepare Razorpay options
+      const options = {
+        description: description || `Payment for booking ${bookingId}`,
+        image: 'https://your-app-logo-url.com/logo.png', // Replace with your app logo
+        currency: order.currency,
+        key: order.key_id, // ✅ Key comes from backend (never hardcoded)
+        amount: order.amount, // Amount in paise
+        order_id: order.order_id,
+        name: 'EV Charging App',
+        prefill: {
+          email: userDetails.email,
+          contact: userDetails.contact,
+          name: userDetails.name,
+        },
+        theme: {
+          color: '#8cd279', // Your app's primary color
+        },
+        retry: {
+          enabled: true,
+          max_count: 3,
+        },
+        timeout: 900, // 15 minutes
+        modal: {
+          backdropclose: false,
+          escape: false,
+          handleback: true,
+          confirm_close: true,
+          ondismiss: () => {
+            console.log('⚠️ Payment modal dismissed by user');
+            onFailure({
+              success: false,
+              message: 'Payment cancelled by user',
+              error_code: 'USER_CANCELLED',
+              error_description: 'You cancelled the payment'
+            });
+          }
+        },
+        notes: {
+          booking_id: bookingId,
+        }
       };
 
-      methods.push(newMethod);
-      await storageService.setItem('payment_methods', JSON.stringify(methods));
+      // Step 3: Open Razorpay checkout
+      console.log('💳 Opening Razorpay checkout...');
       
-      console.log('✅ Payment method added:', newMethod.name);
-      return newMethod;
-    } catch (error) {
-      console.error('❌ Error adding payment method:', error);
-      throw error;
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          // Payment successful - now verify with backend
+          console.log('✅ Razorpay payment successful:', data.razorpay_payment_id);
+          
+          // Show verifying state
+          if (onVerifying) {
+            onVerifying();
+          }
+
+          try {
+            // Step 4: Verify payment signature with backend
+            const verificationResult = await this.verifyPayment({
+              razorpay_order_id: data.razorpay_order_id,
+              razorpay_payment_id: data.razorpay_payment_id,
+              razorpay_signature: data.razorpay_signature,
+              booking_id: bookingId
+            });
+
+            if (verificationResult.success) {
+              // ✅ Payment verified successfully
+              console.log('🎉 Payment verified and booking updated!');
+              onSuccess({
+                success: true,
+                message: 'Payment successful!',
+                payment_id: data.razorpay_payment_id,
+                order_id: data.razorpay_order_id
+              });
+            } else {
+              // ❌ Verification failed
+              console.error('❌ Payment verification failed');
+              onFailure({
+                success: false,
+                message: verificationResult.message || 'Payment verification failed',
+                payment_id: data.razorpay_payment_id,
+                order_id: data.razorpay_order_id,
+                error_code: 'VERIFICATION_FAILED',
+                error_description: 'Payment was made but verification failed. Please contact support.'
+              });
+            }
+          } catch (verifyError: any) {
+            // Network error or server error during verification
+            console.error('❌ Error during verification:', verifyError);
+            
+            // Payment was made but we couldn't verify - critical case
+            onFailure({
+              success: false,
+              message: 'Your payment was successful, but we had trouble confirming it. Please contact support with your payment ID.',
+              payment_id: data.razorpay_payment_id,
+              order_id: data.razorpay_order_id,
+              error_code: 'VERIFICATION_ERROR',
+              error_description: verifyError.message || 'Network error during verification'
+            });
+          }
+        })
+        .catch((error: any) => {
+          // Payment failed or cancelled
+          console.error('❌ Razorpay payment error:', error);
+          
+          const errorCode = error.code || 'PAYMENT_FAILED';
+          const errorDescription = error.description || 'Payment failed. Please try again.';
+          
+          // Handle specific error codes
+          let userMessage = 'Payment failed. Please try again.';
+          
+          switch (errorCode) {
+            case 0: // User cancelled
+              userMessage = 'Payment cancelled by you';
+              break;
+            case 1: // Payment failed
+              userMessage = 'Payment failed. Please check your payment method and try again.';
+              break;
+            case 2: // Network error
+              userMessage = 'Network error. Please check your connection and try again.';
+              break;
+            default:
+              userMessage = errorDescription;
+          }
+          
+          onFailure({
+            success: false,
+            message: userMessage,
+            error_code: String(errorCode),
+            error_description: errorDescription
+          });
+        });
+
+    } catch (error: any) {
+      // Error creating order
+      console.error('❌ Error initiating payment:', error);
+      onFailure({
+        success: false,
+        message: error.message || 'Failed to initiate payment',
+        error_code: 'ORDER_CREATION_FAILED',
+        error_description: error.message
+      });
     }
   }
 
-  async removePaymentMethod(methodId: string): Promise<void> {
-    try {
-      const methods = await this.getPaymentMethods();
-      const filtered = methods.filter(m => m.id !== methodId);
-      await storageService.setItem('payment_methods', JSON.stringify(filtered));
-      
-      console.log('✅ Payment method removed:', methodId);
-    } catch (error) {
-      console.error('❌ Error removing payment method:', error);
-      throw error;
-    }
+  /**
+   * Show a user-friendly payment error alert
+   */
+  showPaymentErrorAlert(result: PaymentResult) {
+    Alert.alert(
+      'Payment Failed',
+      result.message,
+      result.payment_id
+        ? [
+            {
+              text: 'Copy Payment ID',
+              onPress: () => {
+                // You can implement clipboard copy here
+                console.log('Payment ID:', result.payment_id);
+              }
+            },
+            { text: 'OK' }
+          ]
+        : [{ text: 'OK' }]
+    );
   }
 
-  async setDefaultPaymentMethod(methodId: string): Promise<void> {
-    try {
-      const methods = await this.getPaymentMethods();
-      const updated = methods.map(m => ({
-        ...m,
-        isDefault: m.id === methodId,
-      }));
-      
-      await storageService.setItem('payment_methods', JSON.stringify(updated));
-      console.log('✅ Default payment method updated:', methodId);
-    } catch (error) {
-      console.error('❌ Error setting default payment method:', error);
-      throw error;
-    }
-  }
-
-  // ==================== WALLET MANAGEMENT ====================
-
-  async getWallet(): Promise<Wallet> {
-    try {
-      const stored = await storageService.getItem('wallet');
-      if (stored) {
-        const wallet = JSON.parse(stored);
-        return {
-          ...wallet,
-          lastUpdated: new Date(wallet.lastUpdated),
-          transactions: wallet.transactions.map((tx: any) => ({
-            ...tx,
-            timestamp: new Date(tx.timestamp),
-          })),
-        };
-      }
-
-      // Return mock wallet
-      return this.mockWallet;
-    } catch (error) {
-      console.error('❌ Error getting wallet:', error);
-      return this.mockWallet;
-    }
-  }
-
-  async addWalletBalance(amount: number, description: string): Promise<Wallet> {
-    try {
-      const wallet = await this.getWallet();
-      const transaction: WalletTransaction = {
-        id: `tx_${Date.now()}`,
-        type: 'credit',
-        amount,
-        description,
-        timestamp: new Date(),
-        status: 'completed',
-      };
-
-      wallet.balance += amount;
-      wallet.transactions.unshift(transaction);
-      wallet.lastUpdated = new Date();
-
-      await storageService.setItem('wallet', JSON.stringify(wallet));
-      console.log('✅ Wallet balance added:', amount);
-      
-      return wallet;
-    } catch (error) {
-      console.error('❌ Error adding wallet balance:', error);
-      throw error;
-    }
-  }
-
-  async deductWalletBalance(amount: number, description: string, bookingId?: string): Promise<Wallet> {
-    try {
-      const wallet = await this.getWallet();
-      
-      if (wallet.balance < amount) {
-        throw new Error('Insufficient wallet balance');
-      }
-
-      const transaction: WalletTransaction = {
-        id: `tx_${Date.now()}`,
-        type: 'debit',
-        amount,
-        description,
-        timestamp: new Date(),
-        bookingId,
-        status: 'completed',
-      };
-
-      wallet.balance -= amount;
-      wallet.transactions.unshift(transaction);
-      wallet.lastUpdated = new Date();
-
-      await storageService.setItem('wallet', JSON.stringify(wallet));
-      console.log('✅ Wallet balance deducted:', amount);
-      
-      return wallet;
-    } catch (error) {
-      console.error('❌ Error deducting wallet balance:', error);
-      throw error;
-    }
-  }
-
-  // ==================== PAYMENT PROCESSING ====================
-
-  async createPaymentIntent(amount: number, bookingId: string, paymentMethodId: string): Promise<PaymentIntent> {
-    try {
-      const paymentIntent: PaymentIntent = {
-        id: `pi_${Date.now()}`,
-        amount,
-        currency: 'INR',
-        status: 'pending',
-        paymentMethodId,
-        bookingId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Store payment intent
-      await storageService.setItem(`payment_intent_${paymentIntent.id}`, JSON.stringify(paymentIntent));
-      
-      console.log('✅ Payment intent created:', paymentIntent.id);
-      return paymentIntent;
-    } catch (error) {
-      console.error('❌ Error creating payment intent:', error);
-      throw error;
-    }
-  }
-
-  async processPayment(paymentIntentId: string): Promise<PaymentIntent> {
-    try {
-      const stored = await storageService.getItem(`payment_intent_${paymentIntentId}`);
-      if (!stored) {
-        throw new Error('Payment intent not found');
-      }
-
-      const paymentIntent: PaymentIntent = JSON.parse(stored);
-      
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Update status
-      paymentIntent.status = 'succeeded';
-      paymentIntent.updatedAt = new Date();
-      
-      await storageService.setItem(`payment_intent_${paymentIntentId}`, JSON.stringify(paymentIntent));
-      
-      console.log('✅ Payment processed successfully:', paymentIntentId);
-      return paymentIntent;
-    } catch (error) {
-      console.error('❌ Error processing payment:', error);
-      throw error;
-    }
-  }
-
-  async refundPayment(paymentIntentId: string, amount: number, reason: string): Promise<void> {
-    try {
-      const stored = await storageService.getItem(`payment_intent_${paymentIntentId}`);
-      if (!stored) {
-        throw new Error('Payment intent not found');
-      }
-
-      const paymentIntent: PaymentIntent = JSON.parse(stored);
-      
-      // Add refund transaction to wallet
-      await this.addWalletBalance(amount, `Refund: ${reason}`);
-      
-      console.log('✅ Payment refunded:', paymentIntentId);
-    } catch (error) {
-      console.error('❌ Error refunding payment:', error);
-      throw error;
-    }
-  }
-
-  // ==================== RECEIPTS & INVOICES ====================
-
-  async generateReceipt(paymentIntentId: string): Promise<PaymentReceipt> {
-    try {
-      const stored = await storageService.getItem(`payment_intent_${paymentIntentId}`);
-      if (!stored) {
-        throw new Error('Payment intent not found');
-      }
-
-      const paymentIntent: PaymentIntent = JSON.parse(stored);
-      
-      // Mock booking details (in real app, fetch from booking service)
-      const receipt: PaymentReceipt = {
-        id: `receipt_${Date.now()}`,
-        paymentIntentId,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        paymentMethod: 'Credit Card', // Fetch from payment method
-        bookingDetails: {
-          stationName: 'Mumbai Central Station',
-          duration: 2,
-          startTime: new Date(),
-          endTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-        },
-        timestamp: new Date(),
-        invoiceNumber: `INV-${Date.now()}`,
-      };
-
-      // Store receipt
-      await storageService.setItem(`receipt_${receipt.id}`, JSON.stringify(receipt));
-      
-      console.log('✅ Receipt generated:', receipt.id);
-      return receipt;
-    } catch (error) {
-      console.error('❌ Error generating receipt:', error);
-      throw error;
-    }
-  }
-
-  async getPaymentHistory(limit: number = 50): Promise<PaymentIntent[]> {
-    try {
-      // In a real app, this would query a database
-      // For now, return mock data
-      const mockHistory: PaymentIntent[] = [
-        {
-          id: 'pi_001',
-          amount: 150.00,
-          currency: 'INR',
-          status: 'succeeded',
-          paymentMethodId: 'card_001',
-          bookingId: 'booking_001',
-          createdAt: new Date('2024-01-15'),
-          updatedAt: new Date('2024-01-15'),
-        },
-        {
-          id: 'pi_002',
-          amount: 200.00,
-          currency: 'INR',
-          status: 'succeeded',
-          paymentMethodId: 'wallet_001',
-          bookingId: 'booking_002',
-          createdAt: new Date('2024-01-10'),
-          updatedAt: new Date('2024-01-10'),
-        },
-      ];
-
-      return mockHistory.slice(0, limit);
-    } catch (error) {
-      console.error('❌ Error getting payment history:', error);
-      return [];
-    }
-  }
-
-  // ==================== PAYMENT GATEWAY INTEGRATION ====================
-
-  async initializePaymentGateway(): Promise<void> {
-    if (this.isWeb) {
-      // Initialize web payment gateway (e.g., Stripe, Razorpay)
-      console.log('🌐 Initializing web payment gateway');
-      
-      // Example: Load Stripe.js
-      // const script = document.createElement('script');
-      // script.src = 'https://js.stripe.com/v3/';
-      // document.head.appendChild(script);
-    } else {
-      // Initialize mobile payment gateway
-      console.log('📱 Initializing mobile payment gateway');
-    }
-  }
-
-  async validatePaymentMethod(paymentMethod: PaymentMethod): Promise<boolean> {
-    try {
-      // In a real app, validate with payment gateway
-      // For now, return true for valid methods
-      return paymentMethod.isActive;
-    } catch (error) {
-      console.error('❌ Error validating payment method:', error);
-      return false;
-    }
+  /**
+   * Show payment success alert
+   */
+  showPaymentSuccessAlert(result: PaymentResult) {
+    Alert.alert(
+      'Payment Successful! 🎉',
+      'Your booking has been confirmed.',
+      [{ text: 'OK' }]
+    );
   }
 }
 
+// Export singleton instance
 export const paymentService = new PaymentService();
 export default paymentService;

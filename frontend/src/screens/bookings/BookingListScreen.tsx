@@ -13,7 +13,8 @@ import {
   StatusBar,
   Dimensions,
   BackHandler,
-  Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -24,11 +25,13 @@ import {
   XCircle,
   MoreVertical,
   Trash2,
+  Navigation,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import { useBookings, Booking } from '../../contexts/BookingContext';
 import CustomModal from '../../components/ui/CustomModal';
+import AlertService from '../../services/AlertService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -174,7 +177,7 @@ const BookingListScreen: React.FC = () => {
       console.log('✅ Cancel complete, UI should update now');
       
       // Show success message
-      Alert.alert('Booking Cancelled', 'Your booking has been cancelled successfully.');
+      AlertService.success('Booking Cancelled', 'Your booking has been cancelled successfully.');
     }
   };
 
@@ -220,10 +223,51 @@ const BookingListScreen: React.FC = () => {
       console.log('✅ Delete complete, UI should update now');
       
       // Show success message
-      Alert.alert('Success', 'Booking deleted successfully!');
+      AlertService.success('Success', 'Booking deleted successfully!');
     }
   };
 
+  const openInGoogleMaps = (booking: Booking) => {
+    try {
+      console.log('🗺️ Opening Google Maps for:', booking.stationName);
+      
+      // Encode the address for URL
+      const address = encodeURIComponent(`${booking.stationName}, ${booking.stationAddress}`);
+      
+      // Create platform-specific URLs
+      const url = Platform.select({
+        ios: `maps://app?daddr=${address}`,
+        android: `google.navigation:q=${address}`,
+      });
+
+      const webUrl = `https://www.google.com/maps/dir/?api=1&destination=${address}`;
+
+      console.log('🗺️ Attempting to open:', url);
+
+      // Try to open native maps app
+      if (url) {
+        Linking.canOpenURL(url)
+          .then((supported) => {
+            if (supported) {
+              return Linking.openURL(url);
+            } else {
+              console.log('🗺️ Native maps not supported, opening web URL');
+              return Linking.openURL(webUrl);
+            }
+          })
+          .catch((err) => {
+            console.error('🗺️ Error opening maps:', err);
+            AlertService.error(
+              'Error',
+              'Could not open maps. Please check if Google Maps is installed.'
+            );
+          });
+      }
+    } catch (error) {
+      console.error('🗺️ Error in openInGoogleMaps:', error);
+      AlertService.error('Error', 'Failed to open navigation');
+    }
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -333,16 +377,25 @@ const BookingListScreen: React.FC = () => {
       <View style={styles.bookingFooter}>
         <Text style={styles.durationText}>{booking.duration} minutes</Text>
         {booking.status === 'upcoming' && (
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => {
-              setSelectedBooking(booking);
-              setShowCancelModal(true);
-            }}
-          >
-            <XCircle size={18} color={BOOKING_COLORS.error} />
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.directionsButton}
+              onPress={() => openInGoogleMaps(booking)}
+            >
+              <Navigation size={16} color={BOOKING_COLORS.accent} />
+              <Text style={styles.directionsButtonText}>Get Route</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setSelectedBooking(booking);
+                setShowCancelModal(true);
+              }}
+            >
+              <XCircle size={16} color={BOOKING_COLORS.error} />
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -634,6 +687,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: BOOKING_COLORS.text.primary,
+  },
+
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(140, 210, 121, 0.15)',
+    borderWidth: 1,
+    borderColor: BOOKING_COLORS.accent,
+  },
+
+  directionsButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: BOOKING_COLORS.accent,
+    marginLeft: 4,
   },
 
   cancelButton: {

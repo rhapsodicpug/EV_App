@@ -11,7 +11,7 @@ const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : true;
 export const API_CONFIG = {
   // Use local IP for development - update for production
   BASE_URL: isDev
-    ? 'http://192.168.1.14:8000'  // Local development (use your machine's IP)
+    ? 'http://192.168.1.15:8000'  // Local development (use your machine's IP)
     : 'https://your-production-api.com',  // Production URL
   
   TIMEOUT: 10000, // 10 seconds
@@ -19,9 +19,13 @@ export const API_CONFIG = {
   ENDPOINTS: {
     // Auth endpoints
     AUTH: {
-      REGISTER: '/register',
-      LOGIN: '/token',
+      REGISTER: '/auth/register',
+      LOGIN: '/auth/token',
       PROFILE: '/users/me',
+      TWO_FACTOR_SETUP: '/auth/2fa/setup',
+      TWO_FACTOR_ENABLE: '/auth/2fa/enable',
+      TWO_FACTOR_VERIFY: '/auth/2fa/verify',
+      TWO_FACTOR_DISABLE: '/auth/2fa/disable',
     },
     
     // Station endpoints

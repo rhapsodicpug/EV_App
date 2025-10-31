@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
-import { ArrowLeft, Calendar, Clock } from 'lucide-react-native';
+import { ArrowLeft, Calendar, Clock, MapPin, CheckCircle, Zap } from 'lucide-react-native';
 import { EVStation } from '../../types/api';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AnimatedButton from '../../components/ui/AnimatedButton';
@@ -494,7 +494,54 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
       </View>
 
       {/* Content */}
-      <View style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Station Information Card */}
+        <View style={styles.stationInfoCard}>
+          <View style={styles.stationInfoHeader}>
+            <View style={styles.stationNameRow}>
+              <Text style={styles.stationName} numberOfLines={1}>
+                {station.name || 'Charging Station'}
+              </Text>
+              {station.charging_slots && (
+                <View style={styles.availabilityBadge}>
+                  <CheckCircle size={14} color="#8cd279" fill="#8cd279" strokeWidth={2} />
+                  <Text style={styles.availabilityText}>
+                    {station.charging_slots.filter(slot => slot.status === 'AVAILABLE').length}/
+                    {station.charging_slots.length} Available
+                  </Text>
+                </View>
+              )}
+            </View>
+            {station.address && (
+              <View style={styles.stationAddressRow}>
+                <MapPin size={14} color={BOOK_COLORS.text.secondary} strokeWidth={2} />
+                <Text style={styles.stationAddress} numberOfLines={2}>
+                  {station.address}
+                </Text>
+              </View>
+            )}
+          </View>
+          
+          {/* Station Details Row */}
+          <View style={styles.stationDetailsRow}>
+            {station.charging_slots?.[0]?.charger_type && (
+              <View style={styles.stationDetail}>
+                <Zap size={14} color={BOOK_COLORS.accent} strokeWidth={2} />
+                <Text style={styles.stationDetailText}>
+                  {station.charging_slots[0].charger_type.replace('DC_', '').replace('_', ' ')}
+                </Text>
+              </View>
+            )}
+            {station.charging_slots?.[0]?.price_per_kwh && (
+              <View style={styles.stationDetail}>
+                <Text style={styles.stationDetailText}>
+                  ₹{station.charging_slots[0].price_per_kwh}/kWh
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* Date Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Select Date</Text>
@@ -580,7 +627,7 @@ const BookSlotScreen: React.FC<BookSlotScreenProps> = ({ route }) => {
             variant="primary"
           />
         </View>
-      </View>
+      </ScrollView>
 
       {/* Date Selection Modal */}
       <Modal
@@ -737,6 +784,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingTop: 16,
     paddingBottom: 100, // Buffer space to prevent button from being hidden by navigation bar
   },
 
@@ -1003,6 +1051,94 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: BOOK_COLORS.text.primary,
+  },
+
+  // Station Info Card Styles
+  stationInfoCard: {
+    backgroundColor: BOOK_COLORS.surface,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: BOOK_COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  stationInfoHeader: {
+    marginBottom: 14,
+  },
+
+  stationNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    gap: 12,
+  },
+
+  stationName: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: BOOK_COLORS.text.primary,
+    letterSpacing: -0.3,
+  },
+
+  availabilityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#8cd279',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+
+  availabilityText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: 0.2,
+  },
+
+  stationAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+
+  stationAddress: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '400',
+    color: BOOK_COLORS.text.secondary,
+    lineHeight: 18,
+  },
+
+  stationDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: BOOK_COLORS.border,
+  },
+
+  stationDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  stationDetailText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: BOOK_COLORS.text.secondary,
+    letterSpacing: -0.2,
   },
 });
 

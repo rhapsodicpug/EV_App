@@ -44,6 +44,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import StationCard from '../../components/custom/StationCard';
 import { EVStation } from '../../types/api';
 import apiService from '../../services/api';
+import webSocketService from '../../services/WebSocketService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -78,6 +79,7 @@ const StationListScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [radiusKm] = useState(25); // Fixed radius - backend supports dynamic but UI removed
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   // Animated values
   const scrollY = new Animated.Value(0);
@@ -102,9 +104,37 @@ const StationListScreen: React.FC = () => {
     }
   }, [route.params]);
 
+  // Helper function to calculate distance using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
   // Filter stations based on search query and active filters
   useEffect(() => {
     let filtered = [...stations];
+
+    // Calculate distances if we have user location
+    if (userLocation) {
+      filtered = filtered.map(station => ({
+        ...station,
+        distance: station.location?.coordinates
+          ? calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              station.location.coordinates[1], // latitude (second element in GeoJSON)
+              station.location.coordinates[0]  // longitude (first element in GeoJSON)
+            )
+          : station.distance || 999 // Large number for stations without coordinates
+      }));
+    }
 
     // Apply search filter
     if (searchQuery.trim() !== '') {
@@ -137,7 +167,7 @@ const StationListScreen: React.FC = () => {
 
         // Within 5km filter
         if (activeFilters.has('nearby')) {
-          const distance = station.distance || 0;
+          const distance = station.distance || 999;
           if (distance > 5) return false;
         }
 
@@ -153,8 +183,65 @@ const StationListScreen: React.FC = () => {
       });
     }
 
+    // Sort by distance if we have location data (nearest first)
+    if (userLocation) {
+      filtered.sort((a, b) => {
+        const distA = a.distance || 999;
+        const distB = b.distance || 999;
+        return distA - distB;
+      });
+      console.log('📍 Stations sorted by distance, nearest:', filtered[0]?.name, filtered[0]?.distance?.toFixed(2), 'km');
+    }
+
     setFilteredStations(filtered);
-  }, [searchQuery, stations, activeFilters]);
+  }, [searchQuery, stations, activeFilters, userLocation]);
+
+  // Subscribe to WebSocket updates for real-time availability changes
+  useEffect(() => {
+    console.log('📡 Subscribing to WebSocket updates');
+    
+    const unsubscribe = webSocketService.subscribe((update) => {
+      console.log('📡 Received WebSocket update:', update.type, update.station_id);
+      
+      if (update.type === 'booking_created' || update.type === 'booking_cancelled') {
+        // Update the station in the stations array with new availability
+        setStations(prevStations => {
+          const updatedStations = prevStations.map(station => {
+            if (station.id === update.station_id) {
+              // Create updated station with new availability data
+              const updatedStation: EVStation = {
+                ...station,
+                charging_slots: update.station.charging_slots.map((slot: any, index: number) => ({
+                  ...slot,
+                  status: slot.status || station.charging_slots?.[index]?.status || 'AVAILABLE',
+                  slot_number: slot.slot_number || station.charging_slots?.[index]?.slot_number || index + 1,
+                })),
+              };
+              
+              // Update availability counts
+              const availableCount = update.station.charging_slots.filter(
+                (slot: any) => slot.status === 'AVAILABLE'
+              ).length;
+              const totalCount = update.station.charging_slots.length;
+              
+              console.log(`🔄 Updated station ${station.name}: ${availableCount}/${totalCount} available`);
+              
+              return updatedStation;
+            }
+            return station;
+          });
+          
+          return updatedStations;
+        });
+      }
+    });
+
+    // Cleanup: unsubscribe on unmount
+    return () => {
+      console.log('📡 Unsubscribing from WebSocket updates');
+      unsubscribe();
+    };
+  }, []);
 
   const loadStations = async () => {
     try {
@@ -177,6 +264,9 @@ const StationListScreen: React.FC = () => {
           const { latitude, longitude } = location.coords;
           console.log('📍 Using location for station search:', { latitude, longitude, radiusKm });
 
+          // Save user location for distance calculations
+          setUserLocation({ latitude, longitude });
+
           // Fetch stations with location and radius
           const response = await apiService.getStationsByLocation(latitude, longitude, 50, radiusKm);
           stationData = response.stations || [];
@@ -187,12 +277,13 @@ const StationListScreen: React.FC = () => {
           stationData = response.stations || (Array.isArray(response) ? response : []);
         }
       } catch (locationError) {
-        console.log('📍 Location access failed, fetching general stations');
+        console.log('📍 Location access failed, fetching general stations:', locationError);
         // Fallback to general station fetch
         const response = await apiService.getStations(0, 50);
         stationData = response.stations || (Array.isArray(response) ? response : []);
       }
 
+      console.log(`📊 Loaded ${stationData.length} stations`);
       setStations(stationData);
     } catch (err: any) {
       console.error('Error loading stations:', err);
@@ -278,9 +369,6 @@ const StationListScreen: React.FC = () => {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <View style={styles.searchChevron}>
-                <ChevronRight size={16} color={STATION_COLORS.text.secondary} />
-              </View>
             </View>
           </View>
         </View>
@@ -390,69 +478,88 @@ const StationListScreen: React.FC = () => {
     return `${value}${suffix}`;
   };
 
-  // Glassmorphism Station Card Component
-  const StationCard = ({ station, index }: { station: EVStation; index: number }) => (
-    <ReanimatedAnimated.View
-      entering={FadeInUp.duration(500).delay(index * 50)}
-    >
-      <TouchableOpacity
-        style={styles.stationCard}
-        onPress={() => handleStationPress(station)}
-        activeOpacity={0.8}
+  // Clean, Minimal Station Card (Inspired by Tesla & Airbnb)
+  const StationCard = ({ station, index }: { station: EVStation; index: number }) => {
+    const availableSlots = station.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length || 0;
+    const totalSlots = station.charging_slots?.length || 0;
+    const hasAvailability = availableSlots > 0;
+    
+    return (
+      <ReanimatedAnimated.View
+        entering={FadeInUp.duration(400).delay(index * 50)}
+        style={styles.stationCardContainer}
       >
-        <View style={styles.stationCardGradient}>
-          <View style={styles.stationCardOverlay} />
-          
-          <View style={styles.stationHeader}>
-            <View style={styles.stationInfo}>
-              <Text style={styles.stationName}>
-                {formatData(station.name)}
-              </Text>
-              <Text style={styles.stationAddress}>
-                {formatData(station.address)}
-              </Text>
+        <TouchableOpacity
+          style={styles.stationCard}
+          onPress={() => handleStationPress(station)}
+          activeOpacity={0.7}
+        >
+          {/* Simple Content - No Blur, No Excessive Gradients */}
+          <View style={styles.cardContent}>
+            {/* Top Row: Name + Availability */}
+            <View style={styles.topRow}>
+              <View style={styles.nameSection}>
+                <Text style={styles.stationName} numberOfLines={1}>
+                  {formatData(station.name)}
+                </Text>
+                <Text style={styles.stationAddress} numberOfLines={1}>
+                  {formatData(station.address)}
+                </Text>
+              </View>
+              
+              {/* Simple Availability Badge */}
+              <View style={[styles.availabilityBadge, !hasAvailability && styles.availabilityBadgeUnavailable]}>
+                <Text style={styles.availabilityText}>
+                  {availableSlots}/{totalSlots}
+                </Text>
+              </View>
             </View>
-            <View style={styles.availabilityBadge}>
-              <Text style={styles.availabilityText}>
-                {formatData(station.charging_slots?.filter(slot => slot.status === 'AVAILABLE').length, '--', '')}/{formatData(station.charging_slots?.length, '--', '')} Available
-              </Text>
+
+            {/* Info Row: Distance, Rating, Type, Price */}
+            <View style={styles.infoRow}>
+              {/* Distance */}
+              <View style={styles.infoItem}>
+                <MapPin size={14} color="#8cd279" strokeWidth={2} />
+                <Text style={styles.infoText}>
+                  {station.distance 
+                    ? station.distance < 1 
+                      ? `${(station.distance * 1000).toFixed(0)}m`
+                      : `${station.distance.toFixed(1)}km`
+                    : '--'
+                  }
+                </Text>
+              </View>
+
+              {/* Rating */}
+              <View style={styles.infoItem}>
+                <Star size={14} color="#FFD700" fill="#FFD700" strokeWidth={2} />
+                <Text style={styles.infoText}>
+                  {formatData(station.rating, '--', '')}
+                </Text>
+              </View>
+
+              {/* Charger Type */}
+              <View style={styles.infoItem}>
+                <Zap size={14} color="#8cd279" strokeWidth={2} />
+                <Text style={styles.infoText}>
+                  {formatData(station.charging_slots?.[0]?.charger_type, 'AC', '').replace('DC_', '').replace('_', ' ')}
+                </Text>
+              </View>
+
+              {/* Price */}
+              {station.charging_slots?.[0]?.price_per_kwh && (
+                <View style={styles.priceTag}>
+                  <Text style={styles.priceText}>
+                    ₹{station.charging_slots[0].price_per_kwh}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
-
-          <View style={styles.stationDetails}>
-            <View style={styles.stationDetail}>
-              <MapPin size={14} color={STATION_COLORS.accent} />
-              <Text style={styles.stationDetailText}>
-                {formatData(station.distance, '--', 'km')}
-              </Text>
-            </View>
-
-            <View style={styles.stationDetail}>
-              <Star size={14} color="#FFD700" />
-              <Text style={styles.stationDetailText}>
-                {formatData(station.rating, '--', '')}
-              </Text>
-            </View>
-
-            <View style={styles.stationDetail}>
-              <Zap size={14} color={STATION_COLORS.success} />
-              <Text style={styles.stationDetailText}>
-                {formatData(station.charging_slots?.[0]?.charger_type, '--', '')}
-              </Text>
-            </View>
-          </View>
-
-          {station.charging_slots?.[0]?.price_per_kwh && (
-            <View style={styles.priceContainer}>
-              <Text style={styles.priceText}>
-                ₹{station.charging_slots[0].price_per_kwh}/kWh
-              </Text>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    </ReanimatedAnimated.View>
-  );
+        </TouchableOpacity>
+      </ReanimatedAnimated.View>
+    );
+  };
 
   // Skeleton Card Component
   const SkeletonCard = () => (
@@ -761,98 +868,111 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 
-  // Station Card Styles
-  stationCard: {
+  // Clean, Minimal Card Styles (Inspired by Tesla, Airbnb, Stripe)
+  stationCardContainer: {
     marginBottom: 16,
+  },
+
+  stationCard: {
+    backgroundColor: '#2A2A2A',
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 3,
   },
 
-  stationCardGradient: {
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: STATION_COLORS.surface,
+  cardContent: {
+    padding: 18,
   },
 
-  stationCardOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    borderRadius: 16,
-  },
-
-  stationHeader: {
+  topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 14,
+    gap: 12,
   },
 
-  stationInfo: {
+  nameSection: {
     flex: 1,
   },
 
   stationName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: STATION_COLORS.text.primary,
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
 
   stationAddress: {
-    fontSize: 14,
-    color: STATION_COLORS.text.secondary,
-    lineHeight: 20,
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#999999',
+    lineHeight: 18,
   },
 
+  // Simple Availability Badge
   availabilityBadge: {
-    backgroundColor: STATION_COLORS.success,
+    backgroundColor: '#8cd279',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
+    minWidth: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  availabilityBadgeUnavailable: {
+    backgroundColor: '#FF3B30',
   },
 
   availabilityText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#000000',
-  },
-
-  stationDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 16,
-  },
-
-  stationDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  stationDetailText: {
     fontSize: 13,
-    color: STATION_COLORS.text.secondary,
-    marginLeft: 6,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: '#1A1A1A',
+    letterSpacing: 0.2,
   },
 
-  priceContainer: {
-    alignItems: 'flex-end',
+  // Info Row (Distance, Rating, Type, Price)
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flexWrap: 'wrap',
+  },
+
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+
+  infoText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#CCCCCC',
+    letterSpacing: -0.2,
+  },
+
+  priceTag: {
+    marginLeft: 'auto',
+    backgroundColor: 'rgba(140, 210, 121, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
 
   priceText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    color: STATION_COLORS.accent,
+    color: '#8cd279',
+    letterSpacing: 0.2,
   },
 
   // Skeleton Styles

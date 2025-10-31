@@ -142,14 +142,6 @@ const SignUpScreen: React.FC = () => {
     }
   };
 
-  const handleGoogleSignUp = () => {
-    Alert.alert('Google Sign Up', 'Google sign up functionality would be implemented here');
-  };
-
-  const handleAppleSignUp = () => {
-    Alert.alert('Apple Sign Up', 'Apple sign up functionality would be implemented here');
-  };
-
   const handleBack = () => {
     navigation.goBack();
   };
@@ -324,30 +316,6 @@ const SignUpScreen: React.FC = () => {
             {isLoading ? 'Creating Account...' : 'Sign Up'}
           </Text>
         </TouchableOpacity>
-
-        {/* Or sign up with */}
-        <Text style={styles.orText}>Or sign up with</Text>
-
-        {/* Social Sign Up Buttons */}
-        <View style={styles.socialButtonsContainer}>
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={handleGoogleSignUp}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={handleAppleSignUp}
-            disabled={isLoading}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
-          </TouchableOpacity>
-        </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </DynamicWallpaper>
@@ -480,39 +448,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
-  },
-
-  orText: {
-    fontSize: 14,
-    color: SIGNUP_COLORS.text.tertiary,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-
-  socialButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 40,
-  },
-
-  socialButton: {
-    backgroundColor: SIGNUP_COLORS.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    flex: 1,
-    marginHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: SIGNUP_COLORS.border,
-  },
-
-  socialButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: SIGNUP_COLORS.text.primary,
-    textAlign: 'center',
   },
 });
 

@@ -3,7 +3,7 @@
  * Entry point for the EV Charging App
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './src/contexts/AuthContext';
@@ -17,11 +17,27 @@ import { SmartNotificationProvider } from './src/contexts/SmartNotificationConte
 import { PredictiveMaintenanceProvider } from './src/contexts/PredictiveMaintenanceContext';
 import { AIChatbotProvider } from './src/contexts/AIChatbotContext';
 import { NavigationBarProvider } from './src/contexts/NavigationBarContext';
+import AlertProvider from './src/providers/AlertProvider';
 import AppNavigator from './src/navigation/AppNavigator';
+import { bookingNotificationService } from './src/services/BookingNotificationService';
 
 const AppContent: React.FC = () => {
   const { theme } = useTheme();
   
+  // Initialize notification service on app start
+  useEffect(() => {
+    const initNotifications = async () => {
+      try {
+        await bookingNotificationService.initialize();
+        console.log('✅ Booking notifications initialized');
+      } catch (error) {
+        console.error('❌ Failed to initialize booking notifications:', error);
+      }
+    };
+
+    initNotifications();
+  }, []);
+
   return (
     <NavigationContainer>
       <StatusBar
@@ -46,7 +62,9 @@ export default function App() {
                     <PredictiveMaintenanceProvider>
                       <AIChatbotProvider userId="default_user">
                         <NavigationBarProvider>
-                          <AppContent />
+                          <AlertProvider>
+                            <AppContent />
+                          </AlertProvider>
                         </NavigationBarProvider>
                       </AIChatbotProvider>
                     </PredictiveMaintenanceProvider>
